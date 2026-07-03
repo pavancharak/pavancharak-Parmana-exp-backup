@@ -1,698 +1,172 @@
-\# Parmana API v1 — Final Architecture Documentation
+# Parmana Documentation
 
+Welcome to the official documentation for **Parmana**.
 
+Parmana is an **Execution Authorization and Verification Infrastructure for Enterprise AI**. It enables organizations to deploy autonomous AI systems while ensuring that every high-impact action is authorized, policy-compliant, verifiable, and independently auditable.
 
-\*\*Version:\*\* 1.0.0
+Unlike traditional AI platforms that rely on trusting AI outputs, Parmana evaluates execution requests using trusted enterprise evidence, organizational policies, and human authority before any action is executed.
 
+---
 
+# Documentation Goals
 
-\*\*Status:\*\* Locked
+This documentation has four primary objectives:
 
+* Explain the concepts behind Parmana.
+* Define the architecture and runtime behavior.
+* Specify the implementation in a deterministic and reproducible manner.
+* Provide sufficient detail for developers, operators, security reviewers, and auditors to understand, integrate, and verify the system.
 
+The documentation is intended to serve as the authoritative technical reference for the Parmana platform.
 
-\---
+---
 
+# Intended Audience
 
+This documentation is written for:
 
-\# Purpose
+* Software engineers
+* Enterprise architects
+* AI platform teams
+* Security engineers
+* Governance and compliance teams
+* Product managers
+* System integrators
+* Auditors and risk professionals
 
+---
 
+# Documentation Principles
 
-This document defines the complete API architecture for Parmana v1.
+The Parmana documentation follows these principles:
 
+* **Accuracy** — Documentation describes the implemented system and its intended behavior.
+* **Determinism** — Runtime behavior is specified so that authorization decisions are reproducible.
+* **Clarity** — Concepts are defined before implementation details.
+* **Traceability** — Every architectural component is documented and linked to related concepts.
+* **Verifiability** — Claims about the system are supported by documented behavior and implementation.
+* **Versioning** — Documentation evolves alongside the platform and reflects released versions.
 
+---
 
-Parmana is an \*\*Execution Trust Infrastructure\*\* that ensures there is no gap between what humans decide and what AI systems do.
+# Reading Order
 
+Readers new to Parmana are encouraged to follow this order:
 
+1. Introduction
+2. Core Concepts
+3. Architecture
+4. API
+5. Security
+6. Governance
+7. Audit
+8. SDK
+9. Deployment
+10. Testing
+11. Reference
+12. Roadmap
 
-The API enables applications to submit Business Transactions, evaluate Policies, execute approved decisions, capture execution evidence, generate cryptographically verifiable receipts, and independently verify the complete Execution Trust Record.
+This progression moves from foundational concepts to implementation details and operational guidance.
 
+---
 
+# Documentation Structure
 
-\---
+The documentation is organized into the following sections:
 
+## 00 — Introduction
 
+Introduces the vision, motivation, terminology, and guiding principles of Parmana.
 
-\# Repository Structure
+## 01 — Concepts
 
+Defines the core concepts used throughout the platform, including Business Transactions, Execution Requests, Human Authority, Authority Verification, Execution Trust Records, Execution Receipts, and the Signal Model.
 
+## 02 — Architecture
 
-```text
+Describes the runtime architecture, execution engine, policy engine, verification engine, repository layer, storage model, cryptography, replay, and receipt generation.
 
-docs/
+## 03 — API
 
-├── specifications/
+Documents the REST API, request and response formats, error handling, and integration examples.
 
-│   ├── 01-business-transaction-model-v1.md
+## 04 — Security
 
-│   ├── 02-metadata-model-v1.md
+Explains the security model, threat model, cryptographic mechanisms, key management, and security guarantees.
 
-│   ├── 03-policy-resolution-model-v1.md
+## 05 — Governance
 
-│   ├── 04-decision-model-v1.md
+Describes policy evaluation, policy references, human approvals, overrides, compliance, and conformance requirements.
 
-│   ├── 05-override-model-v1.md
+## 06 — Audit
 
-│   ├── 06-execution-model-v1.md
+Defines the audit model, execution receipts, execution proofs, verification process, guarantees, and system claims.
 
-│   ├── 07-execution-lifecycle-model-v1.md
+## 07 — SDK
 
-│   ├── 08-verification-model-v1.md
+Provides language-specific SDK documentation, examples, and integration guidance.
 
-│   ├── 09-receipt-model-v1.md
+## 08 — Deployment
 
-│   ├── 10-execution-trust-record-model-v1.md
+Covers installation, configuration, operational guidance, observability, scaling, backup, and recovery.
 
-│   └── 11-authentication-and-authorization-model-v1.md
+## 09 — Testing
 
-│
+Describes the testing strategy, integration tests, replay validation, security testing, and performance evaluation.
 
-├── api/
+## 10 — Reference
 
-│   ├── 01-api-overview.md
+Contains reference material such as the OpenAPI specification, JSON schemas, configuration reference, CLI reference, and changelog.
 
-│   ├── 02-request-response-model.md
+## 11 — Roadmap
 
-│   ├── 03-error-model.md
+Documents the planned evolution of Parmana, known limitations, and future work.
 
-│   └── 04-openapi-v1.md
+---
 
-│
+# Core Design Principles
 
-schemas/
+Parmana is built on the following foundational principles:
 
-├── common/
+* AI may propose actions, but execution authority belongs to the organization.
+* Organizational policy determines whether an action is authorized.
+* Enterprise facts are verified from trusted systems of record.
+* Human approvals are required whenever mandated by policy.
+* Authorization decisions are deterministic and reproducible.
+* Every authorization decision produces verifiable evidence.
+* Every approved execution is independently auditable.
 
-│   ├── metadata.schema.json
+---
 
-│   ├── policy.schema.json
+# Versioning
 
-│   ├── signals.schema.json
+This documentation is versioned alongside the Parmana platform.
 
-│   ├── decision.schema.json
+Each release documents:
 
-│   ├── execution.schema.json
+* Supported features
+* Behavioral guarantees
+* Known limitations
+* Breaking changes
+* Security considerations
+* API compatibility
 
-│   ├── override.schema.json
+---
 
-│   ├── receipt.schema.json
+# Contributing
 
-│   ├── verification.schema.json
+Contributions should preserve the consistency and accuracy of the documentation.
 
-│   ├── execution-trust-record.schema.json
+When modifying documentation:
 
-│   ├── error.schema.json
+* Define concepts before implementation details.
+* Keep terminology consistent across documents.
+* Update related documents when introducing architectural changes.
+* Ensure examples reflect the current implementation.
+* Clearly identify changes that affect compatibility or behavior.
 
-│   └── pagination.schema.json
+---
 
-│
+# License
 
-├── requests/
-
-│   ├── transaction-create-request.schema.json
-
-│   ├── execution-create-request.schema.json
-
-│   └── override-create-request.schema.json
-
-│
-
-├── responses/
-
-│   ├── transaction-response.schema.json
-
-│   ├── execution-response.schema.json
-
-│   ├── override-response.schema.json
-
-│   ├── verification-response.schema.json
-
-│   ├── receipt-response.schema.json
-
-│   ├── trust-chain-response.schema.json
-
-│   ├── policy-response.schema.json
-
-│   ├── health-response.schema.json
-
-│   └── version-response.schema.json
-
-│
-
-openapi/
-
-└── openapi.yaml
-
-```
-
-
-
-\---
-
-
-
-\# Resource Model
-
-
-
-```
-
-Business Transaction
-
-│
-
-├── Execution(s)
-
-│
-
-├── Override
-
-│
-
-├── Verification(s)
-
-│
-
-├── Receipt(s)
-
-│
-
-└── Trust Chain
-
-```
-
-
-
-The Business Transaction is the aggregate root for every trust artifact.
-
-
-
-\---
-
-
-
-\# REST API
-
-
-
-\## System
-
-
-
-```
-
-GET /v1/health
-
-
-
-GET /v1/version
-
-```
-
-
-
-\---
-
-
-
-\## Business Transactions
-
-
-
-```
-
-POST /v1/transactions
-
-
-
-GET /v1/transactions
-
-
-
-GET /v1/transactions/{businessTransactionId}
-
-```
-
-
-
-\---
-
-
-
-\## Executions
-
-
-
-```
-
-POST /v1/transactions/{businessTransactionId}/executions
-
-
-
-GET /v1/transactions/{businessTransactionId}/executions
-
-
-
-GET /v1/transactions/{businessTransactionId}/executions/{executionId}
-
-```
-
-
-
-\---
-
-
-
-\## Overrides
-
-
-
-```
-
-POST /v1/transactions/{businessTransactionId}/override
-
-
-
-GET /v1/transactions/{businessTransactionId}/override
-
-```
-
-
-
-\---
-
-
-
-\## Verification
-
-
-
-```
-
-POST /v1/transactions/{businessTransactionId}/verify
-
-```
-
-
-
-\---
-
-
-
-\## Receipts
-
-
-
-```
-
-GET /v1/transactions/{businessTransactionId}/receipt
-
-
-
-GET /v1/transactions/{businessTransactionId}/executions/{executionId}/receipt
-
-```
-
-
-
-\---
-
-
-
-\## Trust Chain
-
-
-
-```
-
-GET /v1/transactions/{businessTransactionId}/trust-chain
-
-```
-
-
-
-\---
-
-
-
-\## Policies
-
-
-
-```
-
-GET /v1/policies
-
-
-
-GET /v1/policies/{name}/{version}
-
-```
-
-
-
-\---
-
-
-
-\# Core Principles
-
-
-
-\## Business Transaction
-
-
-
-The Business Transaction is immutable and uniquely identified by `businessTransactionId`.
-
-
-
-\---
-
-
-
-\## Policy Resolution
-
-
-
-Clients explicitly provide:
-
-
-
-\* Policy Name
-
-\* Policy Version
-
-\* Schema Version
-
-
-
-Parmana never automatically selects a Policy.
-
-
-
-\---
-
-
-
-\## Decision
-
-
-
-A Decision is immutable.
-
-
-
-Possible outcomes:
-
-
-
-\* APPROVED
-
-\* REJECTED
-
-
-
-\---
-
-
-
-\## Override
-
-
-
-Overrides:
-
-
-
-\* are optional
-
-\* occur before terminal execution
-
-\* are immutable
-
-\* do not modify the original Decision
-
-
-
-\---
-
-
-
-\## Execution
-
-
-
-Execution records what actually happened.
-
-
-
-Execution lifecycle:
-
-
-
-\* PROCESSING
-
-\* COMPLETED
-
-\* FAILED
-
-
-
-\---
-
-
-
-\## Verification
-
-
-
-Verification:
-
-
-
-\* is deterministic
-
-\* validates the complete Execution Trust Record
-
-\* requires no request body
-
-\* creates a Verification artifact
-
-
-
-\---
-
-
-
-\## Receipt
-
-
-
-Receipts:
-
-
-
-\* are generated automatically
-
-\* are immutable
-
-\* are cryptographically signed
-
-\* represent the Execution Trust Record
-
-
-
-\---
-
-
-
-\## Execution Trust Record
-
-
-
-The Execution Trust Record is the canonical source of truth.
-
-
-
-It contains:
-
-
-
-\* Metadata
-
-\* Policy
-
-\* Signals
-
-\* Decision
-
-\* Override History
-
-\* Execution History
-
-\* Verification History
-
-\* Receipt History
-
-
-
-\---
-
-
-
-\# API Design Principles
-
-
-
-\* Resource-oriented REST API
-
-\* Immutable trust artifacts
-
-\* Append-only history
-
-\* Deterministic replay
-
-\* Deterministic verification
-
-\* Cryptographically verifiable receipts
-
-\* Stable machine-readable error codes
-
-\* JSON Schema validation
-
-\* OpenAPI 3.1 contract-first design
-
-
-
-\---
-
-
-
-\# Architecture Invariants
-
-
-
-\* One Business Transaction → One Execution Trust Record
-
-\* Business Transactions are immutable
-
-\* Decisions are immutable
-
-\* Overrides never replace Decisions
-
-\* Executions are append-only
-
-\* Receipts are generated automatically
-
-\* Verification validates the complete Execution Trust Record
-
-\* Replay always uses recorded Policy and Schema versions
-
-\* Trust Chain is a representation of the Execution Trust Record
-
-
-
-\---
-
-
-
-\# Implementation Order
-
-
-
-```
-
-Architecture Specifications
-
-&#x20;       │
-
-&#x20;       ▼
-
-API Specifications
-
-&#x20;       │
-
-&#x20;       ▼
-
-JSON Schemas
-
-&#x20;       │
-
-&#x20;       ▼
-
-OpenAPI 3.1
-
-&#x20;       │
-
-&#x20;       ▼
-
-Controllers
-
-&#x20;       │
-
-&#x20;       ▼
-
-Services
-
-&#x20;       │
-
-&#x20;       ▼
-
-Persistence
-
-&#x20;       │
-
-&#x20;       ▼
-
-SDK Generation
-
-```
-
-
-
-\---
-
-
-
-\# Status
-
-
-
-\*\*Architecture:\*\* Locked
-
-
-
-\*\*API Design:\*\* Locked
-
-
-
-\*\*JSON Schemas:\*\* Locked
-
-
-
-\*\*OpenAPI Contract:\*\* Locked
-
-
-
-\*\*Status:\*\* Ready for implementation
-
-
-
-\---
-
-
-
-\# Canonical Principle
-
-
-
-Parmana establishes a verifiable trust chain between authority, intent, and execution.
-
-
-
-Every Business Transaction produces a single immutable Execution Trust Record that becomes the authoritative source for replay, audit, verification, and cryptographically verifiable execution receipts.
-
-
-
+Unless otherwise specified, the Parmana documentation is distributed under the same license as the Parmana project.
