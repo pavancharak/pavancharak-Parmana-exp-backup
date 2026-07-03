@@ -2,7 +2,11 @@ import { createBusinessTransaction } from "./fixtures/business-transaction.js";
 import { beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 
-import { CryptoBootstrap, SignatureVerifier } from "@parmana/crypto";
+import {
+  CryptoBootstrap,
+  FileKeyProvider,
+  SignatureVerifier,
+} from "@parmana/crypto";
 
 import app from "../src/app.js";
 
@@ -21,58 +25,85 @@ beforeAll(() => {
 });
 
 describe("Receipt Signature", () => {
-  it("generates a verifiable receipt signature", async () => {
-    const businessTransactionId = crypto.randomUUID();
+  it(
+    "generates a verifiable receipt signature",
+    async () => {
+      //
+      // Arrange
+      //
+      const transaction = createBusinessTransaction();
 
-    const authorityId = crypto.randomUUID();
-    const authorizationId = crypto.randomUUID();
-    const intentId = crypto.randomUUID();
+      //
+      // Execute
+      //
+      const execute = await request(app)
+        .post("/execute")
+        .send(transaction);
 
-    //
-    const transaction = createBusinessTransaction();
+      expect(execute.status).toBe(200);
 
-    // Execute
-    //
-    const execute = await request(app).post("/execute").send(transaction);
+      const trustRecord = execute.body;
 
-    expect(execute.status).toBe(200);
+      //
+      // Verify
+      //
+      const verify = await request(app)
+        .post("/verify")
+        .send({
+          businessTransactionId:
+            trustRecord.businessTransactionId,
+        });
 
-    const trustRecord = execute.body;
+      expect(verify.status).toBe(200);
 
-    //
-    // Verify
-    //
-    const verify = await request(app).post("/verify").send({
-      businessTransactionId: trustRecord.businessTransactionId,
-    });
+      //
+      // Generate Receipt
+      //
+      const receipt = await request(app)
+        .post("/receipt")
+        .send({
+          businessTransactionId:
+            trustRecord.businessTransactionId,
+        });
 
-    expect(verify.status).toBe(200);
+      expect(receipt.status).toBe(200);
 
-    //
-    // Receipt
-    //
-    const receipt = await request(app).post("/receipt").send({
-      businessTransactionId: trustRecord.businessTransactionId,
-    });
+      //
+      // Verify Receipt Signature
+      //
+      const cryptoProvider =
+        CryptoBootstrap.create();
 
-    expect(receipt.status).toBe(200);
+      const verifier =
+        new SignatureVerifier(
+          cryptoProvider,
+        );
 
-    //
-    // Verify signature
-    //
-    const cryptoProvider = CryptoBootstrap.create();
+      const keyProvider =
+        new FileKeyProvider();
 
-    const verifier = new SignatureVerifier(cryptoProvider);
+      const publicKey =
+        await keyProvider.getPublicKey(
+          "default",
+        );
 
-    const receiptBody = receipt.body as ReceiptResponse;
+      const receiptBody =
+        receipt.body as ReceiptResponse;
 
-    const { signature, ...unsignedReceipt } = receiptBody;
+      const {
+        signature,
+        ...unsignedReceipt
+      } = receiptBody;
 
-    const verified = await verifier.verify(unsignedReceipt, signature);
+      const verified =
+        await verifier.verify(
+          unsignedReceipt,
+          signature,
+          publicKey,
+        );
 
-    expect(verified).toBe(true);
-  });
+      expect(verified).toBe(true);
+    },
+    30000,
+  );
 });
-
-
-

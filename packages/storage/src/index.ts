@@ -50,3 +50,7 @@ export * from "./memory/MemoryPolicyRepository.js";
 // -----------------------------------------------------------------------------
 
 export * from "./errors/StorageError.js";
+
+export * from "./supabase/SupabaseStorageProvider.js";
+export * from "./supabase/SupabaseBusinessTransactionRepository.js";
+export * from "./supabase/SupabaseExecutionTrustRecordRepository.js";

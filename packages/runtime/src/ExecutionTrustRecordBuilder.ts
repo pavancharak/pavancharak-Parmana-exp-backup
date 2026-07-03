@@ -1,65 +1,114 @@
+import crypto from "node:crypto";
+
 import { VerificationCrypto } from "@parmana/crypto";
 
-import { ExecutionTrustRecord } from "@parmana/shared";
+import {
+  ExecutionTrustRecord,
+  SignatureAlgorithms,
+} from "@parmana/shared";
 
 import { RuntimeContext } from "./context/RuntimeContext.js";
 
 /**
+ * Internal draft used during construction.
+ */
+type TrustRecordDraft = Omit<
+  ExecutionTrustRecord,
+  "trustRecordHash" | "signature"
+>;
+
+/**
  * Builds the canonical Execution Trust Record.
- *
- * This builder is the successor to TrustChainBuilder.
- * During migration both builders coexist.
  */
 export class ExecutionTrustRecordBuilder {
-  private readonly crypto = new VerificationCrypto();
+  private readonly crypto =
+    new VerificationCrypto();
 
   /**
    * Builds an immutable Execution Trust Record
    * from the current RuntimeContext.
    */
-  async build(context: RuntimeContext): Promise<ExecutionTrustRecord> {
+  async build(
+    context: RuntimeContext,
+  ): Promise<ExecutionTrustRecord> {
     if (!context.execution) {
-      throw new Error("Execution artifact is required.");
+      throw new Error(
+        "Execution artifact is required.",
+      );
     }
 
-    //
-    // Build the record without its hash.
-    //
-    const record: ExecutionTrustRecord = {
+    const now = new Date();
+
+    const draft: TrustRecordDraft = {
       trustRecordId: crypto.randomUUID(),
 
-      businessTransactionId: context.transaction.businessTransactionId,
+      businessTransactionId:
+        context.transaction.businessTransactionId,
 
       transaction: context.transaction,
 
-      overrides: context.override ? [context.override] : [],
+      overrides:
+        context.override
+          ? [context.override]
+          : [],
 
       executions: [context.execution],
 
-      verifications: context.verification ? [context.verification] : [],
+      verifications:
+        context.verification
+          ? [context.verification]
+          : [],
 
-      receipts: context.receipt ? [context.receipt] : [],
+      receipts:
+        context.receipt
+          ? [context.receipt]
+          : [],
+
+      createdAt: now,
+
+      updatedAt: now,
+    };
+
+    //
+    // Temporary Trust Record for hashing.
+    //
+    const trustRecord = {
+      ...draft,
 
       trustRecordHash: "",
 
-      createdAt: new Date(),
+      signature: {
+        algorithm:
+          SignatureAlgorithms.ED25519,
 
-      updatedAt: new Date(),
+        keyId: "default",
+
+        value: "",
+
+        signedAt: now,
+      },
     };
 
-    //
-    // Compute canonical Trust Record hash.
-    //
-    const trustRecordHash = await this.crypto.hash(record);
+    const trustRecordHash =
+  await this.crypto.hash(
+    trustRecord,
+  );
 
-    //
-    // Return immutable record
-    // with computed hash.
-    //
-    return {
-      ...record,
+const recordWithHash = {
+  ...trustRecord,
 
-      trustRecordHash,
-    };
+  trustRecordHash,
+};
+
+const signature =
+  await this.crypto.sign(
+    recordWithHash,
+  );
+
+return {
+  ...recordWithHash,
+
+  signature,
+};
   }
 }

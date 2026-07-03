@@ -5,7 +5,17 @@ import {
   Execution,
   ExecutionTrustRecord,
   ExecutionTrustRecordRepository,
+  SignatureAlgorithms,
 } from "@parmana/shared";
+
+/**
+ * Internal draft used while constructing an
+ * ExecutionTrustRecord before it is signed.
+ */
+type TrustRecordDraft = Omit<
+  ExecutionTrustRecord,
+  "trustRecordHash" | "signature"
+>;
 
 export interface ExecutionTrustRecordServiceInput {
   readonly transaction: BusinessTransaction;
@@ -16,8 +26,8 @@ export interface ExecutionTrustRecordServiceInput {
  * ExecutionTrustRecordService
  *
  * Responsible for:
- * 1. Creating ExecutionTrustRecord (immutable)
- * 2. Persisting it via repository (required for replay/verification)
+ * 1. Creating immutable Execution Trust Records
+ * 2. Persisting them for replay and verification
  */
 export class ExecutionTrustRecordService {
   constructor(
@@ -25,17 +35,19 @@ export class ExecutionTrustRecordService {
   ) {}
 
   /**
-   * Creates a deterministic ExecutionTrustRecord
+   * Creates a deterministic ExecutionTrustRecord.
+   *
+   * NOTE:
+   * This currently uses a temporary placeholder
+   * signature until VerificationCrypto.sign()
+   * is implemented.
    */
   create(
     input: ExecutionTrustRecordServiceInput,
   ): ExecutionTrustRecord {
     const now = new Date();
 
-    const trustRecord: Omit<
-      ExecutionTrustRecord,
-      "trustRecordHash"
-    > = {
+    const trustRecord: TrustRecordDraft = {
       trustRecordId: randomUUID(),
 
       businessTransactionId:
@@ -58,22 +70,34 @@ export class ExecutionTrustRecordService {
 
     return {
       ...trustRecord,
+
       trustRecordHash: this.computeHash(trustRecord),
+
+      // TODO:
+      // Replace with VerificationCrypto.sign()
+      signature: {
+        algorithm: SignatureAlgorithms.ED25519,
+        keyId: "default",
+        value: "",
+        signedAt: now,
+      },
     };
   }
 
   /**
-   * Persists ExecutionTrustRecord for replay/verification
+   * Persists an ExecutionTrustRecord.
    */
-  async save(record: ExecutionTrustRecord): Promise<void> {
+  async save(
+    record: ExecutionTrustRecord,
+  ): Promise<void> {
     await this.repository.create(record);
   }
 
   /**
-   * Deterministic hash computation for integrity
+   * Deterministic hash computation.
    */
   private computeHash(
-    record: Omit<ExecutionTrustRecord, "trustRecordHash">,
+    record: TrustRecordDraft,
   ): string {
     return createHash("sha256")
       .update(JSON.stringify(record))

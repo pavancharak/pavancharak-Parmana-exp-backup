@@ -14,13 +14,15 @@
   "files": [
     "dist"
   ],
-    "scripts": {
+  "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "@parmana/shared": "0.1.0"
+    "@noble/post-quantum": "^0.6.1",
+    "@parmana/shared": "0.1.0",
+    "dotenv": "^17.4.2"
   },
   "devDependencies": {
     "typescript": "^5.9.0"

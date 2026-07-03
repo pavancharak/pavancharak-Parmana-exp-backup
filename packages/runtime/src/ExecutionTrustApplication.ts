@@ -17,11 +17,21 @@ import { VerificationService } from "./services/verification-service.js";
 /**
  * Execution Trust Application.
  *
- * Orchestrates the full lifecycle:
- * accept → execute → verify → receipt → replay
+ * Orchestrates the complete lifecycle:
+ *
+ * Business Transaction
+ *        ↓
+ * Runtime
+ *        ↓
+ * Verification
+ *        ↓
+ * Receipt
+ *        ↓
+ * Replay
  */
 export class ExecutionTrustApplication {
-  private readonly crypto = new VerificationCrypto();
+  private readonly crypto =
+    new VerificationCrypto();
 
   constructor(
     private readonly transactions: BusinessTransactionService,
@@ -34,76 +44,106 @@ export class ExecutionTrustApplication {
   }
 
   /**
-   * Execute Business Transaction through Runtime
+   * Execute Business Transaction through the
+   * complete Execution Trust pipeline.
    */
   async execute(
-  transaction: BusinessTransaction,
-): Promise<ExecutionTrustRecord> {
-  //
-  // Accept the Business Transaction.
-  //
-  await this.transactions.accept(
-    transaction,
-  );
+    transaction: BusinessTransaction,
+  ): Promise<ExecutionTrustRecord> {
+  ;
 
-  //
-  // Execute through the Runtime.
-  //
-  await this.runtime.execute(
-    transaction,
-  );
+    //
+    // Accept Business Transaction
+    //
+    
 
-  //
-  // Generate Verification.
-  //
-  await this.verification.verify(
-    transaction.businessTransactionId,
-  );
+    await this.transactions.accept(
+      transaction,
+    );
 
-  //
-  // Generate Receipt.
-  //
-  await this.receipts.generate(
-    transaction.businessTransactionId,
-  );
 
-  //
-  // Return the completed Execution Trust Record.
-  //
-  const trustRecord =
-    await this.trustRecords.findByTransactionId(
+    //
+    // Execute Runtime
+    //
+
+
+    await this.runtime.execute(
+      transaction,
+    );
+
+   
+
+    //
+    // Verification
+    //
+  
+    await this.verification.verify(
       transaction.businessTransactionId,
     );
 
-  if (!trustRecord) {
-    throw new Error(
-      "Execution Trust Record not found.",
+
+
+    //
+    // Receipt
+    //
+
+
+    await this.receipts.generate(
+      transaction.businessTransactionId,
+    );
+
+ 
+
+    //
+    // Load completed Trust Record
+    //
+  
+
+    const trustRecord =
+      await this.trustRecords.findByTransactionId(
+        transaction.businessTransactionId,
+      );
+
+  
+    if (!trustRecord) {
+      throw new Error(
+        "Execution Trust Record not found.",
+      );
+    }
+
+   
+
+    return trustRecord;
+  }
+
+  /**
+   * Verify an Execution Trust Record.
+   */
+  async verify(
+    businessTransactionId: string,
+  ): Promise<Verification> {
+    return this.verification.verify(
+      businessTransactionId,
     );
   }
 
-  return trustRecord;
-}
-
   /**
-   * Verify Execution Trust Record
-   */
-  async verify(businessTransactionId: string): Promise<Verification> {
-    return this.verification.verify(businessTransactionId);
-  }
-
-  /**
-   * Generate Receipt
+   * Generate a Receipt.
    */
   async generateReceipt(
     businessTransactionId: string,
   ): Promise<Receipt> {
-    return this.receipts.generate(businessTransactionId);
+    return this.receipts.generate(
+      businessTransactionId,
+    );
   }
 
   /**
-   * Replay execution deterministically
+   * Replay execution deterministically.
    */
-  async replay(businessTransactionId: string): Promise<{
+  async replay(
+    businessTransactionId: string,
+  ): Promise<{
     businessTransactionId: string;
     trustRecordHash: string;
     verified: boolean;
@@ -114,43 +154,58 @@ export class ExecutionTrustApplication {
       );
 
     if (!trustRecord) {
-      throw new Error("Execution Trust Record not found.");
+      throw new Error(
+        "Execution Trust Record not found.",
+      );
     }
 
-    const verified = await this.crypto.verify(trustRecord);
+    const verified =
+      await this.crypto.verify(
+        trustRecord,
+      );
 
     return {
       businessTransactionId,
-      trustRecordHash: trustRecord.trustRecordHash,
+      trustRecordHash:
+        trustRecord.trustRecordHash,
       verified,
     };
   }
 
   /**
-   * Get Trust Record
+   * Get Trust Record.
    */
   async getTrustRecord(
     businessTransactionId: string,
   ): Promise<ExecutionTrustRecord | null> {
-    return this.trustRecords.findByTransactionId(businessTransactionId);
+    return this.trustRecords.findByTransactionId(
+      businessTransactionId,
+    );
   }
 
   /**
-   * Get Transaction
+   * Get Business Transaction.
    */
   async getTransaction(
     businessTransactionId: string,
   ): Promise<BusinessTransaction | null> {
-    return this.transactions.get(businessTransactionId);
+    return this.transactions.get(
+      businessTransactionId,
+    );
   }
 
   /**
-   * List Transactions
+   * List Business Transactions.
    */
   async listTransactions(
     page = 1,
     pageSize = 25,
-  ): Promise<readonly BusinessTransaction[]> {
-    return this.transactions.list(page, pageSize);
+  ): Promise<
+    readonly BusinessTransaction[]
+  > {
+    return this.transactions.list(
+      page,
+      pageSize,
+    );
   }
 }
