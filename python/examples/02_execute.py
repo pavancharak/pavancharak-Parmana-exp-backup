@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 from parmana import (
@@ -28,12 +29,12 @@ def main() -> None:
     )
 
     #
-    # Generate a unique transaction ID for every execution.
+    # Generate a unique Business Transaction ID.
     #
     transaction_id = str(uuid4())
 
     #
-    # Use timezone-aware UTC timestamps.
+    # Current UTC timestamp.
     #
     now = datetime.now(UTC)
 
@@ -94,6 +95,16 @@ def main() -> None:
     )
 
     trust_record = client.execution.execute(transaction)
+
+    #
+    # Save the transaction ID for later examples.
+    #
+    Path(__file__).with_name(".transaction_id").write_text(
+        transaction_id,
+        encoding="utf-8",
+    )
+
+    print(f"\nBusiness Transaction ID: {transaction_id}\n")
 
     print(
         json.dumps(

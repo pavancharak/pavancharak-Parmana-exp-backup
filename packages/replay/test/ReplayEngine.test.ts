@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { ReplayEngine } from "../src/ReplayEngine.js";
 import { DecisionOutcome } from "@parmana/shared";
-
+import { TEST_POLICY } from "./fixtures/policy.js";
 describe("ReplayEngine - Deterministic Execution", () => {
   it("should produce identical replay results", () => {
     const engine = new ReplayEngine();
@@ -12,15 +12,7 @@ describe("ReplayEngine - Deterministic Execution", () => {
           decision: {
             decisionId: "d1",
             intentId: "i1",
-            policy: {
-              rules: [
-                {
-                  id: "r1",
-                  condition: "riskScore > 50",
-                  action: "reject",
-                },
-              ],
-            },
+            policy: TEST_POLICY,
             signals: {},
             outcome: DecisionOutcome.APPROVED,
             reason: "ok",
@@ -35,15 +27,7 @@ describe("ReplayEngine - Deterministic Execution", () => {
       transaction: {
         signals: {},
       },
-      policy: {
-        rules: [
-          {
-            id: "r1",
-            condition: "riskScore > 50",
-            action: "reject",
-          },
-        ],
-      },
+      policy: TEST_POLICY,
     };
 
     const r1 = engine.replay(input);
@@ -61,15 +45,7 @@ describe("ReplayEngine - Deterministic Execution", () => {
           decision: {
             decisionId: "d1",
             intentId: "i1",
-            policy: {
-              rules: [
-                {
-                  id: "r1",
-                  condition: "riskScore > 50",
-                  action: "approve",
-                },
-              ],
-            },
+    policy: TEST_POLICY,
             signals: {},
             outcome: DecisionOutcome.APPROVED,
             reason: "ok",
@@ -84,16 +60,7 @@ describe("ReplayEngine - Deterministic Execution", () => {
       transaction: {
         signals: {},
       },
-      policy: {
-        rules: [
-          {
-            id: "r1",
-            condition: "riskScore > 50",
-            action: "approve",
-          },
-        ],
-      },
-    };
+policy: TEST_POLICY,    };
 
     const result = engine.replay(input);
 

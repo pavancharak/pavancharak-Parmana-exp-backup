@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 import {
   ExecutionTrustRecordRepository,
   Verification,
@@ -16,35 +18,39 @@ import { VerificationCrypto } from "@parmana/crypto";
  * the complete Execution Trust Record.
  */
 export class VerificationService {
-  private readonly crypto = new VerificationCrypto();
+  private readonly crypto =
+    new VerificationCrypto();
 
-  constructor(private readonly trustRecords: ExecutionTrustRecordRepository) {}
+  constructor(
+    private readonly trustRecords: ExecutionTrustRecordRepository,
+  ) {}
 
   /**
    * Verifies an Execution Trust Record.
    */
-  async verify(businessTransactionId: string): Promise<Verification> {
-    //
-    // 1. Load Trust Record
-    //
-    const trustRecord = await this.trustRecords.findByTransactionId(
-      businessTransactionId,
-    );
+  async verify(
+    businessTransactionId: string,
+  ): Promise<Verification> {
+
+    const trustRecord =
+      await this.trustRecords.findByTransactionId(
+        businessTransactionId,
+      );
 
     if (!trustRecord) {
-      throw new VerificationFailedError("Execution Trust Record not found.");
+      throw new VerificationFailedError(
+        "Execution Trust Record not found.",
+      );
     }
 
-    //
-    // 2. Verify Trust Record integrity
-    //
-    const verified = await this.crypto.verify(trustRecord);
+    const verified =
+      await this.crypto.verify(
+        trustRecord,
+      );
 
-    //
-    // 3. Create immutable Verification
-    //
     const verification: Verification = {
-      verificationId: crypto.randomUUID(),
+      verificationId:
+        crypto.randomUUID(),
 
       businessTransactionId,
 
@@ -58,12 +64,10 @@ export class VerificationService {
 
       verifiedAt: new Date(),
 
-      trustRecordHash: trustRecord.trustRecordHash,
+      trustRecordHash:
+        trustRecord.trustRecordHash,
     };
 
-    //
-    // 4. Persist Verification
-    //
     await this.trustRecords.appendVerification(
       businessTransactionId,
       verification,

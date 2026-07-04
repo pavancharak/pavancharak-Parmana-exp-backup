@@ -75,4 +75,31 @@ router.get(
   },
 );
 
+/**
+ * POST /transactions
+ *
+ * Executes a Business Transaction through Runtime
+ */
+router.post(
+  "/",
+  async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const transaction = req.body;
+
+      const result =
+        await application.executeTransaction(
+          transaction,
+        );
+
+      res.status(201).json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 export default router;

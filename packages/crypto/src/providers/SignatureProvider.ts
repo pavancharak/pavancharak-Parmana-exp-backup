@@ -1,9 +1,14 @@
+import type { KeyObject } from "node:crypto";
+
 import type { SignatureAlgorithm } from "@parmana/shared";
 
 /**
  * Signature Provider.
  *
- * Abstraction for digital signatures.
+ * Performs cryptographic signature operations.
+ *
+ * Key management is intentionally external to the
+ * provider and is handled by a KeyProvider.
  */
 export interface SignatureProvider {
   /**
@@ -12,12 +17,19 @@ export interface SignatureProvider {
   readonly algorithm: SignatureAlgorithm;
 
   /**
-   * Creates a signature.
+   * Creates a signature using the supplied private key.
    */
-  sign(data: Uint8Array): Promise<string>;
+  sign(
+    data: Uint8Array,
+    privateKey: KeyObject,
+  ): Promise<string>;
 
   /**
-   * Verifies a signature.
+   * Verifies a signature using the supplied public key.
    */
-  verify(data: Uint8Array, signature: string): Promise<boolean>;
+  verify(
+    data: Uint8Array,
+    signature: string,
+    publicKey: KeyObject,
+  ): Promise<boolean>;
 }

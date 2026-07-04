@@ -4,7 +4,7 @@ import type {
   Request,
   Response,
 } from "express";
-
+import { BusinessTransactionMapper } from "../mappers/BusinessTransactionMapper.js";
 import type {
   ExecutionTrustApplication,
 } from "@parmana/runtime";
@@ -54,10 +54,15 @@ export function createExecuteRouter(
           });
         }
 
-        const result =
-          await application.execute(
-            req.body,
-          );
+        const transaction =
+  BusinessTransactionMapper.fromRequest(
+    req.body,
+  );
+
+const result =
+  await application.execute(
+    transaction,
+  );
 
         res.json(result);
       } catch (error) {

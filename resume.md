@@ -1,458 +1,146 @@
-From what you've shown, your core \*\*Execution Trust Infrastructure\*\* is very close to a v1.0 milestone. Here's what remains, ordered by importance.
+Here’s a **clear “what is left” prompt + system state audit** for your Parmana repo.
 
+---
 
+# 🧠 🔍 WHAT IS LEFT (FINAL SYSTEM GAP ANALYSIS)
 
-\# ✅ Completed
+## 🟢 1. CORE ENGINE — DONE
 
+✔ Runtime execution
+✔ Policy engine
+✔ Trust record creation
+✔ Execution pipeline
+✔ API server
+✔ Transaction routing
 
+---
 
-\* Runtime pipeline
+## 🟢 2. VERIFICATION LAYER — DONE
 
-\* Policy evaluation
+✔ VerificationEngine
+✔ VerificationPipeline
+✔ All stages implemented
+✔ Deterministic verification working
+✔ Replay consistency confirmed
 
-\* BusinessTransaction model
+---
 
-\* Execution
+## 🟢 3. RECEIPT SYSTEM — DONE (NEW)
 
-\* ExecutionEvidence
+✔ ReceiptBuilder introduced
+✔ Receipt hashing
+✔ Verification binding
+✔ Audit-ready output
 
-\* Verification
+---
 
-\* Receipt generation
+## 🟢 4. EXAMPLES / WORKFLOWS — PARTIALLY CLEANED
 
-\* Replay
+### ✅ DONE
 
-\* Dilithium3 signatures
+* tutorials (01–10 migrated)
+* scenarios updated (vendor, expense, purchase-order fixed)
 
-\* HTTP ExecutionSystem abstraction
+### ❗ STILL RISK AREA
 
-\* DefaultExecutionSystem
+* Any **old legacy scripts or hidden references**
+* Any file still importing:
 
-\* RuntimeFactory
+  ```ts
+  ReceiptService ❌
+  VerificationService ❌
+  ```
 
-\* API endpoints
+---
 
-\* Integration tests
+## 🟡 5. API LAYER — MOSTLY DONE, MINOR RISK
 
-\* 29/30 tests passing
+### Works:
 
+✔ `/transactions` GET
+✔ runtime execution wiring
+✔ application factory
 
+### Needs attention:
 
-\---
+⚠ `application.executeTransaction` crash history
+⚠ error handling consistency
+⚠ possible missing try/catch in routes
 
+---
 
+## 🟡 6. PACKAGING / WORKSPACE — INCOMPLETE CLEANUP
 
-\# 🔴 Remaining Before v1
+### Issues:
 
+* `workspace:*` install risk (you already hit this once)
+* possible missing package linking consistency
+* receipt package newly introduced (not fully wired everywhere)
 
+---
 
-\## 1. Dependency Injection for ExecutionSystem (highest priority)
+## 🟡 7. OBSOLETE / LEGACY CLEANUP (IMPORTANT)
 
+Still likely exists:
 
+* old `examples/01-hello-world → 10-*`
+* unused README / audit duplication
+* leftover scripts referencing old structure
+* duplicate transaction sources in `examples/shared`
 
-This is the only architectural issue your failing test exposed.
+---
 
+## 🔴 8. MISSING FINAL LAYER (OPTIONAL BUT IMPORTANT)
 
+You **do NOT yet have**:
 
-Currently:
+### 🚀 Production hardening layer
 
+* CI/CD pipeline (GitHub Actions)
+* versioned release flow
+* deterministic build verification
+* schema validation CI gate
+* integration test runner for scenarios
 
+---
+
+# 🧭 FINAL STATE SUMMARY
 
 ```text
-
-RuntimeFactory
-
-&#x20;       ↓
-
-new DefaultExecutionSystem()
-
+CORE SYSTEM        → COMPLETE
+VERIFICATION       → COMPLETE
+RECEIPT SYSTEM     → COMPLETE
+SCENARIOS          → MOSTLY COMPLETE
+API                → STABLE BUT NEEDS HARDENING
+WORKSPACE SETUP    → PARTIALLY FRAGILE
+LEGACY CODE        → STILL PRESENT
+PRODUCTION LAYER   → NOT BUILT
 ```
 
+---
 
+# 🧠 SIMPLE ONE-LINE TRUTH
 
-It should become:
+> You have built the full **execution + governance engine**, but not yet the **production-grade packaging + CI safety layer**.
 
+---
 
+# 🚀 IF YOU WANT NEXT STEP
 
-```text
+Say any one:
 
-RuntimeFactory
+### 1. “clean repo fully”
 
-&#x20;       ↓
+→ I will remove all legacy + unify structure
 
-ExecutionSystem
+### 2. “make production ready”
 
-&#x20;      ↑
+→ I will add CI/CD + tests + versioning
 
-DefaultExecutionSystem
+### 3. “architecture review”
 
-HttpExecutionSystem
+→ I will map final system like a real enterprise design doc
 
-FailingExecutionSystem
+### 4. “deploy plan”
 
-MockExecutionSystem
-
-```
-
-
-
-This lets tests inject failures naturally.
-
-
-
-\---
-
-
-
-\## 2. Execution Failure Support
-
-
-
-Currently skipped.
-
-
-
-Need to support
-
-
-
-```
-
-ExecutionSystem throws
-
-&#x20;       ↓
-
-Execution.status = FAILED
-
-&#x20;       ↓
-
-ExecutionEvidence
-
-&#x20;       ↓
-
-Trust Record
-
-&#x20;       ↓
-
-500 response
-
-```
-
-
-
-This is the only remaining red test.
-
-
-
-\---
-
-
-
-\## 3. External Enterprise Example
-
-
-
-You already built
-
-
-
-```
-
-HttpExecutionSystem
-
-```
-
-
-
-Now demonstrate it.
-
-
-
-```
-
-examples/
-
-
-
-payment-service/
-
-
-
-erp-service/
-
-
-
-robot-service/
-
-```
-
-
-
-This is important because it shows Parmana actually controlling another system.
-
-
-
-\---
-
-
-
-\## 4. Replay Verification
-
-
-
-Current replay returns
-
-
-
-```
-
-verified: true
-
-```
-
-
-
-Eventually replay should also verify
-
-
-
-\* execution evidence
-
-\* receipt signature
-
-\* trust hash
-
-\* policy version
-
-
-
-\---
-
-
-
-\## 5. Receipt Verification
-
-
-
-You generate receipts.
-
-
-
-Add
-
-
-
-```
-
-verifyReceipt(receipt)
-
-```
-
-
-
-using Dilithium.
-
-
-
-\---
-
-
-
-\## 6. CLI
-
-
-
-A CLI greatly improves usability.
-
-
-
-Example:
-
-
-
-```
-
-parmana execute
-
-parmana verify
-
-parmana replay
-
-parmana receipt
-
-parmana trust-record
-
-```
-
-
-
-\---
-
-
-
-\## 7. Documentation
-
-
-
-Need canonical docs:
-
-
-
-```
-
-Execution Trust Flow
-
-
-
-Execution System
-
-
-
-Execution Request
-
-
-
-Execution Evidence
-
-
-
-Receipt
-
-
-
-Replay
-
-
-
-Verification
-
-
-
-Runtime
-
-
-
-Architecture
-
-```
-
-
-
-\---
-
-
-
-\## 8. SDK Examples
-
-
-
-Python
-
-
-
-```python
-
-client.execute(...)
-
-```
-
-
-
-TypeScript
-
-
-
-```ts
-
-await client.execute(...)
-
-```
-
-
-
-\---
-
-
-
-\# Nice-to-have
-
-
-
-\* Docker Compose
-
-\* OpenAPI
-
-\* Swagger
-
-\* Helm chart
-
-\* Terraform
-
-\* Metrics
-
-\* Observability
-
-\* Audit dashboard
-
-
-
-\---
-
-
-
-\# Future Enterprise Features
-
-
-
-\* Multiple execution systems
-
-\* Retry policies
-
-\* Async execution
-
-\* Event bus
-
-\* Kafka
-
-\* Human approval gateway
-
-\* Webhooks
-
-\* Policy bundles
-
-\* Multi-tenant runtime
-
-
-
-\---
-
-
-
-\# Current Progress
-
-
-
-I'd estimate you're at:
-
-
-
-\* \*\*Core architecture:\*\* 98%
-
-\* \*\*Runtime:\*\* 98%
-
-\* \*\*API:\*\* 95%
-
-\* \*\*Crypto:\*\* 95%
-
-\* \*\*Testing:\*\* 97% (only the dependency injection/failure path remains)
-
-\* \*\*Documentation:\*\* \~70%
-
-\* \*\*Production readiness:\*\* \~85%
-
-
-
-The only significant architectural improvement I'd prioritize before calling the core platform complete is \*\*making the `ExecutionSystem` injectable\*\*. Once that's done, your remaining failure-path test can be implemented cleanly, and the runtime will support real external execution systems, mocks, and test doubles without further refactoring. After that, the focus should shift from core infrastructure to examples, SDKs, and documentation rather than adding new runtime features.
-
-
-
+→ I will convert this into SaaS architecture (multi-tenant + API scaling)

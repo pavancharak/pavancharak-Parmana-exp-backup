@@ -1,4 +1,18 @@
-import type { HashAlgorithm, SignatureAlgorithm } from "./CryptoAlgorithms.js";
+import dotenv from "dotenv";
+
+import { existsSync } from "node:fs";
+
+import {
+  dirname,
+  join,
+} from "node:path";
+
+import { fileURLToPath } from "node:url";
+
+import type {
+  HashAlgorithm,
+  SignatureAlgorithm,
+} from "./CryptoAlgorithms.js";
 
 import type { StorageProvider } from "./StorageProviders.js";
 
@@ -17,6 +31,57 @@ import {
 } from "./ConfigValidation.js";
 
 /**
+ * Resolve the repository .env file.
+ *
+ * This implementation is independent of the
+ * current working directory, allowing every
+ * Parmana package to share the same
+ * configuration.
+ */
+const __filename =
+  fileURLToPath(import.meta.url);
+
+const __dirname =
+  dirname(__filename);
+
+function findEnvFile():
+  | string
+  | undefined {
+  let current = __dirname;
+
+  while (true) {
+    const candidate = join(
+      current,
+      ".env",
+    );
+
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+
+    const parent =
+      dirname(current);
+
+    if (parent === current) {
+      return undefined;
+    }
+
+    current = parent;
+  }
+}
+
+const envFile =
+  findEnvFile();
+
+if (envFile) {
+  dotenv.config({
+    path: envFile,
+  });
+} else {
+  dotenv.config();
+}
+
+/**
  * Parmana Configuration.
  *
  * Centralized immutable configuration.
@@ -31,19 +96,26 @@ import {
  * Root configuration.
  */
 export interface Config {
-  readonly environment: EnvironmentConfig;
+  readonly environment:
+    EnvironmentConfig;
 
-  readonly storage: StorageConfig;
+  readonly storage:
+    StorageConfig;
 
-  readonly crypto: CryptoConfig;
+  readonly crypto:
+    CryptoConfig;
 
-  readonly keys: KeyConfig;
+  readonly keys:
+    KeyConfig;
 
-  readonly trust: TrustConfig;
+  readonly trust:
+    TrustConfig;
 
-  readonly api: ApiConfig;
+  readonly api:
+    ApiConfig;
 
-  readonly logging: LoggingConfig;
+  readonly logging:
+    LoggingConfig;
 }
 
 /**
@@ -57,7 +129,8 @@ export interface EnvironmentConfig {
  * Storage configuration.
  */
 export interface StorageConfig {
-  readonly provider: StorageProvider;
+  readonly provider:
+    StorageProvider;
 
   readonly databaseUrl?: string;
 }
@@ -66,16 +139,24 @@ export interface StorageConfig {
  * Cryptographic configuration.
  */
 export interface CryptoConfig {
-  readonly hashProvider: HashAlgorithm;
+  readonly hashProvider:
+    HashAlgorithm;
 
-  readonly signatureProvider: SignatureAlgorithm;
+  readonly signatureProvider:
+    SignatureAlgorithm;
 }
 
 /**
  * Key management.
  */
 export interface KeyConfig {
-  readonly provider: KeyProvider;
+  readonly provider:
+    KeyProvider;
+
+  /**
+   * Root directory containing Parmana keys.
+   */
+  readonly keyDirectory?: string;
 
   readonly privateKeyPath?: string;
 
@@ -86,7 +167,8 @@ export interface KeyConfig {
  * Trust profile configuration.
  */
 export interface TrustConfig {
-  readonly profile: TrustProfile;
+  readonly profile:
+    TrustProfile;
 
   readonly receiptVersion: string;
 }
@@ -111,46 +193,82 @@ export interface LoggingConfig {
  * This is the only location where process.env
  * should be accessed.
  */
-export function loadConfig(): Readonly<Config> {
+export function loadConfig():
+  Readonly<Config> {
   return Object.freeze({
     environment: Object.freeze({
-      nodeEnv: process.env.NODE_ENV ?? "development",
+      nodeEnv:
+        process.env.NODE_ENV ??
+        "development",
     }),
 
     storage: Object.freeze({
-      provider: parseStorageProvider(process.env.DATABASE_PROVIDER),
+      provider:
+        parseStorageProvider(
+          process.env.DATABASE_PROVIDER,
+        ),
 
-      ...optionalProperty("databaseUrl", process.env.DATABASE_URL),
-    }),
-
-    crypto: Object.freeze({
-      hashProvider: parseHashAlgorithm(process.env.HASH_PROVIDER),
-
-      signatureProvider: parseSignatureAlgorithm(
-        process.env.SIGNATURE_PROVIDER,
+      ...optionalProperty(
+        "databaseUrl",
+        process.env.DATABASE_URL,
       ),
     }),
 
+    crypto: Object.freeze({
+      hashProvider:
+        parseHashAlgorithm(
+          process.env.HASH_PROVIDER,
+        ),
+
+      signatureProvider:
+        parseSignatureAlgorithm(
+          process.env.SIGNATURE_PROVIDER,
+        ),
+    }),
+
     keys: Object.freeze({
-      provider: parseKeyProvider(process.env.KEY_PROVIDER),
+      provider:
+        parseKeyProvider(
+          process.env.KEY_PROVIDER,
+        ),
 
-      ...optionalProperty("privateKeyPath", process.env.PRIVATE_KEY_PATH),
+      ...optionalProperty(
+        "keyDirectory",
+        process.env.PARMANA_KEY_DIR,
+      ),
 
-      ...optionalProperty("publicKeyPath", process.env.PUBLIC_KEY_PATH),
+      ...optionalProperty(
+        "privateKeyPath",
+        process.env.PRIVATE_KEY_PATH,
+      ),
+
+      ...optionalProperty(
+        "publicKeyPath",
+        process.env.PUBLIC_KEY_PATH,
+      ),
     }),
 
     trust: Object.freeze({
-      profile: parseTrustProfile(process.env.TRUST_PROFILE),
+      profile:
+        parseTrustProfile(
+          process.env.TRUST_PROFILE,
+        ),
 
-      receiptVersion: process.env.RECEIPT_VERSION ?? "1",
+      receiptVersion:
+        process.env.RECEIPT_VERSION ??
+        "1",
     }),
 
     api: Object.freeze({
-      port: Number(process.env.PORT ?? 3000),
+      port: Number(
+        process.env.PORT ?? 3000,
+      ),
     }),
 
     logging: Object.freeze({
-      level: process.env.LOG_LEVEL ?? "info",
+      level:
+        process.env.LOG_LEVEL ??
+        "info",
     }),
   });
 }

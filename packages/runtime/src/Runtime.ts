@@ -29,16 +29,37 @@ export class Runtime {
   public async execute(
     transaction: BusinessTransaction,
   ): Promise<ExecutionTrustRecord> {
-    const result = await this.engine.execute(
-      transaction,
-    );
+ 
+    //
+    // Execute Runtime Engine
+    //
+  
 
+    const result =
+      await this.engine.execute(
+        transaction,
+      );
+
+
+
+    //
+    // Extract Trust Record
+    //
     const trustRecord =
       result.trustRecord as ExecutionTrustRecord;
+
+ 
+
+    //
+    // Persist Trust Record
+    //
+  
 
     await this.trustRecords.create(
       trustRecord,
     );
+
+
 
     return trustRecord;
   }

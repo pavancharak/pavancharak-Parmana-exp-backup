@@ -20,7 +20,7 @@ export function createRuntimeContext(): RuntimeContext {
     policy: {
       name: "payment-approval",
       version: "1.0.0",
-      schemaVersion: "1.0",
+      schemaVersion: "1.0.0",
     },
 
     signals: {},

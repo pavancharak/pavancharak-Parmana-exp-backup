@@ -1,0 +1,125 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+import {
+  FilePolicyRepository,
+} from "@parmana/policy";
+
+import {
+  RuntimeBuilder,
+} from "@parmana/runtime";
+
+import {
+  MemoryExecutionTrustRecordRepository,
+} from "@parmana/storage";
+
+import {
+  VerificationBuilder,
+  IntegrityStage,
+  AuthorityVerificationStage,
+  AuthorizationVerificationStage,
+  IntentVerificationStage,
+  EvidenceVerificationStage,
+  SignatureVerificationStage,
+} from "@parmana/verification";
+
+import type {
+  BusinessTransaction,
+} from "@parmana/shared";
+
+const root = path.resolve(import.meta.dirname);
+
+const transaction = JSON.parse(
+  readFileSync(
+    path.join(
+      root,
+      "../03-runtime-execution/transaction.json",
+    ),
+    "utf8",
+  ),
+) as BusinessTransaction;
+
+const policyRepository =
+  new FilePolicyRepository(
+    path.resolve(
+      root,
+      "../../../policies",
+    ),
+  );
+
+const trustRecords =
+  new MemoryExecutionTrustRecordRepository();
+
+const runtime =
+  new RuntimeBuilder()
+    .withPolicyRepository(
+      policyRepository,
+    )
+    .build(trustRecords);
+
+const trustRecord =
+  await runtime.execute(
+    transaction,
+  );
+
+const verificationEngine =
+  new VerificationBuilder()
+    .addStage(
+      new IntegrityStage(),
+    )
+    .addStage(
+      new AuthorityVerificationStage(),
+    )
+    .addStage(
+      new AuthorizationVerificationStage(),
+    )
+    .addStage(
+      new IntentVerificationStage(),
+    )
+    .addStage(
+      new EvidenceVerificationStage(),
+    )
+    .addStage(
+      new SignatureVerificationStage(),
+    )
+    .build();
+
+const verification =
+  await verificationEngine.verify(
+    trustRecord,
+  );
+
+console.log("========================================");
+console.log(" Parmana Tutorial 05 - Verification");
+console.log("========================================");
+
+console.log();
+
+console.log("Execution Trust Record");
+
+console.log(
+  JSON.stringify(
+    trustRecord,
+    null,
+    2,
+  ),
+);
+
+console.log();
+
+console.log("Verification");
+
+console.log(
+  JSON.stringify(
+    verification,
+    null,
+    2,
+  ),
+);
+
+console.log();
+
+console.log("Tutorial Complete");
+console.log(
+  "Next: Tutorial 06 - Replay",
+);

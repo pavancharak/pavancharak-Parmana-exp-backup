@@ -1,3 +1,5 @@
+import type { KeyObject } from "node:crypto";
+
 import { CanonicalSerializer } from "./CanonicalSerializer.js";
 
 import type { CryptoProvider } from "./providers/CryptoProvider.js";
@@ -5,22 +7,33 @@ import type { CryptoProvider } from "./providers/CryptoProvider.js";
 /**
  * Signature Verifier.
  *
- * Verifies signatures using the configured
+ * Verifies signatures for canonical Parmana
+ * artifacts using the configured
  * SignatureProvider.
  */
 export class SignatureVerifier {
   constructor(
     private readonly crypto: CryptoProvider,
 
-    private readonly serializer = new CanonicalSerializer(),
+    private readonly serializer =
+      new CanonicalSerializer(),
   ) {}
 
   /**
-   * Verifies a signature.
+   * Verifies a canonical artifact.
    */
-  async verify(artifact: unknown, signature: string): Promise<boolean> {
-    const bytes = this.serializer.serialize(artifact);
+  async verify(
+    artifact: unknown,
+    signature: string,
+    publicKey: KeyObject,
+  ): Promise<boolean> {
+    const bytes =
+      this.serializer.serialize(artifact);
 
-    return this.crypto.signature.verify(bytes, signature);
+    return this.crypto.signature.verify(
+      bytes,
+      signature,
+      publicKey,
+    );
   }
 }

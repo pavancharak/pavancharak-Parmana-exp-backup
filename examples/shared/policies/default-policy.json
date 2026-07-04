@@ -1,0 +1,41 @@
+{
+  "policyId": "default-policy",
+  "policyVersion": "1.0.0",
+  "schemaVersion": "1.0.0",
+
+  "description": "Minimal reference policy used by Parmana examples and tutorials.",
+
+  "signalsSchema": {
+    "approved": "boolean"
+  },
+
+  "rules": [
+    {
+      "id": "approve",
+
+      "condition": {
+        "fact": "approved",
+        "operator": "eq",
+        "value": true
+      },
+
+      "outcome": {
+        "action": "approve",
+        "reason": "Approval signal satisfied."
+      }
+    },
+
+    {
+      "id": "reject-default",
+
+      "condition": {
+        "always": true
+      },
+
+      "outcome": {
+        "action": "reject",
+        "reason": "Approval signal was not satisfied."
+      }
+    }
+  ]
+}

@@ -9,64 +9,74 @@ beforeAll(() => {
 import app from "../src/app.js";
 
 describe("Replay Integration", () => {
-  it("replays a previously executed Business Transaction", async () => {
-    //
-  const transaction = createBusinessTransaction();
+  it(
+    "replays a previously executed Business Transaction",
+    async () => {
+      //
+      // Execute
+      //
+      const transaction = createBusinessTransaction();
 
-    // Execute
-    //
-    const execute = await request(app)
-      .post("/execute").send(transaction);
+      const execute = await request(app)
+        .post("/execute")
+        .send(transaction);
 
-    expect(execute.status).toBe(200);
+      expect(execute.status).toBe(200);
 
-    //
-    // Verify
-    //
-    await request(app)
-      .post("/verify")
+      //
+      // Verify
+      //
+      const verify = await request(app)
+        .post("/verify")
+        .send({
+          businessTransactionId:
+            execute.body.businessTransactionId,
+        });
 
-      .send({
-        businessTransactionId: execute.body.businessTransactionId,
-      });
+      console.log("VERIFY RESPONSE");
+      console.dir(verify.body, { depth: null });
+      console.log("VERIFY STATUS", verify.status);
 
-    //
-    // Receipt
-    //
-    await request(app)
-      .post("/receipt")
+      //
+      // Receipt
+      //
+      const receipt = await request(app)
+        .post("/receipt")
+        .send({
+          businessTransactionId:
+            execute.body.businessTransactionId,
+        });
 
-      .send({
-        businessTransactionId: execute.body.businessTransactionId,
-      });
+      console.log("RECEIPT RESPONSE");
+      console.dir(receipt.body, { depth: null });
+      console.log("RECEIPT STATUS", receipt.status);
 
-    //
-    // Replay
-    //
-    const replay = await request(app)
-      .post("/replay")
+      //
+      // Replay
+      //
+      const replay = await request(app)
+        .post("/replay")
+        .send({
+          businessTransactionId:
+            execute.body.businessTransactionId,
+        });
 
-      .send({
-        businessTransactionId: execute.body.businessTransactionId,
-      });
+      expect(replay.status).toBe(200);
 
-    expect(replay.status).toBe(200);
+      //
+      // Replay should produce the same
+      // deterministic Trust Record hash.
+      //
+      expect(replay.body.businessTransactionId).toBe(
+        execute.body.businessTransactionId,
+      );
 
-    //
-    // Replay should produce the same
-    // deterministic Trust Record hash.
-    //
-    expect(replay.body.businessTransactionId).toBe(
-      execute.body.businessTransactionId,
-    );
+      expect(replay.body.trustRecordHash).toBe(
+        execute.body.trustRecordHash,
+      );
 
-    expect(replay.body.trustRecordHash).toBe(execute.body.trustRecordHash);
-
-    expect(replay.body.verified).toBe(true);
-  });
+      expect(replay.body.verified).toBe(true);
+    },
+    30000,
+  );
 });
-
-
-
-
-

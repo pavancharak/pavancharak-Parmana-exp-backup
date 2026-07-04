@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 import {
   ExecutionTrustRecordRepository,
   Receipt,
@@ -18,32 +20,60 @@ import { ReceiptCrypto } from "@parmana/crypto";
 export class ReceiptService {
   private readonly crypto = new ReceiptCrypto();
 
-  constructor(private readonly trustRecords: ExecutionTrustRecordRepository) {}
+  constructor(
+    private readonly trustRecords: ExecutionTrustRecordRepository,
+  ) {
+    Object.freeze(this);
+  }
 
   /**
    * Generates a Receipt for the specified
    * Business Transaction.
    */
-  async generate(businessTransactionId: string): Promise<Receipt> {
-    //
-    // 1. Load Trust Record
-    //
-    const trustRecord = await this.trustRecords.findByTransactionId(
+  async generate(
+    businessTransactionId: string,
+  ): Promise<Receipt> {
+
+//
+// 1. Load Trust Record
+//
+
+
+let trustRecord;
+
+try {
+  trustRecord =
+    await this.trustRecords.findByTransactionId(
       businessTransactionId,
     );
 
+
+} catch (error) {
+
+  throw error;
+}
+
+
     if (!trustRecord) {
-      throw new ReceiptGenerationError("Execution Trust Record not found.");
+      throw new ReceiptGenerationError(
+        "Execution Trust Record not found.",
+      );
     }
 
     //
     // 2. Ensure latest Verification succeeded
     //
-    const latestVerification = trustRecord.verifications.at(-1);
+
+
+    const latestVerification =
+      trustRecord.verifications.at(-1);
+
+
 
     if (
       !latestVerification ||
-      latestVerification.status !== VerificationStatus.VERIFIED
+      latestVerification.status !==
+        VerificationStatus.VERIFIED
     ) {
       throw new ReceiptGenerationError(
         "Execution Trust Record must be successfully verified before a Receipt can be generated.",
@@ -53,27 +83,44 @@ export class ReceiptService {
     //
     // 3. Compute receipt hash
     //
-    const receiptHash = await this.crypto.hash(trustRecord);
 
+
+    const receiptHash =
+      await this.crypto.hash(
+        trustRecord,
+      );
+
+   
     //
     // 4. Build and sign Receipt
     //
-    const receipt = await this.crypto.createReceipt({
-      receiptId: crypto.randomUUID(),
 
-      businessTransactionId,
 
-      trustRecordHash: trustRecord.trustRecordHash,
+    const receipt =
+      await this.crypto.createReceipt({
+        receiptId: crypto.randomUUID(),
 
-      receiptHash,
+        businessTransactionId,
 
-      issuedAt: new Date(),
-    });
+        trustRecordHash:
+          trustRecord.trustRecordHash,
+
+        receiptHash,
+
+        issuedAt: new Date(),
+      });
+
 
     //
     // 5. Persist Receipt
     //
-    await this.trustRecords.appendReceipt(businessTransactionId, receipt);
+  
+
+    await this.trustRecords.appendReceipt(
+      businessTransactionId,
+      receipt,
+    );
+
 
     return receipt;
   }
