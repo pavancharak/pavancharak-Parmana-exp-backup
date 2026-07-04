@@ -1,0 +1,89 @@
+{
+  "policyId": "database-change",
+  "policyVersion": "3.0.0",
+  "schemaVersion": "1.0.0",
+  "description": "Enterprise database change authorization policy with operational safeguards.",
+
+  "rules": [
+    {
+      "id": "approve-database-change",
+      "condition": {
+        "all": [
+          {
+            "fact": "migrationReviewed",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "backupCompleted",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "rollbackPlanAvailable",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "changeWindowOpen",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "dbaApproved",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "securityApproved",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "productionRiskScore",
+            "operator": "lte",
+            "value": 30
+          }
+        ]
+      },
+      "outcome": {
+        "action": "approve",
+        "reason": "Database change satisfies all production deployment requirements."
+      }
+    },
+    {
+      "id": "reject-high-risk-change",
+      "condition": {
+        "fact": "productionRiskScore",
+        "operator": "gt",
+        "value": 30
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Production risk exceeds permitted threshold."
+      }
+    },
+    {
+      "id": "reject-active-transactions",
+      "condition": {
+        "fact": "activeTransactions",
+        "operator": "gt",
+        "value": 0
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Database contains active transactions."
+      }
+    },
+    {
+      "id": "reject-default",
+      "condition": {
+        "always": true
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Database change policy requirements were not satisfied."
+      }
+    }
+  ]
+}

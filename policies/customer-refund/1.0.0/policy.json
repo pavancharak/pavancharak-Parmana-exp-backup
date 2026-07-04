@@ -1,0 +1,79 @@
+{
+  "policyId": "customer-refund",
+  "policyVersion": "1.0.0",
+  "schemaVersion": "1.0.0",
+  "description": "Customer refund authorization policy.",
+
+  "rules": [
+    {
+      "id": "approve-standard-refund",
+      "condition": {
+        "all": [
+          {
+            "fact": "orderVerified",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "paymentConfirmed",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "refundRequestedWithinWindow",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "refundAmount",
+            "operator": "lte",
+            "value": 10000
+          },
+          {
+            "fact": "fraudRiskScore",
+            "operator": "lte",
+            "value": 20
+          }
+        ]
+      },
+      "outcome": {
+        "action": "approve",
+        "reason": "Refund request satisfies policy requirements."
+      }
+    },
+    {
+      "id": "reject-high-fraud-risk",
+      "condition": {
+        "fact": "fraudRiskScore",
+        "operator": "gt",
+        "value": 20
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Refund request has elevated fraud risk."
+      }
+    },
+    {
+      "id": "reject-refund-limit",
+      "condition": {
+        "fact": "refundAmount",
+        "operator": "gt",
+        "value": 10000
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Refund amount exceeds automatic approval limit."
+      }
+    },
+    {
+      "id": "reject-default",
+      "condition": {
+        "always": true
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Customer refund policy conditions were not satisfied."
+      }
+    }
+  ]
+}

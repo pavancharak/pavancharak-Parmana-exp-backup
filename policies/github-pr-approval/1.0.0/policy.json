@@ -1,0 +1,67 @@
+{
+  "policyId": "github-pr-approval",
+  "policyVersion": "1.0.0",
+  "schemaVersion": "1.0.0",
+  "description": "Authorize AI-assisted GitHub Pull Request merges.",
+
+  "rules": [
+    {
+      "id": "tests-passed",
+      "condition": {
+        "all": [
+          {
+            "fact": "testsPassed",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "reviewApproved",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "securityScanPassed",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "protectedBranch",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "criticalVulnerabilities",
+            "operator": "eq",
+            "value": 0
+          }
+        ]
+      },
+      "outcome": {
+        "action": "approve",
+        "reason": "All required checks passed."
+      }
+    },
+    {
+      "id": "reject-critical-vulnerabilities",
+      "condition": {
+        "fact": "criticalVulnerabilities",
+        "operator": "gt",
+        "value": 0
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Critical security vulnerabilities detected."
+      }
+    },
+    {
+      "id": "reject-default",
+      "condition": {
+        "always": true
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "GitHub PR approval requirements were not satisfied."
+      }
+    }
+  ]
+}

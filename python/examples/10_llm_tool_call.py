@@ -1,7 +1,7 @@
 """
-Example 02
+Example 10
 
-Execute a Business Transaction.
+LLM Tool Call Authorization.
 """
 
 from __future__ import annotations
@@ -28,14 +28,7 @@ def main() -> None:
         endpoint="http://localhost:3000",
     )
 
-    #
-    # Generate a unique Business Transaction ID.
-    #
     transaction_id = str(uuid4())
-
-    #
-    # Current UTC timestamp.
-    #
     now = datetime.now(UTC)
 
     transaction = BusinessTransaction(
@@ -43,68 +36,64 @@ def main() -> None:
 
         metadata=BusinessTransactionMetadata(
             business_transaction_id=transaction_id,
-            correlation_id="demo-execution",
+            correlation_id="llm-tool-call-demo",
             tenant_id=None,
             source_system="python-sdk-example",
-            submitted_by="sdk-demo",
+            submitted_by="llm-agent",
             submitted_at=now,
         ),
 
         authority=Authority(
             authority_id="authority-001",
             authority_type="SERVICE",
-            principal_id="python-sdk",
-            display_name="Python SDK",
+            principal_id="llm-agent",
+            display_name="LLM Agent",
             issued_at=now,
         ),
 
         authorization=Authorization(
             authorization_id="authorization-001",
             authority_id="authority-001",
-            purpose="Execute demo transaction",
+            purpose="LLM Tool Call",
             issued_at=now,
         ),
 
         intent=Intent(
             intent_id="intent-001",
             authorization_id="authorization-001",
-            action="VendorPayment",
-            target="vendor/V-100",
+            action="ExecuteTool",
+            target="github.create_pull_request",
             parameters={
-                "amount": 1000,
-                "currency": "USD",
+                "repository": "acme/payment-service",
+                "branch": "feature/ai-update",
             },
             created_at=now,
         ),
 
         policy=PolicyReference(
-            name="vendor-payment",
+            name="llm-tool-call",
             version="1.0.0",
             schema_version="1.0.0",
         ),
 
         signals={
-            "vendorVerified": True,
-            "paymentApproved": True,
-            "amount": 1000,
+            "toolAllowed": True,
+            "resourceAuthorized": True,
+            "humanApproval": True,
+            "riskScore": 12,
+            "executionEnvironment": "production",
         },
 
         status="RECEIVED",
-
         created_at=now,
     )
 
     trust_record = client.execution.execute(transaction)
 
-    #
-    # Save the transaction ID for later examples.
-    #
     Path(__file__).with_name(".transaction_id").write_text(
         transaction_id,
         encoding="utf-8",
     )
-
-    print(f"\nBusiness Transaction ID: {transaction_id}\n")
 
     print(
         json.dumps(

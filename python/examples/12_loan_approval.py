@@ -1,7 +1,7 @@
 """
-Example 02
+Example 12
 
-Execute a Business Transaction.
+Loan Approval.
 """
 
 from __future__ import annotations
@@ -28,14 +28,7 @@ def main() -> None:
         endpoint="http://localhost:3000",
     )
 
-    #
-    # Generate a unique Business Transaction ID.
-    #
     transaction_id = str(uuid4())
-
-    #
-    # Current UTC timestamp.
-    #
     now = datetime.now(UTC)
 
     transaction = BusinessTransaction(
@@ -43,50 +36,54 @@ def main() -> None:
 
         metadata=BusinessTransactionMetadata(
             business_transaction_id=transaction_id,
-            correlation_id="demo-execution",
+            correlation_id="loan-approval-demo",
             tenant_id=None,
             source_system="python-sdk-example",
-            submitted_by="sdk-demo",
+            submitted_by="loan-officer",
             submitted_at=now,
         ),
 
         authority=Authority(
             authority_id="authority-001",
             authority_type="SERVICE",
-            principal_id="python-sdk",
-            display_name="Python SDK",
+            principal_id="loan-engine",
+            display_name="Loan Processing Engine",
             issued_at=now,
         ),
 
         authorization=Authorization(
             authorization_id="authorization-001",
             authority_id="authority-001",
-            purpose="Execute demo transaction",
+            purpose="Loan Approval",
             issued_at=now,
         ),
 
         intent=Intent(
             intent_id="intent-001",
             authorization_id="authorization-001",
-            action="VendorPayment",
-            target="vendor/V-100",
+            action="ApproveLoan",
+            target="loan/LN-1001",
             parameters={
-                "amount": 1000,
-                "currency": "USD",
+                "customerId": "CUST-1001",
+                "loanAmount": 500000,
+                "currency": "INR",
+                "tenureMonths": 60,
             },
             created_at=now,
         ),
 
         policy=PolicyReference(
-            name="vendor-payment",
+            name="loan-approval",
             version="1.0.0",
             schema_version="1.0.0",
         ),
 
         signals={
-            "vendorVerified": True,
-            "paymentApproved": True,
-            "amount": 1000,
+            "creditScore": 782,
+            "incomeVerified": True,
+            "kycCompleted": True,
+            "existingDefaults": False,
+            "debtToIncomeRatio": 0.32,
         },
 
         status="RECEIVED",
@@ -96,15 +93,10 @@ def main() -> None:
 
     trust_record = client.execution.execute(transaction)
 
-    #
-    # Save the transaction ID for later examples.
-    #
     Path(__file__).with_name(".transaction_id").write_text(
         transaction_id,
         encoding="utf-8",
     )
-
-    print(f"\nBusiness Transaction ID: {transaction_id}\n")
 
     print(
         json.dumps(

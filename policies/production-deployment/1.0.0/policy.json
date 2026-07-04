@@ -1,0 +1,67 @@
+{
+  "policyId": "production-deployment",
+  "policyVersion": "1.0.0",
+  "schemaVersion": "1.0.0",
+  "description": "Authorize deployment of software to production environments.",
+
+  "rules": [
+    {
+      "id": "approve-production-deployment",
+      "condition": {
+        "all": [
+          {
+            "fact": "changeApproved",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "rollbackPlanAvailable",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "canaryDeploymentPassed",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "maintenanceWindowOpen",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "securityApproval",
+            "operator": "eq",
+            "value": true
+          }
+        ]
+      },
+      "outcome": {
+        "action": "approve",
+        "reason": "Deployment satisfies production release requirements."
+      }
+    },
+    {
+      "id": "reject-open-critical-incidents",
+      "condition": {
+        "fact": "criticalIncidents",
+        "operator": "gt",
+        "value": 0
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Critical production incidents are currently open."
+      }
+    },
+    {
+      "id": "reject-default",
+      "condition": {
+        "always": true
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Production deployment requirements were not satisfied."
+      }
+    }
+  ]
+}

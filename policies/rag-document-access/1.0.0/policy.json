@@ -1,0 +1,79 @@
+{
+  "policyId": "rag-document-access",
+  "policyVersion": "1.0.0",
+  "schemaVersion": "1.0.0",
+  "description": "Authorize Retrieval-Augmented Generation (RAG) document access.",
+
+  "rules": [
+    {
+      "id": "approve-document-access",
+      "condition": {
+        "all": [
+          {
+            "fact": "userAuthenticated",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "userAuthorized",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "documentClassification",
+            "operator": "neq",
+            "value": "RESTRICTED"
+          },
+          {
+            "fact": "purposeVerified",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "promptRiskScore",
+            "operator": "lte",
+            "value": 20
+          }
+        ]
+      },
+      "outcome": {
+        "action": "approve",
+        "reason": "Document access authorized."
+      }
+    },
+    {
+      "id": "reject-restricted-document",
+      "condition": {
+        "fact": "documentClassification",
+        "operator": "eq",
+        "value": "RESTRICTED"
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Requested document is restricted."
+      }
+    },
+    {
+      "id": "reject-high-risk-prompt",
+      "condition": {
+        "fact": "promptRiskScore",
+        "operator": "gt",
+        "value": 20
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Prompt risk exceeds permitted threshold."
+      }
+    },
+    {
+      "id": "reject-default",
+      "condition": {
+        "always": true
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "RAG document access requirements were not satisfied."
+      }
+    }
+  ]
+}

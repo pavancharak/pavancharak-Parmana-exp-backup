@@ -1,4 +1,8 @@
 import {
+  OperatorEvaluator,
+} from "./OperatorEvaluator.js";
+
+import type {
   Policy,
   PolicyCondition,
   PolicyRule,
@@ -23,24 +27,32 @@ import {
 /**
  * Canonical Policy Engine.
  *
- * Responsibilities:
+ * Responsibilities
+ * ----------------
  * - Evaluate exactly one policy.
  * - Return a deterministic PolicyDecision.
  *
- * This engine does NOT:
+ * This engine SHALL NOT:
  * - authorize execution
- * - execute actions
- * - generate runtime artifacts
+ * - execute business actions
+ * - access external systems
  * - create trust records
+ * - perform replay
+ * - generate timestamps
  */
 export class PolicyEngine {
+
+  private readonly operatorEvaluator =
+    new OperatorEvaluator();
+
   /**
-   * Evaluates exactly one policy using the supplied runtime signals.
+   * Evaluate exactly one policy.
    */
   public evaluate(
     policy: Policy,
     signals: PolicySignals,
   ): PolicyDecision {
+
     const trace: string[] = [];
 
     const rule = this.findFirstMatch(
@@ -50,15 +62,17 @@ export class PolicyEngine {
     );
 
     return {
-      policyId: policy.policyId,
+
+      policyId:
+        policy.policyId,
 
       policyVersion:
-        policy.policyVersion ??
-        "0.0.0",
+        policy.policyVersion,
 
-      outcome: this.toOutcome(
-        rule?.outcome.action,
-      ),
+      outcome:
+        this.toOutcome(
+          rule?.outcome.action,
+        ),
 
       reason:
         rule?.outcome.reason ??
@@ -71,43 +85,22 @@ export class PolicyEngine {
       evaluatedRules:
         trace.length,
 
-      matchedPath: trace,
-
-      timestamp: Date.now(),
+      matchedPath:
+        trace,
     };
   }
 
   /**
-   * Maps a PolicyAction to the canonical PolicyOutcome.
-   */
-  private toOutcome(
-    action?: PolicyAction,
-  ): PolicyOutcome {
-    switch (action) {
-      case PolicyAction.APPROVE:
-        return PolicyOutcome.APPROVE;
-
-      case PolicyAction.REQUIRE_OVERRIDE:
-        return PolicyOutcome.REQUIRE_OVERRIDE;
-
-      case PolicyAction.REJECT:
-      default:
-        return PolicyOutcome.REJECT;
-    }
-  }
-
-  /**
-   * Returns the first matching policy rule.
-   *
-   * Policy evaluation is deterministic:
-   * the first matching rule wins.
+   * Deterministic first-match-wins evaluation.
    */
   private findFirstMatch(
     rules: PolicyRule[],
     signals: PolicySignals,
     trace: string[],
   ): PolicyRule | null {
+
     for (const rule of rules) {
+
       trace.push(rule.id);
 
       if (
@@ -130,64 +123,33 @@ export class PolicyEngine {
     condition: PolicyCondition,
     signals: PolicySignals,
   ): boolean {
-    if (!condition) {
-      return false;
-    }
 
     //
-    // Leaf condition
-    //
-    if (condition.signal) {
-      const value =
-        signals[
-          condition.signal
-        ];
+// Leaf condition
+//
+if ("fact" in condition) {
 
-      if (
-        value === undefined ||
-        value === null
-      ) {
-        return false;
-      }
+  return this.operatorEvaluator.evaluate(
+    signals[
+      condition.fact
+    ],
+    condition.operator,
+    condition.value,
+  );
+}
 
-      if (
-        condition.greater_than !==
-        undefined
-      ) {
-        if (
-          typeof value !==
-          "number"
-        ) {
-          return false;
-        }
+//
+// Always
+//
+if ("always" in condition) {
+  return true;
+}
 
-        return (
-          value >
-          condition.greater_than
-        );
-      }
+//
+// Logical AND
+//
+    if ("all" in condition) {
 
-      if (
-        condition.equals !==
-        undefined
-      ) {
-        return (
-          value ===
-          condition.equals
-        );
-      }
-
-      return Boolean(value);
-    }
-
-    //
-    // Logical AND
-    //
-    if (
-      Array.isArray(
-        condition.all,
-      )
-    ) {
       return condition.all.every(
         (child) =>
           this.evaluateCondition(
@@ -200,11 +162,8 @@ export class PolicyEngine {
     //
     // Logical OR
     //
-    if (
-      Array.isArray(
-        condition.any,
-      )
-    ) {
+    if ("any" in condition) {
+
       return condition.any.some(
         (child) =>
           this.evaluateCondition(
@@ -215,5 +174,26 @@ export class PolicyEngine {
     }
 
     return false;
+  }
+
+  /**
+   * Maps PolicyAction to PolicyOutcome.
+   */
+  private toOutcome(
+    action?: PolicyAction,
+  ): PolicyOutcome {
+
+    switch (action) {
+
+      case PolicyAction.APPROVE:
+        return PolicyOutcome.APPROVE;
+
+      case PolicyAction.REQUIRE_OVERRIDE:
+        return PolicyOutcome.REQUIRE_OVERRIDE;
+
+      case PolicyAction.REJECT:
+      default:
+        return PolicyOutcome.REJECT;
+    }
   }
 }

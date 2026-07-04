@@ -1,0 +1,79 @@
+{
+  "policyId": "llm-tool-call",
+  "policyVersion": "1.0.0",
+  "schemaVersion": "1.0.0",
+  "description": "Authorize LLM tool execution before invoking external systems.",
+
+  "rules": [
+    {
+      "id": "approve-tool-call",
+      "condition": {
+        "all": [
+          {
+            "fact": "toolAllowed",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "resourceAuthorized",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "humanApproval",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "riskScore",
+            "operator": "lte",
+            "value": 25
+          },
+          {
+            "fact": "executionEnvironment",
+            "operator": "eq",
+            "value": "production"
+          }
+        ]
+      },
+      "outcome": {
+        "action": "approve",
+        "reason": "Tool execution satisfies authorization requirements."
+      }
+    },
+    {
+      "id": "reject-high-risk",
+      "condition": {
+        "fact": "riskScore",
+        "operator": "gt",
+        "value": 25
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Risk score exceeds permitted threshold."
+      }
+    },
+    {
+      "id": "reject-unauthorized-tool",
+      "condition": {
+        "fact": "toolAllowed",
+        "operator": "eq",
+        "value": false
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Requested tool is not authorized."
+      }
+    },
+    {
+      "id": "reject-default",
+      "condition": {
+        "always": true
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "LLM tool call policy conditions were not satisfied."
+      }
+    }
+  ]
+}

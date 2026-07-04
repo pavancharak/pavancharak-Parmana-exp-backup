@@ -1,0 +1,79 @@
+{
+  "policyId": "access-control",
+  "policyVersion": "1.0.0",
+  "schemaVersion": "1.0.0",
+  "description": "Enterprise access control authorization policy.",
+
+  "rules": [
+    {
+      "id": "approve-access",
+      "condition": {
+        "all": [
+          {
+            "fact": "userAuthenticated",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "userAuthorized",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "mfaVerified",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "deviceTrusted",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "sessionRiskScore",
+            "operator": "lte",
+            "value": 20
+          }
+        ]
+      },
+      "outcome": {
+        "action": "approve",
+        "reason": "Access request satisfies security policy."
+      }
+    },
+    {
+      "id": "reject-high-risk-session",
+      "condition": {
+        "fact": "sessionRiskScore",
+        "operator": "gt",
+        "value": 20
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Session risk exceeds permitted threshold."
+      }
+    },
+    {
+      "id": "reject-untrusted-device",
+      "condition": {
+        "fact": "deviceTrusted",
+        "operator": "eq",
+        "value": false
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Device is not trusted."
+      }
+    },
+    {
+      "id": "reject-default",
+      "condition": {
+        "always": true
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Access control policy conditions were not satisfied."
+      }
+    }
+  ]
+}
