@@ -1,48 +1,76 @@
-\# Audit Scenario AS-001
+\# Audit Package — AS-001 Approved Vendor Payment
 
 
 
-\## Name
+\## Overview
 
 
+
+This directory contains a complete audit package for a successfully authorized Vendor Payment executed by Parmana.
+
+
+
+The package demonstrates every artifact generated during the execution lifecycle, from human authorization through verification and receipt generation.
+
+
+
+It serves as a reference implementation for auditors, compliance teams, security reviewers, and enterprise customers.
+
+
+
+\---
+
+
+
+\# Audit Scenario
+
+
+
+Scenario ID
+
+
+
+```
+
+AS-001
+
+```
+
+
+
+Scenario Name
+
+
+
+```
 
 Approved Vendor Payment
 
-
-
-\---
-
-
-
-\## Purpose
+```
 
 
 
-Validate that Parmana can execute an approved business transaction from start to finish while producing verifiable execution evidence.
+Business Domain
 
 
 
-\---
+```
+
+Accounts Payable
+
+```
 
 
 
-\## Product Claim
+Execution Outcome
 
 
 
-Parmana executes approved business transactions and generates verifiable execution evidence.
+```
 
+APPROVED
 
-
-\---
-
-
-
-\## Business Scenario
-
-
-
-Acme Bank approves a payment of ₹25,000 to Vendor ABC.
+```
 
 
 
@@ -50,63 +78,69 @@ Acme Bank approves a payment of ₹25,000 to Vendor ABC.
 
 
 
-\## Expected Flow
+\# Execution Lifecycle
 
 
+
+```
 
 Authority
 
-↓
+&#x20;     │
+
+&#x20;     ▼
 
 Authorization
 
-↓
+&#x20;     │
+
+&#x20;     ▼
 
 Intent
 
-↓
+&#x20;     │
+
+&#x20;     ▼
 
 Business Transaction
 
-↓
+&#x20;     │
 
-Policy Reference
-
-↓
-
-Policy Loading
-
-↓
+&#x20;     ▼
 
 Policy Evaluation
 
-↓
+&#x20;     │
 
-Decision = APPROVED
+&#x20;     ▼
 
-↓
+Runtime Execution
 
-Runtime Validation
+&#x20;     │
 
-↓
-
-Execution
-
-↓
+&#x20;     ▼
 
 Execution Trust Record
 
-↓
+&#x20;     │
 
-Receipt
-
-↓
+&#x20;     ▼
 
 Verification
 
-↓
+&#x20;     │
+
+&#x20;     ▼
 
 Replay
+
+&#x20;     │
+
+&#x20;     ▼
+
+Receipt
+
+```
 
 
 
@@ -114,19 +148,113 @@ Replay
 
 
 
-\## Expected Result
+\# Package Contents
 
 
 
-\- Decision is APPROVED
+| File | Description |
 
-\- Execution completes successfully
+|------|-------------|
 
-\- Execution Trust Record is created
+| authority.json | Human authority responsible for execution |
 
-\- Receipt is generated
+| authorization.json | Authorization issued by the authority |
 
-\- Verification succeeds
+| intent.json | Intended business action |
 
-\- Replay succeeds
+| business-transaction.json | Submitted transaction |
+
+| policy.json | Policy reference used during execution |
+
+| execution-trust-record.json | Canonical execution evidence |
+
+| verification.json | Verification result |
+
+| replay.json | Replay result |
+
+| receipt.json | Cryptographic receipt |
+
+| AUDIT.md | Human-readable audit report |
+
+
+
+\---
+
+
+
+\# Purpose
+
+
+
+This audit package demonstrates:
+
+
+
+\- Human Authority
+
+\- Policy Compliance
+
+\- Deterministic Execution
+
+\- Independent Verification
+
+\- Deterministic Replay
+
+\- Cryptographic Receipt Generation
+
+
+
+Every artifact is immutable and intended to support independent review.
+
+
+
+\---
+
+
+
+\# Intended Audience
+
+
+
+This package is designed for:
+
+
+
+\- Auditors
+
+\- Compliance Officers
+
+\- Security Teams
+
+\- Enterprise Architects
+
+\- Risk Teams
+
+\- Regulators
+
+\- Customers evaluating Parmana
+
+
+
+\---
+
+
+
+\# Related Documentation
+
+
+
+See the Parmana documentation for:
+
+
+
+\- Runtime
+
+\- Policy Engine
+
+\- Verification
+
+\- Replay
+
+\- Receipt Generation
 

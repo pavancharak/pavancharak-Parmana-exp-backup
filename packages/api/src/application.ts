@@ -41,5 +41,6 @@ export function createApplication(
   );
 }
 
+// SINGLE INSTANCE ONLY (NO DUPLICATES)
 export const application =
   createApplication();

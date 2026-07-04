@@ -1,60 +1,49 @@
 {
-  "businessTransactionId": "bt-001",
+  "businessTransactionId": "txn-vendor-payment-000001",
 
   "metadata": {
-    "businessTransactionId": "bt-001",
-    "correlationId": "corr-001",
-    "tenantId": "acme-bank",
-    "sourceSystem": "vendor-payment-service",
-    "submittedBy": "risk-committee",
-    "submittedAt": "2026-06-29T10:15:00.000Z"
+    "businessTransactionId": "txn-vendor-payment-000001",
+    "correlationId": "corr-vendor-payment-000001",
+    "createdBy": "accounts-payable",
+    "createdAt": "2026-01-01T09:00:00Z"
   },
 
   "authority": {
-    "authorityId": "authority-001",
-    "authorityType": "ORGANIZATION",
-    "principalId": "acme-bank",
-    "displayName": "Acme Bank",
-    "issuedAt": "2026-06-29T10:00:00.000Z"
+    "authorityId": "authority-finance-manager-001"
   },
 
   "authorization": {
-    "authorizationId": "authorization-001",
-    "authorityId": "authority-001",
-    "purpose": "Approve vendor payments up to ₹50,000",
-    "issuedAt": "2026-06-29T10:05:00.000Z",
-    "expiresAt": "2026-12-31T23:59:59.000Z"
+    "authorizationId": "authorization-vendor-payment-001"
   },
 
   "intent": {
-    "intentId": "intent-001",
-    "authorizationId": "authorization-001",
-    "action": "TransferFunds",
-    "target": "vendor/VENDOR-ABC",
-    "parameters": {
-      "amount": 25000,
-      "currency": "INR",
-      "vendorId": "VENDOR-ABC",
-      "vendorName": "Vendor ABC",
-      "invoiceNumber": "INV-1001"
-    },
-    "createdAt": "2026-06-29T10:10:00.000Z"
+    "intentId": "intent-vendor-payment-001"
   },
 
   "policy": {
     "name": "vendor-payment",
-    "version": "1.0.0",
-    "schemaVersion": "1.0"
+    "version": "2.0.0",
+    "schemaVersion": "1.0.0"
   },
 
   "signals": {
-    "amount": 25000,
-    "currency": "INR",
+    "vendorId": "VENDOR-1001",
+    "vendorName": "Acme Industrial Supplies",
+
+    "invoiceNumber": "INV-2026-000123",
+
     "vendorVerified": true,
-    "approvalLimit": 50000
+    "invoiceVerified": true,
+    "paymentApproved": true,
+    "sufficientFunds": true,
+
+    "paymentAmount": 5000,
+    "currency": "USD",
+
+    "riskScore": 10
   },
 
   "status": "RECEIVED",
 
-  "createdAt": "2026-06-29T10:15:00.000Z"
+  "createdAt": "2026-01-01T09:00:00Z"
 }

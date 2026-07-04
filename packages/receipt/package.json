@@ -1,0 +1,10 @@
+{
+  "name": "@parmana/receipt",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+ "dependencies": {
+  "@parmana/shared": "0.1.0",
+  "@parmana/crypto": "0.1.0"
+}
+}
