@@ -2,7 +2,15 @@
   "policyId": "rag-document-access",
   "policyVersion": "1.0.0",
   "schemaVersion": "1.0.0",
-  "description": "Authorize Retrieval-Augmented Generation (RAG) document access.",
+  "description": "Authorizes retrieval of enterprise documents after validating requester authorization, document access permissions, data classification, and retrieval risk assessment.",
+
+  "signalsSchema": {
+    "requesterAuthenticated": "boolean",
+    "requesterAuthorized": "boolean",
+    "documentAccessible": "boolean",
+    "classificationPermitted": "boolean",
+    "riskScore": "number"
+  },
 
   "rules": [
     {
@@ -10,27 +18,27 @@
       "condition": {
         "all": [
           {
-            "fact": "userAuthenticated",
+            "fact": "requesterAuthenticated",
             "operator": "eq",
             "value": true
           },
           {
-            "fact": "userAuthorized",
+            "fact": "requesterAuthorized",
             "operator": "eq",
             "value": true
           },
           {
-            "fact": "documentClassification",
-            "operator": "neq",
-            "value": "RESTRICTED"
-          },
-          {
-            "fact": "purposeVerified",
+            "fact": "documentAccessible",
             "operator": "eq",
             "value": true
           },
           {
-            "fact": "promptRiskScore",
+            "fact": "classificationPermitted",
+            "operator": "eq",
+            "value": true
+          },
+          {
+            "fact": "riskScore",
             "operator": "lte",
             "value": 20
           }
@@ -38,31 +46,43 @@
       },
       "outcome": {
         "action": "approve",
-        "reason": "Document access authorized."
+        "reason": "Document access authorized. Authentication, authorization, document permissions, classification requirements, and risk assessment were satisfied."
       }
     },
     {
-      "id": "reject-restricted-document",
+      "id": "reject-high-risk-request",
       "condition": {
-        "fact": "documentClassification",
-        "operator": "eq",
-        "value": "RESTRICTED"
-      },
-      "outcome": {
-        "action": "reject",
-        "reason": "Requested document is restricted."
-      }
-    },
-    {
-      "id": "reject-high-risk-prompt",
-      "condition": {
-        "fact": "promptRiskScore",
+        "fact": "riskScore",
         "operator": "gt",
         "value": 20
       },
       "outcome": {
         "action": "reject",
-        "reason": "Prompt risk exceeds permitted threshold."
+        "reason": "Document access rejected because the assessed retrieval risk exceeds the maximum permitted threshold."
+      }
+    },
+    {
+      "id": "reject-document-not-accessible",
+      "condition": {
+        "fact": "documentAccessible",
+        "operator": "eq",
+        "value": false
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Document access rejected because the requested document is not accessible."
+      }
+    },
+    {
+      "id": "reject-classification-not-permitted",
+      "condition": {
+        "fact": "classificationPermitted",
+        "operator": "eq",
+        "value": false
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Document access rejected because the requester is not authorized to access the document's classification level."
       }
     },
     {
@@ -72,7 +92,7 @@
       },
       "outcome": {
         "action": "reject",
-        "reason": "RAG document access requirements were not satisfied."
+        "reason": "Document access rejected because one or more required policy conditions were not satisfied."
       }
     }
   ]

@@ -47,21 +47,20 @@ export const businessTransaction: BusinessTransaction = {
       "Approve vendor payment.",
   },
 
-  policy: {
-    name: "vendor-payment",
+policy: {
+  name: "vendor-payment",
+  version: "2.0.0",
+  schemaVersion: "1.0.0",
+},
 
-    version: "1.0.0",
-  },
-
-  signals: {
-    amount: 100,
-
-    currency: "USD",
-
-    vendorVerified: true,
-
-    paymentApproved: true,
-  },
+signals: {
+  vendorVerified: true,
+  invoiceVerified: true,
+  paymentApproved: true,
+  sufficientFunds: true,
+  paymentAmount: 100,
+  riskScore: 10,
+},
 
   metadata: {
     executionMode: "SYNC",

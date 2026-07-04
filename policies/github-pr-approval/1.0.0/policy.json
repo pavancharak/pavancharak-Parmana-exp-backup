@@ -2,55 +2,87 @@
   "policyId": "github-pr-approval",
   "policyVersion": "1.0.0",
   "schemaVersion": "1.0.0",
-  "description": "Authorize AI-assisted GitHub Pull Request merges.",
+  "description": "Authorizes pull request approval after validating repository authorization, required reviews, successful status checks, branch protection, and risk assessment.",
+
+  "signalsSchema": {
+    "repositoryAuthorized": "boolean",
+    "requiredReviewsCompleted": "boolean",
+    "statusChecksPassed": "boolean",
+    "branchProtected": "boolean",
+    "riskScore": "number"
+  },
 
   "rules": [
     {
-      "id": "tests-passed",
+      "id": "approve-pull-request",
       "condition": {
         "all": [
           {
-            "fact": "testsPassed",
+            "fact": "repositoryAuthorized",
             "operator": "eq",
             "value": true
           },
           {
-            "fact": "reviewApproved",
+            "fact": "requiredReviewsCompleted",
             "operator": "eq",
             "value": true
           },
           {
-            "fact": "securityScanPassed",
+            "fact": "statusChecksPassed",
             "operator": "eq",
             "value": true
           },
           {
-            "fact": "protectedBranch",
+            "fact": "branchProtected",
             "operator": "eq",
             "value": true
           },
           {
-            "fact": "criticalVulnerabilities",
-            "operator": "eq",
-            "value": 0
+            "fact": "riskScore",
+            "operator": "lte",
+            "value": 20
           }
         ]
       },
       "outcome": {
         "action": "approve",
-        "reason": "All required checks passed."
+        "reason": "Pull request authorized. Repository authorization, review requirements, status checks, branch protection, and risk assessment requirements were satisfied."
       }
     },
     {
-      "id": "reject-critical-vulnerabilities",
+      "id": "reject-high-risk-change",
       "condition": {
-        "fact": "criticalVulnerabilities",
+        "fact": "riskScore",
         "operator": "gt",
-        "value": 0
+        "value": 20
       },
       "outcome": {
         "action": "reject",
-        "reason": "Critical security vulnerabilities detected."
+        "reason": "Pull request rejected because the assessed risk exceeds the maximum permitted threshold."
+      }
+    },
+    {
+      "id": "reject-failed-status-checks",
+      "condition": {
+        "fact": "statusChecksPassed",
+        "operator": "eq",
+        "value": false
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Pull request rejected because one or more required status checks did not complete successfully."
+      }
+    },
+    {
+      "id": "reject-branch-not-protected",
+      "condition": {
+        "fact": "branchProtected",
+        "operator": "eq",
+        "value": false
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Pull request rejected because the target branch is not protected."
       }
     },
     {
@@ -60,7 +92,7 @@
       },
       "outcome": {
         "action": "reject",
-        "reason": "GitHub PR approval requirements were not satisfied."
+        "reason": "Pull request rejected because one or more required policy conditions were not satisfied."
       }
     }
   ]

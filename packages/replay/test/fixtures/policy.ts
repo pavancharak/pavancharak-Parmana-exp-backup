@@ -1,11 +1,7 @@
-import { PolicyEngine } from "@parmana/policy";
-
-const policy = {
-  policyId: "example-policy",
+export const TEST_POLICY = {
+  policyId: "replay-policy",
   policyVersion: "1.0.0",
   schemaVersion: "1.0.0",
-
-  description: "Simple policy evaluation example.",
 
   signalsSchema: {
     riskScore: "number",
@@ -23,7 +19,7 @@ const policy = {
 
       outcome: {
         action: "approve",
-        reason: "Risk score is within the permitted threshold.",
+        reason: "Risk score is acceptable.",
       },
     },
 
@@ -38,7 +34,7 @@ const policy = {
 
       outcome: {
         action: "reject",
-        reason: "Risk score exceeds the permitted threshold.",
+        reason: "Risk score exceeds threshold.",
       },
     },
 
@@ -55,4 +51,4 @@ const policy = {
       },
     },
   ],
-};
+} as const;

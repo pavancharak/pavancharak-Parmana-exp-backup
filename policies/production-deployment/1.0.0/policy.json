@@ -2,55 +2,99 @@
   "policyId": "production-deployment",
   "policyVersion": "1.0.0",
   "schemaVersion": "1.0.0",
-  "description": "Authorize deployment of software to production environments.",
+  "description": "Authorizes production deployments after validating deployment approval, successful verification, rollback readiness, maintenance window, and deployment risk assessment.",
+
+  "signalsSchema": {
+    "deploymentApproved": "boolean",
+    "changeVerified": "boolean",
+    "rollbackReady": "boolean",
+    "maintenanceWindow": "boolean",
+    "riskScore": "number"
+  },
 
   "rules": [
     {
-      "id": "approve-production-deployment",
+      "id": "approve-deployment",
       "condition": {
         "all": [
           {
-            "fact": "changeApproved",
+            "fact": "deploymentApproved",
             "operator": "eq",
             "value": true
           },
           {
-            "fact": "rollbackPlanAvailable",
+            "fact": "changeVerified",
             "operator": "eq",
             "value": true
           },
           {
-            "fact": "canaryDeploymentPassed",
+            "fact": "rollbackReady",
             "operator": "eq",
             "value": true
           },
           {
-            "fact": "maintenanceWindowOpen",
+            "fact": "maintenanceWindow",
             "operator": "eq",
             "value": true
           },
           {
-            "fact": "securityApproval",
-            "operator": "eq",
-            "value": true
+            "fact": "riskScore",
+            "operator": "lte",
+            "value": 20
           }
         ]
       },
       "outcome": {
         "action": "approve",
-        "reason": "Deployment satisfies production release requirements."
+        "reason": "Production deployment authorized. Deployment approval, change verification, rollback readiness, maintenance window, and risk assessment requirements were satisfied."
       }
     },
     {
-      "id": "reject-open-critical-incidents",
+      "id": "reject-high-risk-deployment",
       "condition": {
-        "fact": "criticalIncidents",
+        "fact": "riskScore",
         "operator": "gt",
-        "value": 0
+        "value": 20
       },
       "outcome": {
         "action": "reject",
-        "reason": "Critical production incidents are currently open."
+        "reason": "Production deployment rejected because the assessed deployment risk exceeds the maximum permitted threshold."
+      }
+    },
+    {
+      "id": "reject-unverified-change",
+      "condition": {
+        "fact": "changeVerified",
+        "operator": "eq",
+        "value": false
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Production deployment rejected because the change has not been successfully verified."
+      }
+    },
+    {
+      "id": "reject-rollback-not-ready",
+      "condition": {
+        "fact": "rollbackReady",
+        "operator": "eq",
+        "value": false
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Production deployment rejected because a validated rollback plan is not available."
+      }
+    },
+    {
+      "id": "reject-outside-maintenance-window",
+      "condition": {
+        "fact": "maintenanceWindow",
+        "operator": "eq",
+        "value": false
+      },
+      "outcome": {
+        "action": "reject",
+        "reason": "Production deployment rejected because execution is outside the approved maintenance window."
       }
     },
     {
@@ -60,7 +104,7 @@
       },
       "outcome": {
         "action": "reject",
-        "reason": "Production deployment requirements were not satisfied."
+        "reason": "Production deployment rejected because one or more required policy conditions were not satisfied."
       }
     }
   ]

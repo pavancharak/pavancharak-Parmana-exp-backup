@@ -20,16 +20,20 @@ const transaction = {
     action: "vendor-payment",
   },
 
-  policy: {
-    name: "vendor-payment",
-    version: "1.0.0",
-  },
+policy: {
+  name: "vendor-payment",
+  version: "2.0.0",
+  schemaVersion: "1.0.0",
+},
 
-  signals: {
-    amount: 2500,
-    riskScore: 15,
-  },
-
+signals: {
+  vendorVerified: true,
+  invoiceVerified: true,
+  paymentApproved: true,
+  sufficientFunds: true,
+  paymentAmount: 2500,
+  riskScore: 15,
+},
   status: BusinessTransactionStatus.RECEIVED,
 
   createdAt: new Date(),

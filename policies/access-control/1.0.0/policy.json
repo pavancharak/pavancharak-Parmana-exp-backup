@@ -2,7 +2,15 @@
   "policyId": "access-control",
   "policyVersion": "1.0.0",
   "schemaVersion": "1.0.0",
-  "description": "Enterprise access control authorization policy.",
+  "description": "Authorizes access requests using authentication, authorization, multi-factor authentication, device trust, and session risk evaluation.",
+
+  "signalsSchema": {
+    "userAuthenticated": "boolean",
+    "userAuthorized": "boolean",
+    "mfaVerified": "boolean",
+    "deviceTrusted": "boolean",
+    "sessionRiskScore": "number"
+  },
 
   "rules": [
     {
@@ -38,7 +46,7 @@
       },
       "outcome": {
         "action": "approve",
-        "reason": "Access request satisfies security policy."
+        "reason": "Access authorized. Authentication, authorization, multi-factor authentication, device trust, and session risk requirements were satisfied."
       }
     },
     {
@@ -50,7 +58,7 @@
       },
       "outcome": {
         "action": "reject",
-        "reason": "Session risk exceeds permitted threshold."
+        "reason": "Access rejected because the assessed session risk exceeds the maximum permitted threshold."
       }
     },
     {
@@ -62,7 +70,7 @@
       },
       "outcome": {
         "action": "reject",
-        "reason": "Device is not trusted."
+        "reason": "Access rejected because the requesting device is not trusted."
       }
     },
     {
@@ -72,7 +80,7 @@
       },
       "outcome": {
         "action": "reject",
-        "reason": "Access control policy conditions were not satisfied."
+        "reason": "Access rejected because one or more required authorization conditions were not satisfied."
       }
     }
   ]
