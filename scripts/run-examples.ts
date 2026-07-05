@@ -7,6 +7,12 @@ const __dirname = path.dirname(__filename);
 
 const root = path.resolve(__dirname, "..");
 
+//
+// examples/04-verified-execution is intentionally excluded: it
+// binds a real TCP port (the "receiving side" HTTP server) and
+// isn't safe to run unattended alongside the rest of this list.
+// Run it individually — see examples/04-verified-execution/README.md.
+//
 const examples = [
   "examples/tutorials/01-hello-world/run.ts",
   "examples/tutorials/02-policy-evaluation/run.ts",

@@ -71,9 +71,8 @@ This example uses the same key mechanism as the rest of the repo:
 From the repository root, invoke the tsx CLI directly rather than through
 `npx tsx` (in this workspace, `npx tsx <path>` was observed to mis-resolve
 the entry path against `packages/api` instead of the repo root — the cause
-wasn't isolated, but the repo's own `scripts/run-examples.ts` and
-`examples/run-all.ts` already avoid `npx tsx` for their spawned examples,
-using this same direct-CLI form):
+wasn't isolated, but the repo's own `scripts/run-examples.ts` already avoids
+`npx tsx` for its spawned examples, using this same direct-CLI form):
 
 ```bash
 node ./node_modules/tsx/dist/cli.mjs examples/04-verified-execution/run.ts

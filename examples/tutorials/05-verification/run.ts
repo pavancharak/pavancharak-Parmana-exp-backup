@@ -6,22 +6,13 @@ import {
 } from "@parmana/policy";
 
 import {
-  RuntimeBuilder,
+  RuntimeFactory,
 } from "@parmana/runtime";
 
 import {
+  MemoryBusinessTransactionRepository,
   MemoryExecutionTrustRecordRepository,
 } from "@parmana/storage";
-
-import {
-  VerificationBuilder,
-  IntegrityStage,
-  AuthorityVerificationStage,
-  AuthorizationVerificationStage,
-  IntentVerificationStage,
-  EvidenceVerificationStage,
-  SignatureVerificationStage,
-} from "@parmana/verification";
 
 import type {
   BusinessTransaction,
@@ -47,46 +38,39 @@ const policyRepository =
     ),
   );
 
+const transactions =
+  new MemoryBusinessTransactionRepository();
+
 const trustRecords =
   new MemoryExecutionTrustRecordRepository();
 
-const runtime =
-  new RuntimeBuilder()
-    .withPolicyRepository(
-      policyRepository,
-    )
-    .build(trustRecords);
+const application =
+  RuntimeFactory.create(
+    transactions,
+    trustRecords,
+    policyRepository,
+  );
 
+//
+// application.execute() runs the live Execution
+// Trust pipeline end to end, including the live
+// VerificationService (hash + signature +
+// authorization-binding checks) — the same code
+// path used by POST /execute and POST /verify.
+//
 const trustRecord =
-  await runtime.execute(
+  await application.execute(
     transaction,
   );
 
-const verificationEngine =
-  new VerificationBuilder()
-    .addStage(
-      new IntegrityStage(),
-    )
-    .addStage(
-      new AuthorityVerificationStage(),
-    )
-    .addStage(
-      new AuthorizationVerificationStage(),
-    )
-    .addStage(
-      new IntentVerificationStage(),
-    )
-    .addStage(
-      new EvidenceVerificationStage(),
-    )
-    .addStage(
-      new SignatureVerificationStage(),
-    )
-    .build();
-
+//
+// Verification already ran as part of execute().
+// Calling verify() again demonstrates the same
+// live path used by POST /verify.
+//
 const verification =
-  await verificationEngine.verify(
-    trustRecord,
+  await application.verify(
+    transaction.businessTransactionId,
   );
 
 console.log("========================================");

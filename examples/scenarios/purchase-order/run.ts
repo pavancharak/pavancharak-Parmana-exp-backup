@@ -6,26 +6,13 @@ import {
 } from "@parmana/policy";
 
 import {
-  RuntimeBuilder,
+  RuntimeFactory,
 } from "@parmana/runtime";
 
 import {
+  MemoryBusinessTransactionRepository,
   MemoryExecutionTrustRecordRepository,
 } from "@parmana/storage";
-
-import {
-  VerificationBuilder,
-  IntegrityStage,
-  AuthorityVerificationStage,
-  AuthorizationVerificationStage,
-  IntentVerificationStage,
-  EvidenceVerificationStage,
-  SignatureVerificationStage,
-} from "@parmana/verification";
-
-import {
-  ReceiptBuilder,
-} from "@parmana/receipt";
 
 import type {
   BusinessTransaction,
@@ -51,52 +38,35 @@ const policyRepository =
     ),
   );
 
+const transactions =
+  new MemoryBusinessTransactionRepository();
+
 const trustRecords =
   new MemoryExecutionTrustRecordRepository();
 
-const runtime =
-  new RuntimeBuilder()
-    .withPolicyRepository(
-      policyRepository,
-    )
-    .build(trustRecords);
+const application =
+  RuntimeFactory.create(
+    transactions,
+    trustRecords,
+    policyRepository,
+  );
 
 // --------------------------------------------------
 // EXECUTION
+//
+// application.execute() runs the live Execution
+// Trust pipeline: Runtime -> Verification -> Receipt,
+// the same code path used by POST /execute.
 // --------------------------------------------------
 
 const trustRecord =
-  await runtime.execute(transaction);
-
-// --------------------------------------------------
-// VERIFICATION
-// --------------------------------------------------
-
-const verificationEngine =
-  new VerificationBuilder()
-    .addStage(new IntegrityStage())
-    .addStage(new AuthorityVerificationStage())
-    .addStage(new AuthorizationVerificationStage())
-    .addStage(new IntentVerificationStage())
-    .addStage(new EvidenceVerificationStage())
-    .addStage(new SignatureVerificationStage())
-    .build();
+  await application.execute(transaction);
 
 const verification =
-  await verificationEngine.verify(trustRecord);
-
-// --------------------------------------------------
-// RECEIPT
-// --------------------------------------------------
-
-const receiptEngine =
-  new ReceiptBuilder().build();
+  trustRecord.verifications.at(-1);
 
 const receipt =
-  receiptEngine.generate({
-    trustRecord,
-    verification,
-  });
+  trustRecord.receipts.at(-1);
 
 // --------------------------------------------------
 // OUTPUT

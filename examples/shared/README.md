@@ -202,5 +202,5 @@ The files in this directory are intended to support the examples.
 
 
 
-For production applications, use the packages under the `packages/` directory (`@parmana/runtime`, `@parmana/policy`, `@parmana/verification`, etc.) rather than relying on these helper utilities.
+For production applications, use the packages under the `packages/` directory (`@parmana/runtime`, `@parmana/policy`, `@parmana/crypto`, etc.) rather than relying on these helper utilities.
 

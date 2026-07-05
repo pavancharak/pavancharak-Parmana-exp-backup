@@ -51,7 +51,7 @@ const runtime =
     )
     .build(trustRecords);
 
-const trustRecord =
+const { trustRecord } =
   await runtime.execute(
     transaction,
   );
