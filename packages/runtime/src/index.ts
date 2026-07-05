@@ -9,6 +9,7 @@
 // -----------------------------------------------------------------------------
 
 export * from "./Runtime.js";
+export * from "./RuntimeResult.js";
 export * from "./RuntimeBuilder.js";
 export * from "./RuntimeFactory.js";
 export * from "./ExecutionTrustApplication.js";

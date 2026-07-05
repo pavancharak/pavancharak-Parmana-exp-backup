@@ -34,16 +34,9 @@ import type {
  */
 export class FileKeyProvider implements KeyProvider {
   private readonly config = loadConfig();
-constructor() {
-  console.log(
-    "[FileKeyProvider]",
-    this.config.keys,
-  );
-}
 
-private readonly keyDirectory =
-  this.config.keys.keyDirectory ?? "./keys";
-
+  private readonly keyDirectory =
+    this.config.keys.keyDirectory ?? "./keys";
 /**
  * Root directory containing Parmana keys.
  */

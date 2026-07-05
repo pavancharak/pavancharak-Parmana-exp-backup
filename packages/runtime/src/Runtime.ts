@@ -6,6 +6,8 @@ import {
 
 import { RuntimeEngine } from "./RuntimeEngine.js";
 
+import type { RuntimeResult } from "./RuntimeResult.js";
+
 /**
  * Canonical Parmana Runtime.
  *
@@ -27,8 +29,8 @@ export class Runtime {
    * Execute a Business Transaction.
    */
   public async execute(
-    transaction: BusinessTransaction,
-  ): Promise<ExecutionTrustRecord> {
+  transaction: BusinessTransaction,
+): Promise<RuntimeResult> {
  
     //
     // Execute Runtime Engine
@@ -61,7 +63,15 @@ export class Runtime {
 
 
 
-    return trustRecord;
+    return {
+  transaction:
+    result.transaction,
+
+  context:
+    result.context,
+
+  trustRecord,
+};
   }
 
   /**

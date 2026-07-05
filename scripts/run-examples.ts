@@ -18,6 +18,9 @@ const examples = [
   "examples/tutorials/08-human-approval/run.ts",
   "examples/tutorials/09-rest-api/run.ts",
   "examples/tutorials/10-end-to-end/run.ts",
+    "examples/tutorials/11-execution-authorization/run.ts",
+  "examples/tutorials/12-envelope-verification/run.ts",
+  "examples/tutorials/13-post-quantum-signatures/run.ts",
 
   "examples/scenarios/vendor-payment/run.ts",
   "examples/scenarios/expense-approval/run.ts",
