@@ -7,6 +7,7 @@ import { ArtifactSigner } from "./ArtifactSigner.js";
 import { TrustRecordHasher } from "./TrustRecordHasher.js";
 
 import { FileKeyProvider } from "./providers/key/FileKeyProvider.js";
+import { DEFAULT_KEY_ID } from "./KeyProvider.js";
 
 /**
  * Receipt cryptographic operations.
@@ -55,7 +56,7 @@ export class ReceiptCrypto {
     // Temporary development key.
     //
     const privateKey =
-      await this.keys.getPrivateKey("default");
+      await this.keys.getPrivateKey(DEFAULT_KEY_ID);
 
     return this.signer.sign(
       value,

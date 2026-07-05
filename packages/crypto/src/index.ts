@@ -41,6 +41,7 @@ export * from "./CryptoBuilder.js";
 export * from "./CryptoBootstrap.js";
 export * from "./KeyPair.js";
 export * from "./KeyStore.js";
+export * from "./KeyProvider.js";
 
 // -----------------------------------------------------------------------------
 // Provider Interfaces

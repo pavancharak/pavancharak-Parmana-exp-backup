@@ -8,6 +8,7 @@ import { TrustRecordHasher } from "./TrustRecordHasher.js";
 import { ArtifactSigner } from "./ArtifactSigner.js";
 import { SignatureVerifier } from "./SignatureVerifier.js";
 import { FileKeyProvider } from "./providers/key/FileKeyProvider.js";
+import { DEFAULT_KEY_ID } from "./KeyProvider.js";
 
 /**
  * Verification cryptographic operations.
@@ -84,7 +85,7 @@ export class VerificationCrypto {
   async sign(
     trustRecord: ExecutionTrustRecord,
   ): Promise<Signature> {
-    const keyId = "default";
+    const keyId = DEFAULT_KEY_ID;
 
     const privateKey =
       await this.keys.getPrivateKey(keyId);
@@ -105,6 +106,30 @@ export class VerificationCrypto {
 
       signedAt: new Date(),
     };
+  }
+
+  /**
+   * Verifies only the cryptographic signature of the
+   * Trust Record, independent of hash comparison.
+   *
+   * Reuses the same canonical view and verifier as
+   * verify(), so callers that need to report integrity
+   * and signature failures independently don't have to
+   * reimplement canonicalization.
+   */
+  async verifySignature(
+    trustRecord: ExecutionTrustRecord,
+  ): Promise<boolean> {
+    const publicKey =
+      await this.keys.getPublicKey(
+        trustRecord.signature.keyId,
+      );
+
+    return this.verifier.verify(
+      this.canonicalRecord(trustRecord),
+      trustRecord.signature.value,
+      publicKey,
+    );
   }
 
   /**
