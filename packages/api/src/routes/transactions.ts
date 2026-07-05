@@ -88,9 +88,14 @@ router.post(
     next: NextFunction,
   ) => {
     try {
-      const transaction = req.body;
+      const transaction = {
+  ...req.body,
+  createdAt: new Date(
+    req.body.createdAt,
+  ),
+};
 
-      const result =
+const result =
   await application.execute(
     transaction,
   );

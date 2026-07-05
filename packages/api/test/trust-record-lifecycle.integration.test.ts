@@ -7,8 +7,19 @@ beforeAll(() => {
 });
 
 import app from "../src/app.js";
+import { hasSupabaseConfig } from "./helpers/supabase-availability.js";
 
-describe("Execution Trust Record Lifecycle", () => {
+const supabaseConfigured = hasSupabaseConfig();
+
+if (!supabaseConfigured) {
+  console.log(
+    "[SKIP] Execution Trust Record Lifecycle: SUPABASE_URL / " +
+      "SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) not set. " +
+      "See packages/api/README.md to enable this suite.",
+  );
+}
+
+describe.skipIf(!supabaseConfigured)("Execution Trust Record Lifecycle", () => {
   it("maintains the complete trust lifecycle", async () => {
     const transaction =
       createBusinessTransaction();

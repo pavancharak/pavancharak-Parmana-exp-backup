@@ -6,8 +6,72 @@ beforeAll(() => {
 });
 
 import app from "../src/app.js";
+import { executionTrustRecordRepository } from "../src/repositories.js";
+import { createBusinessTransaction } from "./fixtures/business-transaction.js";
+import { hasSupabaseConfig } from "./helpers/supabase-availability.js";
 
-describe("Verification Negative Integration", () => {
+const supabaseConfigured = hasSupabaseConfig();
+
+if (!supabaseConfigured) {
+  console.log(
+    "[SKIP] Verification Negative Integration: SUPABASE_URL / " +
+      "SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) not set. " +
+      "See packages/api/README.md to enable this suite.",
+  );
+}
+
+describe.skipIf(!supabaseConfigured)("Verification Negative Integration", () => {
+  it(
+    "reports FAILED when the persisted record is tampered after execution",
+    async () => {
+      //
+      // Execute a real transaction through the live path so a
+      // genuinely hashed and signed Execution Trust Record is
+      // persisted in storage.
+      //
+      const transaction = createBusinessTransaction();
+
+      const execute = await request(app)
+        .post("/execute")
+        .send(transaction);
+
+      expect(execute.status).toBe(200);
+
+      const originalExecution = execute.body.executions[0];
+
+      //
+      // Tamper the stored record via the repository's own
+      // public interface: replaceExecution() overwrites the
+      // persisted Execution snapshot without touching the
+      // trust record's stored trustRecordHash/signature, so
+      // the next verification recomputes a hash that no
+      // longer matches what was signed. This does not reach
+      // into any private/internal storage detail — it is the
+      // same ExecutionTrustRecordRepository method the
+      // runtime itself calls.
+      //
+      await executionTrustRecordRepository.replaceExecution({
+        ...originalExecution,
+        metadata: {
+          ...originalExecution.metadata,
+          authorizationId: "tampered-authorization-id",
+        },
+      });
+
+      const verify = await request(app)
+        .post("/verify")
+        .send({
+          businessTransactionId:
+            transaction.businessTransactionId,
+        });
+
+      expect(verify.status).toBe(200);
+      expect(verify.body.status).toBe("FAILED");
+      expect(verify.body.message).toContain("Integrity check failed");
+    },
+    30000,
+  );
+
   it("fails for an unknown Business Transaction", async () => {
     const response = await request(app)
       .post("/verify")

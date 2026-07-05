@@ -9,6 +9,7 @@ import {
 } from "@parmana/crypto";
 
 import app from "../src/app.js";
+import { hasSupabaseConfig } from "./helpers/supabase-availability.js";
 
 interface ReceiptResponse {
   receiptId: string;
@@ -24,7 +25,17 @@ beforeAll(() => {
   process.env.PARMANA_STORAGE = "supabase";
 });
 
-describe("Receipt Signature", () => {
+const supabaseConfigured = hasSupabaseConfig();
+
+if (!supabaseConfigured) {
+  console.log(
+    "[SKIP] Receipt Signature: SUPABASE_URL / " +
+      "SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) not set. " +
+      "See packages/api/README.md to enable this suite.",
+  );
+}
+
+describe.skipIf(!supabaseConfigured)("Receipt Signature", () => {
   it(
     "generates a verifiable receipt signature",
     async () => {

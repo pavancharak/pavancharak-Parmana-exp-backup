@@ -7,8 +7,19 @@ beforeAll(() => {
 });
 
 import app from "../src/app.js";
+import { hasSupabaseConfig } from "./helpers/supabase-availability.js";
 
-describe("Replay Integration", () => {
+const supabaseConfigured = hasSupabaseConfig();
+
+if (!supabaseConfigured) {
+  console.log(
+    "[SKIP] Replay Integration: SUPABASE_URL / " +
+      "SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) not set. " +
+      "See packages/api/README.md to enable this suite.",
+  );
+}
+
+describe.skipIf(!supabaseConfigured)("Replay Integration", () => {
   it(
     "replays a previously executed Business Transaction",
     async () => {
