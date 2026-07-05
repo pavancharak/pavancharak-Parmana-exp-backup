@@ -2,6 +2,7 @@
 import { DecisionBuilder } from "./DecisionBuilder.js";
 import { ExecutionBuilder } from "./ExecutionBuilder.js";
 import { ExecutionGate } from "./ExecutionGate.js";
+import { RuntimeAuthorizationSigner } from "./RuntimeAuthorizationSigner.js";
 
 import {
   BusinessTransaction,
@@ -39,6 +40,8 @@ export class RuntimeEngine {
   private readonly executionGate: ExecutionGate,
   private readonly executionBuilder: ExecutionBuilder,
   private readonly trustPipeline: ExecutionTrustPipeline,
+  private readonly authorizationSigner: RuntimeAuthorizationSigner,
+  private readonly authorizationTtlSeconds: number,
 ) {
     if (!pipeline) {
       throw new Error("RuntimePipeline is required.");
@@ -54,6 +57,10 @@ export class RuntimeEngine {
 
     if (!trustPipeline) {
       throw new Error("ExecutionTrustPipeline is required.");
+    }
+
+    if (!authorizationSigner) {
+      throw new Error("RuntimeAuthorizationSigner is required.");
     }
   }
 
@@ -102,6 +109,25 @@ const decision =
   decision,
 );
 
+//
+// Sign the Execution Authorization.
+//
+// Reached only when the Decision is APPROVED —
+// executionGate.enforce() throws before this
+// point for any rejected Decision.
+//
+const authorization =
+  await this.authorizationSigner.sign(
+    {
+      decisionId: decision.decisionId,
+      businessTransactionId:
+        transaction.businessTransactionId,
+      policyName: transaction.policy.name,
+      policyVersion: transaction.policy.version,
+    },
+    this.authorizationTtlSeconds,
+  );
+
 const execution =
   this.executionBuilder.build(
     transaction,
@@ -119,6 +145,7 @@ const execution =
           BusinessTransactionStatus.RECEIVED,
       },
       decision,
+      authorization,
       execution,
     };
 

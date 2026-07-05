@@ -9,6 +9,10 @@ dotenv.config({
 });
 
 import {
+  loadConfig,
+} from "@parmana/shared";
+
+import {
   FilePolicyRepository,
 } from "@parmana/policy";
 
@@ -25,9 +29,12 @@ import {
   executionTrustRecordRepository,
 } from "./repositories.js";
 
+const config =
+  loadConfig();
+
 export const policyRepository =
   new FilePolicyRepository(
-    process.env.PARMANA_POLICY_DIR!,
+    config.policy.directory,
   );
 
 export function createApplication(

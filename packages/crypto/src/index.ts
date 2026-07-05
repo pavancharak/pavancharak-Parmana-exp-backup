@@ -23,6 +23,8 @@ export * from "./ReceiptHasher.js";
 
 export * from "./ArtifactSigner.js";
 export * from "./SignatureVerifier.js";
+export * from "./AuthorizationSigner.js";
+export * from "./AuthorizationVerifier.js";
 
 // -----------------------------------------------------------------------------
 // High-Level Crypto Services

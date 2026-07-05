@@ -1,10 +1,9 @@
 import crypto from "node:crypto";
 
-import { VerificationCrypto } from "@parmana/crypto";
+import { CryptoBootstrap, VerificationCrypto } from "@parmana/crypto";
 
 import {
   ExecutionTrustRecord,
-  SignatureAlgorithms,
 } from "@parmana/shared";
 
 import { RuntimeContext } from "./context/RuntimeContext.js";
@@ -79,7 +78,7 @@ export class ExecutionTrustRecordBuilder {
 
       signature: {
         algorithm:
-          SignatureAlgorithms.ED25519,
+          CryptoBootstrap.create().signature.algorithm,
 
         keyId: "default",
 

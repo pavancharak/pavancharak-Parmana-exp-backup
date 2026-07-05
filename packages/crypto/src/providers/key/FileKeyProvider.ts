@@ -10,11 +10,6 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 
-import {
-  SignatureAlgorithms,
-  type SignatureAlgorithm,
-} from "@parmana/shared";
-
 import type {
   KeyMetadata,
   KeyProvider,
@@ -89,7 +84,7 @@ private getKeyDirectory(): string {
     return {
       keyId,
       algorithm:
-        SignatureAlgorithms.ED25519,
+        this.config.crypto.signatureProvider,
     };
   }
 

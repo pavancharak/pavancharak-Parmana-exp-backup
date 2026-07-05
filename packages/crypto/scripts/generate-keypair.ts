@@ -1,37 +1,106 @@
 import { generateKeyPairSync } from "node:crypto";
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 
-import { dirname, join } from "node:path";
+import { join, resolve } from "node:path";
 
-import { fileURLToPath } from "node:url";
+import { loadConfig } from "@parmana/shared";
 
-const root = dirname(dirname(fileURLToPath(import.meta.url)));
+/**
+ * Maps a Parmana signature algorithm name (as configured
+ * via SIGNATURE_PROVIDER) to the native node:crypto key
+ * type used to generate it.
+ */
+const NODE_KEY_TYPES = {
+  ed25519: "ed25519",
+  dilithium3: "ml-dsa-65",
+} as const;
 
-const keysDir = join(root, "keys");
+type SupportedAlgorithm = keyof typeof NODE_KEY_TYPES;
 
-mkdirSync(keysDir, {
-  recursive: true,
-});
+function isSupportedAlgorithm(
+  value: string,
+): value is SupportedAlgorithm {
+  return value in NODE_KEY_TYPES;
+}
 
-const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+function parseArgs(argv: string[]): {
+  algorithm: string;
+  force: boolean;
+} {
+  let algorithm = "ed25519";
+  let force = false;
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+
+    if (arg === "--force") {
+      force = true;
+    } else if (arg === "--algorithm") {
+      algorithm = argv[++i] ?? algorithm;
+    } else if (arg?.startsWith("--algorithm=")) {
+      algorithm = arg.slice("--algorithm=".length);
+    }
+  }
+
+  return { algorithm, force };
+}
+
+const { algorithm, force } = parseArgs(process.argv.slice(2));
+
+if (!isSupportedAlgorithm(algorithm)) {
+  throw new Error(
+    `Unknown --algorithm "${algorithm}". Supported: ${Object.keys(NODE_KEY_TYPES).join(", ")}`,
+  );
+}
+
+//
+// Resolve the key directory the exact same way FileKeyProvider
+// does, so keys generated here are the ones the runtime actually
+// reads (relative to the invoking process's cwd, unless
+// PARMANA_KEY_DIR overrides it).
+//
+const config = loadConfig();
+
+const keyDirectory = resolve(
+  config.keys.keyDirectory ?? "./keys",
+);
+
+const privatePath = join(keyDirectory, "default.private.pem");
+const publicPath = join(keyDirectory, "default.public.pem");
+
+if (!force && (existsSync(privatePath) || existsSync(publicPath))) {
+  throw new Error(
+    `Key material already exists at "${keyDirectory}" ` +
+      "(default.private.pem / default.public.pem). Refusing to " +
+      "overwrite existing keys — pass --force to regenerate.",
+  );
+}
+
+mkdirSync(keyDirectory, { recursive: true });
+
+const nodeKeyType = NODE_KEY_TYPES[algorithm];
+
+const { privateKey, publicKey } =
+  generateKeyPairSync(nodeKeyType);
 
 writeFileSync(
-  join(keysDir, "ed25519-private.pem"),
+  privatePath,
   privateKey.export({
     format: "pem",
-
     type: "pkcs8",
   }),
 );
 
 writeFileSync(
-  join(keysDir, "ed25519-public.pem"),
+  publicPath,
   publicKey.export({
     format: "pem",
-
     type: "spki",
   }),
 );
 
-console.log("Ed25519 keypair generated.");
+console.log(
+  `${algorithm} keypair generated at ${keyDirectory} ` +
+    "(default.private.pem / default.public.pem).",
+);

@@ -42,6 +42,7 @@ export class ExecutionService {
     businessTransactionId: string,
     decision: Decision,
     mode: ExecutionMode,
+    metadata?: Readonly<Record<string, unknown>>,
   ): Promise<Execution> {
     const transaction =
       await this.transactions.findById(
@@ -66,6 +67,8 @@ export class ExecutionService {
       mode,
 
       startedAt: new Date(),
+
+      ...(metadata && { metadata }),
     };
 
     await this.trustRecords.appendExecution(

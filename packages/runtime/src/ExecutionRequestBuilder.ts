@@ -1,4 +1,7 @@
-import { BusinessTransaction } from "@parmana/shared";
+import {
+  BusinessTransaction,
+  SignedExecutionAuthorization,
+} from "@parmana/shared";
 
 import {
   ExecutionRequest,
@@ -11,10 +14,12 @@ import {
 export class ExecutionRequestBuilder {
   /**
    * Builds an ExecutionRequest from an approved
-   * BusinessTransaction.
+   * BusinessTransaction and its Signed Execution
+   * Authorization.
    */
   public build(
     transaction: BusinessTransaction,
+    authorization: SignedExecutionAuthorization,
   ): ExecutionRequest {
     return {
       businessTransactionId:
@@ -28,6 +33,8 @@ export class ExecutionRequestBuilder {
 
       parameters:
         transaction.intent.parameters,
+
+      authorization,
     };
   }
 }

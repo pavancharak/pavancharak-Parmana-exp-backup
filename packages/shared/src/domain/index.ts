@@ -12,6 +12,7 @@ export * from "./receipt.js";
 export * from "./execution-trust-record.js";
 export * from "./authority.js";
 export * from "./authorization.js";
+export * from "./execution-authorization.js";
 export * from "./intent.js";
 export * from "./signature.js";
 export * from "./unsigned-execution-trust-record.js";

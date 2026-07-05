@@ -18,6 +18,7 @@ import {
 import { RuntimeEngine } from "../src/RuntimeEngine.js";
 import { RuntimePipeline } from "../src/RuntimePipeline.js";
 import { ExecutionTrustPipeline } from "../src/ExecutionTrustPipeline.js";
+import { RuntimeAuthorizationSigner } from "../src/RuntimeAuthorizationSigner.js";
 
 /**
  * RuntimeEngine End-to-End tests.
@@ -36,6 +37,9 @@ const pipeline = new RuntimePipeline([]);
 
   const trustPipeline =
     new ExecutionTrustPipeline();
+
+  const authorizationSigner =
+    new RuntimeAuthorizationSigner();
 
   it(
     "executes full trust pipeline deterministically",
@@ -84,6 +88,8 @@ signals: {
   new ExecutionGate(),
   new ExecutionBuilder(),
   trustPipeline,
+  authorizationSigner,
+  120,
 );
 
       const result =
@@ -112,6 +118,8 @@ const runtime = new RuntimeEngine(
   new ExecutionGate(),
   new ExecutionBuilder(),
   trustPipeline,
+  authorizationSigner,
+  120,
 );
       await expect(
         runtime.execute(

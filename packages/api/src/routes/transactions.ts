@@ -91,9 +91,9 @@ router.post(
       const transaction = req.body;
 
       const result =
-        await application.executeTransaction(
-          transaction,
-        );
+  await application.execute(
+    transaction,
+  );
 
       res.status(201).json(result);
     } catch (error) {

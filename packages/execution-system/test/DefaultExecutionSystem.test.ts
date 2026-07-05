@@ -13,6 +13,21 @@ describe("DefaultExecutionSystem", () => {
       parameters: {
         amount: 100,
       },
+      authorization: {
+        payload: {
+          authorizationId: "auth-1",
+          nonce: "nonce-1",
+          decisionId: "decision-1",
+          businessTransactionId: "tx-1",
+          policyName: "policy-a",
+          policyVersion: "1.0.0",
+          authorizedAt: "2026-01-01T00:00:00.000Z",
+          expiresAt: "2026-01-01T00:02:00.000Z",
+        },
+        signature: "signature",
+        keyId: "default",
+        algorithm: "ed25519",
+      },
     });
 
     expect(result.success).toBe(true);

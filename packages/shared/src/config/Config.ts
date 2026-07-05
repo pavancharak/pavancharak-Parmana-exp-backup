@@ -1,3 +1,5 @@
+
+
 import dotenv from "dotenv";
 
 import { existsSync } from "node:fs";
@@ -108,6 +110,12 @@ export interface Config {
   readonly keys:
     KeyConfig;
 
+  readonly authorization:
+    AuthorizationConfig;
+
+  readonly policy:
+    PolicyConfig;
+
   readonly trust:
     TrustConfig;
 
@@ -117,7 +125,6 @@ export interface Config {
   readonly logging:
     LoggingConfig;
 }
-
 /**
  * Runtime environment.
  */
@@ -161,6 +168,27 @@ export interface KeyConfig {
   readonly privateKeyPath?: string;
 
   readonly publicKeyPath?: string;
+}
+
+/**
+ * Execution authorization configuration.
+ */
+export interface AuthorizationConfig {
+  /**
+   * Default TTL, in seconds, applied to a signed
+   * Execution Authorization when the caller does
+   * not specify one.
+   */
+  readonly ttlSeconds: number;
+}
+/**
+ * Policy configuration.
+ */
+export interface PolicyConfig {
+  /**
+   * Root directory containing policy files.
+   */
+  readonly directory: string;
 }
 
 /**
@@ -247,6 +275,18 @@ export function loadConfig():
         process.env.PUBLIC_KEY_PATH,
       ),
     }),
+
+    authorization: Object.freeze({
+      ttlSeconds: Number(
+        process.env
+          .EXECUTION_AUTHORIZATION_TTL_SECONDS ??
+          120,
+      ),
+    }),
+policy: Object.freeze({
+  directory:
+    process.env.PARMANA_POLICY_DIR!,
+}),
 
     trust: Object.freeze({
       profile:

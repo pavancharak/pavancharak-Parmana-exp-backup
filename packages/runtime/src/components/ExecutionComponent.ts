@@ -50,6 +50,12 @@ export class ExecutionComponent
       );
     }
 
+    if (!context.authorization) {
+      throw new Error(
+        "Signed Execution Authorization must exist before Execution.",
+      );
+    }
+
     //
     // Create the initial Execution artifact.
     //
@@ -58,6 +64,11 @@ export class ExecutionComponent
         context.transaction.businessTransactionId,
         context.decision,
         ExecutionMode.SYNC,
+        {
+          authorizationId:
+            context.authorization.payload
+              .authorizationId,
+        },
       );
 
     try {
@@ -67,6 +78,7 @@ export class ExecutionComponent
       const request =
         this.requestBuilder.build(
           context.transaction,
+          context.authorization,
         );
 
       //

@@ -1,5 +1,6 @@
 import {
   ExecutionTrustRecordRepository,
+  loadConfig,
 } from "@parmana/shared";
 
 import {
@@ -14,6 +15,7 @@ import type {
 import { DecisionBuilder } from "./DecisionBuilder.js";
 import { ExecutionBuilder } from "./ExecutionBuilder.js";
 import { ExecutionGate } from "./ExecutionGate.js";
+import { RuntimeAuthorizationSigner } from "./RuntimeAuthorizationSigner.js";
 
 import { Runtime } from "./Runtime.js";
 import { RuntimeEngine } from "./RuntimeEngine.js";
@@ -112,6 +114,15 @@ const router =
       new ExecutionTrustPipeline();
 
     //
+    // Authorization subsystem
+    //
+    const authorizationSigner =
+      new RuntimeAuthorizationSigner();
+
+    const { ttlSeconds: authorizationTtlSeconds } =
+      loadConfig().authorization;
+
+    //
     // Runtime engine
     //
     const runtimeEngine =
@@ -123,6 +134,8 @@ const router =
     new ExecutionGate(),
     new ExecutionBuilder(),
     trustPipeline,
+    authorizationSigner,
+    authorizationTtlSeconds,
   );
 
     //

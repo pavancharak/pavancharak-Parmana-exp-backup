@@ -11,6 +11,10 @@ import {
 
 import type { SignatureProvider } from "../SignatureProvider.js";
 
+import { assertKeyType } from "./assertKeyType.js";
+
+const NODE_KEY_TYPE = "ed25519";
+
 /**
  * Ed25519 Signature Provider.
  *
@@ -32,6 +36,8 @@ export class Ed25519SignatureProvider
     data: Uint8Array,
     privateKey: KeyObject,
   ): Promise<string> {
+    assertKeyType(privateKey, NODE_KEY_TYPE, "sign");
+
     const signature = sign(
       null,
       Buffer.from(data),
@@ -46,6 +52,8 @@ export class Ed25519SignatureProvider
     signature: string,
     publicKey: KeyObject,
   ): Promise<boolean> {
+    assertKeyType(publicKey, NODE_KEY_TYPE, "verify");
+
     return verify(
       null,
       Buffer.from(data),

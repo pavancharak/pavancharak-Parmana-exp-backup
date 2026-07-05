@@ -6,6 +6,7 @@ import {
   ExecutionTrustRecord,
   Override,
   Receipt,
+  SignedExecutionAuthorization,
   Verification,
 } from "@parmana/shared";
 
@@ -30,6 +31,13 @@ export interface RuntimeContext {
    * Policy evaluation.
    */
   readonly decision: Decision;
+
+  /**
+   * Signed Execution Authorization proving Parmana
+   * authorized this execution. Present only after
+   * ExecutionGate has approved the Decision.
+   */
+  readonly authorization?: SignedExecutionAuthorization;
 
   /**
    * Execution artifact.

@@ -1,19 +1,32 @@
-import { Buffer } from "node:buffer";
-
-import { ml_dsa65 } from "@noble/post-quantum/ml-dsa.js";
+import {
+  sign,
+  verify,
+  type KeyObject,
+} from "node:crypto";
 
 import {
   SignatureAlgorithms,
   type SignatureAlgorithm,
 } from "@parmana/shared";
 
-
 import type { SignatureProvider } from "../SignatureProvider.js";
+
+import { assertKeyType } from "./assertKeyType.js";
+
+const NODE_KEY_TYPE = "ml-dsa-65";
 
 /**
  * Dilithium3 (ML-DSA-65) Signature Provider.
  *
- * Uses persistent keys provided by FileKeyProvider.
+ * Stateless implementation of ML-DSA-65 signing via
+ * node:crypto's native support (Node >=24, OpenSSL
+ * >=3.5). Key management is delegated to a KeyProvider,
+ * exactly like Ed25519SignatureProvider — this provider
+ * never generates or holds key material itself.
+ *
+ * ML-DSA-65 signatures are randomized: signing the same
+ * message twice with the same key produces two different
+ * (but both valid) signatures, unlike Ed25519.
  */
 export class Dilithium3SignatureProvider
   implements SignatureProvider
@@ -21,47 +34,37 @@ export class Dilithium3SignatureProvider
   public readonly algorithm: SignatureAlgorithm =
     SignatureAlgorithms.DILITHIUM3;
 
-  private readonly publicKey: Uint8Array;
-
-  private readonly secretKey: Uint8Array;
-
-  public constructor() {
-    const keys =
-  ml_dsa65.keygen();
-
-this.publicKey =
-  keys.publicKey;
-
-this.secretKey =
-  keys.secretKey;
-
-    this.publicKey = keys.publicKey;
-    this.secretKey = keys.secretKey;
-
+  constructor() {
     Object.freeze(this);
   }
 
-  public async sign(
+  async sign(
     data: Uint8Array,
+    privateKey: KeyObject,
   ): Promise<string> {
-    const signature =
-      ml_dsa65.sign(
-        data,
-        this.secretKey,
-      );
+    assertKeyType(privateKey, NODE_KEY_TYPE, "sign");
 
-    return Buffer.from(signature)
-      .toString("base64");
+    const signature = sign(
+      null,
+      Buffer.from(data),
+      privateKey,
+    );
+
+    return signature.toString("base64");
   }
 
-  public async verify(
+  async verify(
     data: Uint8Array,
     signature: string,
+    publicKey: KeyObject,
   ): Promise<boolean> {
-    return ml_dsa65.verify(
+    assertKeyType(publicKey, NODE_KEY_TYPE, "verify");
+
+    return verify(
+      null,
+      Buffer.from(data),
+      publicKey,
       Buffer.from(signature, "base64"),
-      data,
-      this.publicKey,
     );
   }
 }
