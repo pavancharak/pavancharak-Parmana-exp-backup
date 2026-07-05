@@ -1,706 +1,978 @@
-# \# Parmana
+\# Parmana
 
-# 
 
-# > \*\*Human Authority for Enterprise AI\*\*
 
-# 
+> \*\*Human Authority for Enterprise AI\*\*
 
-# Parmana is the Execution Trust Infrastructure for enterprise AI.
 
-# 
 
-# Modern AI systems can generate plans, make decisions, and execute actions autonomously. Parmana ensures that every high-impact action is authorized, policy-compliant, cryptographically verifiable, and fully auditable before execution.
+Parmana is the \*\*Execution Authorization and Verification Infrastructure for Enterprise AI\*\*.
 
-# 
 
-# Parmana does not replace AI systems. It authorizes and verifies what they are allowed to execute.
 
-# 
+Modern AI systems can generate plans, make decisions, and execute actions autonomously. Parmana ensures that every high-impact action is authorized, policy-compliant, cryptographically verifiable, and fully auditable before execution.
 
-# \---
 
-# 
 
-# \# Vision
+Parmana does not replace AI systems.
 
-# 
 
-# > \*\*The future isn't AI that simply answers questions. The future is AI that organizations trust to perform real work.\*\*
 
-# 
+\*\*It authorizes and verifies what they are allowed to execute.\*\*
 
-# Parmana enables organizations to safely deploy autonomous AI by providing verifiable execution trust.
 
-# 
 
-# \---
+\---
 
-# 
 
-# \# Core Principle
 
-# 
+\# Vision
 
-# \*\*AI can propose actions. Parmana authorizes execution.\*\*
 
-# 
 
-# Only Parmana-approved actions are executed.
+> \*\*The future isn't AI that simply answers questions. The future is AI that organizations trust to perform real work.\*\*
 
-# 
 
-# \---
 
-# 
+Parmana enables organizations to safely deploy autonomous AI by providing verifiable execution trust.
 
-# \# What Parmana Does
 
-# 
 
-# Parmana provides an immutable execution trust layer between AI systems and enterprise execution systems.
+\---
 
-# 
 
-# For every business transaction Parmana provides:
 
-# 
+\# Core Principle
 
-# \- Human Authority
 
-# \- Policy Enforcement
 
-# \- Authorization
+\*\*AI can propose actions. Only Parmana can authorize execution.\*\*
 
-# \- Execution Verification
 
-# \- Cryptographic Integrity
 
-# \- Immutable Evidence
+Every execution must be backed by a cryptographically signed Execution Authorization before work is performed.
 
-# \- Signed Receipts
 
-# \- Deterministic Replay
 
-# 
+\---
 
-# \---
 
-# 
 
-# \# Execution Trust Lifecycle
+\# What Parmana Does
 
-# 
 
-# ```
 
-# Business Transaction
+Parmana provides an immutable execution trust layer between AI systems and enterprise execution systems.
 
-# &#x20;       │
 
-# &#x20;       ▼
 
-# &#x20;Execute
+For every business transaction Parmana provides:
 
-# &#x20;       │
 
-# &#x20;       ▼
 
-# Decision
+\* Human Authority
 
-# &#x20;       │
+\* Policy Enforcement
 
-# &#x20;       ▼
+\* Decision Evaluation
 
-# Execution
+\* Signed Execution Authorization
 
-# &#x20;       │
+\* Envelope Verification
 
-# &#x20;       ▼
+\* Execution Verification
 
-# Execution Trust Record
+\* Cryptographic Integrity
 
-# &#x20;       │
+\* Immutable Evidence
 
-# &#x20;       ▼
+\* Signed Receipts
 
-# Verification
+\* Deterministic Replay
 
-# &#x20;       │
 
-# &#x20;       ▼
 
-# Receipt
+\---
 
-# &#x20;       │
 
-# &#x20;       ▼
 
-# Replay
+\# Execution Trust Lifecycle
 
-# ```
 
-# 
 
-# Every stage becomes part of the permanent Execution Trust Record.
+```
 
-# 
+Business Transaction
 
-# \---
+&#x20;       │
 
-# 
+&#x20;       ▼
 
-# \# Core Components
+Policy Evaluation
 
-# 
+&#x20;       │
 
-# \## Runtime
+&#x20;       ▼
 
-# 
+Decision
 
-# Executes authorized Business Transactions.
+&#x20;       │
 
-# 
+&#x20;       ▼
 
-# \## Policy Engine
+Signed Execution Authorization
 
-# 
+&#x20;       │
 
-# Evaluates execution against organizational policies.
+&#x20;       ▼
 
-# 
+Execution
 
-# \## Authority Framework
+&#x20;       │
 
-# 
+&#x20;       ▼
 
-# Represents human authority responsible for execution.
+Execution Trust Record
 
-# 
+&#x20;       │
 
-# \## Authorization Engine
+&#x20;       ▼
 
-# 
+Verification
 
-# Ensures only approved actions are executed.
+&#x20;       │
 
-# 
+&#x20;       ▼
 
-# \## Verification Engine
+Receipt
 
-# 
+&#x20;       │
 
-# Verifies cryptographic integrity of every Execution Trust Record.
+&#x20;       ▼
 
-# 
+Replay
 
-# \## Receipt Engine
+```
 
-# 
 
-# Produces signed immutable Execution Trust Receipts.
 
-# 
+Every stage becomes part of the permanent Execution Trust Record.
 
-# \## Replay Engine
 
-# 
 
-# Deterministically reconstructs and verifies previous executions.
+\---
 
-# 
 
-# \## Storage Layer
 
-# 
+\# Core Components
 
-# Persists immutable execution evidence.
 
-# 
 
-# \---
+\## Runtime
 
-# 
 
-# \# Execution Trust Record
 
-# 
+Executes authorized Business Transactions.
 
-# The Execution Trust Record is Parmana's canonical evidence object.
 
-# 
 
-# It contains:
+\---
 
-# 
 
-# \- Business Transaction
 
-# \- Decision
+\## Policy Engine
 
-# \- Execution
 
-# \- Overrides
 
-# \- Verifications
+Evaluates business transactions against organizational policies.
 
-# \- Receipts
 
-# \- Trust Record Hash
 
-# \- Digital Signature
+\---
 
-# 
 
-# Execution Trust Records are immutable and cryptographically verifiable.
 
-# 
+\## Authority Framework
 
-# \---
 
-# 
 
-# \# Cryptography
+Represents the human authority responsible for execution.
 
-# 
 
-# Parmana uses deterministic cryptographic primitives to provide execution integrity.
 
-# 
+\---
 
-# Current implementation:
 
-# 
 
-# \- SHA-256 hashing
+\## Execution Authorization
 
-# \- Canonical serialization
 
-# \- Ed25519 digital signatures
 
-# 
+Produces cryptographically signed Execution Authorization envelopes for approved decisions.
 
-# Future support includes:
 
-# 
 
-# \- Post-Quantum Cryptography
+Every authorization includes:
 
-# \- Hardware Security Modules (HSM)
 
-# \- Cloud Key Management Systems
 
-# \- Enterprise Key Rotation
+\* Authorization ID
 
-# 
+\* Decision ID
 
-# \---
+\* Business Transaction ID
 
-# 
+\* Policy Reference
 
-# \# REST API
+\* Authorization Timestamp
 
-# 
+\* Expiration
 
-# Current endpoints:
+\* Nonce
 
-# 
+\* Digital Signature
 
-# ```
 
-# POST /execute
 
-# 
+\---
 
-# POST /verify
 
-# 
 
-# POST /receipt
+\## Envelope Verification
 
-# 
 
-# POST /replay
 
-# ```
+Verifies Execution Authorization before execution.
 
-# 
 
-# \---
 
-# 
+Verification includes:
 
-# \# Example Workflow
 
-# 
 
-# ```
+\* Signature verification
 
-# POST /execute
+\* Expiration validation
 
-# &#x20;       │
+\* TTL validation
 
-# &#x20;       ▼
+\* Replay protection
 
-# Execution Trust Record Created
+\* Nonce verification
 
-# &#x20;       │
 
-# &#x20;       ▼
 
-# POST /verify
+\---
 
-# &#x20;       │
 
-# &#x20;       ▼
 
-# Verification Stored
+\## Verification Engine
 
-# &#x20;       │
 
-# &#x20;       ▼
 
-# POST /receipt
+Verifies cryptographic integrity of Execution Trust Records.
 
-# &#x20;       │
 
-# &#x20;       ▼
 
-# Signed Receipt Generated
+\---
 
-# &#x20;       │
 
-# &#x20;       ▼
 
-# POST /replay
+\## Receipt Engine
 
-# &#x20;       │
 
-# &#x20;       ▼
 
-# Execution Deterministically Verified
+Produces signed immutable Execution Trust Receipts.
 
-# ```
 
-# 
 
-# \---
+\---
 
-# 
 
-# \# Architecture
 
-# 
+\## Replay Engine
 
-# ```
 
-# API
 
-# &#x20;│
+Deterministically reconstructs and verifies previous executions.
 
-# &#x20;▼
 
-# Execution Trust Application
 
-# &#x20;│
+\---
 
-# &#x20;▼
 
-# Runtime
 
-# &#x20;│
+\## Storage Layer
 
-# &#x20;▼
 
-# Repository Layer
 
-# &#x20;│
+Persists immutable execution evidence.
 
-# &#x20;▼
 
-# Storage
 
-# &#x20;│
+\---
 
-# &#x20;▼
 
-# Cryptography
 
-# ```
+\# Execution Trust Record
 
-# 
 
-# The architecture follows strict separation of concerns.
 
-# 
+The Execution Trust Record is Parmana's canonical evidence object.
 
-# \---
 
-# 
 
-# \# Current Capabilities
+It contains:
 
-# 
 
-# ✅ Business Transaction execution
 
-# 
+\* Business Transaction
 
-# ✅ Policy evaluation
+\* Decision
 
-# 
+\* Execution Authorization
 
-# ✅ Execution Trust Record creation
+\* Execution
 
-# 
+\* Overrides
 
-# ✅ Immutable persistence
+\* Verifications
 
-# 
+\* Receipts
 
-# ✅ Cryptographic hashing
+\* Trust Record Hash
 
-# 
+\* Digital Signature
 
-# ✅ Digital signatures
 
-# 
 
-# ✅ Verification
+Execution Trust Records are immutable, cryptographically verifiable, and independently auditable.
 
-# 
 
-# ✅ Receipt generation
 
-# 
+\---
 
-# ✅ Deterministic replay
 
-# 
 
-# ✅ REST API
+\# Cryptography
 
-# 
 
-# ✅ Integration testing
 
-# 
+Parmana uses deterministic cryptographic primitives to provide execution integrity.
 
-# \---
 
-# 
 
-# \# Technology Stack
+Current implementation:
 
-# 
 
-# \- TypeScript
 
-# \- Node.js
+\* Canonical Serialization
 
-# \- Express
+\* SHA-256 Hashing
 
-# \- Vitest
+\* Ed25519 Digital Signatures
 
-# \- Supabase
+\* Signed Execution Authorization
 
-# \- SHA-256
+\* Envelope Verification
 
-# \- Ed25519
 
-# 
 
-# \---
+Supported signature algorithms:
 
-# 
 
-# \# Repository Structure
 
-# 
+\* Ed25519
 
-# ```
+\* Dilithium3 (Post-Quantum)
 
-# packages/
 
-# 
 
-# api/
+Future support includes:
 
-# runtime/
 
-# storage/
 
-# crypto/
+\* Hardware Security Modules (HSM)
 
-# shared/
+\* Cloud Key Management Systems
 
-# sdk/
+\* Enterprise Key Rotation
 
-# ```
 
-# 
 
-# \---
+\---
 
-# 
 
-# \# Development
 
-# 
+\# REST API
 
-# Install dependencies
 
-# 
 
-# ```bash
+Current endpoints:
 
-# npm install
 
-# ```
 
-# 
+```
 
-# Build
+POST /execute
 
-# 
 
-# ```bash
 
-# npm run build
+POST /verify
 
-# ```
 
-# 
 
-# Run tests
+POST /receipt
 
-# 
 
-# ```bash
 
-# npm test
+POST /replay
 
-# ```
+```
 
-# 
 
-# Run API
 
-# 
+\---
 
-# ```bash
 
-# npm run dev
 
-# ```
+\# Example Workflow
 
-# 
 
-# \---
 
-# 
+```
 
-# \# Platform Status
+POST /execute
 
-# 
+&#x20;       │
 
-# | Component | Status |
+&#x20;       ▼
 
-# |-----------|--------|
+Policy Evaluation
 
-# | Runtime | ✅ Complete |
+&#x20;       │
 
-# | Execution Trust Record | ✅ Complete |
+&#x20;       ▼
 
-# | Verification | ✅ Complete |
+Decision
 
-# | Receipt Generation | ✅ Complete |
+&#x20;       │
 
-# | Replay | ✅ Complete |
+&#x20;       ▼
 
-# | Cryptography | ✅ Complete |
+Execution Authorization Generated
 
-# | Persistence | ✅ Complete |
+&#x20;       │
 
-# | REST API | ✅ Complete |
+&#x20;       ▼
 
-# | Integration Tests | ✅ Complete |
+Execution Trust Record Created
 
-# 
+&#x20;       │
 
-# \---
+&#x20;       ▼
 
-# 
+POST /verify
 
-# \# Roadmap
+&#x20;       │
 
-# 
+&#x20;       ▼
 
-# Next major capabilities include:
+Verification Stored
 
-# 
+&#x20;       │
 
-# \- Policy Management
+&#x20;       ▼
 
-# \- Authority Management
+POST /receipt
 
-# \- Authorization Rules
+&#x20;       │
 
-# \- Trust Record Query API
+&#x20;       ▼
 
-# \- SDK Enhancements
+Signed Receipt Generated
 
-# \- Monitoring \& Metrics
+&#x20;       │
 
-# \- Enterprise Authentication
+&#x20;       ▼
 
-# \- Key Management
+POST /replay
 
-# \- Distributed Replay
+&#x20;       │
 
-# \- Production Hardening
+&#x20;       ▼
 
-# 
+Execution Deterministically Verified
 
-# \---
+```
 
-# 
 
-# \# Philosophy
 
-# 
+\---
 
-# Traditional AI systems ask:
 
-# 
 
-# > \*"Can the AI perform this action?"\*
+\# Architecture
 
-# 
 
-# Parmana asks:
 
-# 
+```
 
-# > \*"Can this action be trusted?"\*
+&#x20;                API
 
-# 
+&#x20;                 │
 
-# Execution Trust is the missing infrastructure required for enterprise AI.
+&#x20;                 ▼
 
-# 
+&#x20;   Execution Trust Application
 
-# \---
+&#x20;                 │
 
-# 
+&#x20;                 ▼
 
-# \# License
+&#x20;             Runtime
 
-# 
+&#x20;                 │
 
-# Copyright © Parmana.
+&#x20;                 ▼
 
-# 
+&#x20;        Policy Evaluation
 
-# All rights reserved.
+&#x20;                 │
+
+&#x20;                 ▼
+
+&#x20;              Decision
+
+&#x20;                 │
+
+&#x20;                 ▼
+
+&#x20;    Execution Authorization
+
+&#x20;                 │
+
+&#x20;                 ▼
+
+&#x20;        Execution System
+
+&#x20;                 │
+
+&#x20;                 ▼
+
+&#x20;     Execution Trust Record
+
+&#x20;                 │
+
+&#x20;                 ▼
+
+&#x20;Repository Layer / Storage Layer
+
+&#x20;                 │
+
+&#x20;                 ▼
+
+&#x20;         Cryptographic Layer
+
+```
+
+
+
+Parmana follows a strict separation of concerns where each layer has a single responsibility.
+
+
+
+\---
+
+
+
+\# Tutorials
+
+
+
+```
+
+01 Hello World
+
+
+
+02 Policy Evaluation
+
+
+
+03 Runtime Execution
+
+
+
+04 Policy Router
+
+
+
+05 Verification
+
+
+
+06 Replay
+
+
+
+07 Receipt Generation
+
+
+
+08 Human Approval
+
+
+
+09 REST API
+
+
+
+10 End-to-End
+
+
+
+11 Execution Authorization
+
+
+
+12 Envelope Verification
+
+
+
+13 Post-Quantum Signatures
+
+```
+
+
+
+Run all tutorials:
+
+
+
+```bash
+
+npm run examples
+
+```
+
+
+
+\---
+
+
+
+\# Current Capabilities
+
+
+
+\* ✅ Business Transaction execution
+
+\* ✅ Policy evaluation
+
+\* ✅ Decision generation
+
+\* ✅ Signed Execution Authorization
+
+\* ✅ Envelope Verification
+
+\* ✅ Execution Trust Record creation
+
+\* ✅ Immutable persistence
+
+\* ✅ Cryptographic hashing
+
+\* ✅ Ed25519 signatures
+
+\* ✅ Dilithium3 support
+
+\* ✅ Verification
+
+\* ✅ Receipt generation
+
+\* ✅ Deterministic replay
+
+\* ✅ REST API
+
+\* ✅ Integration testing
+
+
+
+\---
+
+
+
+\# Technology Stack
+
+
+
+\* TypeScript
+
+\* Node.js
+
+\* Express
+
+\* Vitest
+
+\* Supabase
+
+\* SHA-256
+
+\* Ed25519
+
+\* Dilithium3 (Post-Quantum)
+
+
+
+\---
+
+
+
+\# Repository Structure
+
+
+
+```
+
+packages/
+
+
+
+api/
+
+crypto/
+
+envelope-verifier/
+
+execution-system/
+
+policy/
+
+receipt/
+
+replay/
+
+runtime/
+
+shared/
+
+storage/
+
+verification/
+
+
+
+examples/
+
+docs/
+
+policies/
+
+scripts/
+
+```
+
+
+
+\---
+
+
+
+\# Development
+
+
+
+Install dependencies
+
+
+
+```bash
+
+npm install
+
+```
+
+
+
+Build
+
+
+
+```bash
+
+npm run build
+
+```
+
+
+
+Run all tests
+
+
+
+```bash
+
+npm test
+
+```
+
+
+
+Run the REST API
+
+
+
+```bash
+
+npm run dev
+
+```
+
+
+
+Run all examples
+
+
+
+```bash
+
+npm run examples
+
+```
+
+
+
+Run a specific tutorial
+
+
+
+```bash
+
+npx tsx examples/tutorials/11-execution-authorization/run.ts
+
+```
+
+
+
+\---
+
+
+
+\# Platform Status
+
+
+
+| Component               | Status     |
+
+| ----------------------- | ---------- |
+
+| Runtime                 | ✅ Complete |
+
+| Policy Engine           | ✅ Complete |
+
+| Execution Authorization | ✅ Complete |
+
+| Envelope Verification   | ✅ Complete |
+
+| Execution Trust Record  | ✅ Complete |
+
+| Verification            | ✅ Complete |
+
+| Receipt Generation      | ✅ Complete |
+
+| Replay                  | ✅ Complete |
+
+| Cryptography            | ✅ Complete |
+
+| Storage                 | ✅ Complete |
+
+| REST API                | ✅ Complete |
+
+| Integration Tests       | ✅ Complete |
+
+| Tutorials               | ✅ Complete |
+
+
+
+\---
+
+
+
+\# Roadmap
+
+
+
+Next major capabilities include:
+
+
+
+\* Policy Management
+
+\* Authority Management
+
+\* Trust Record Query API
+
+\* Enterprise SDKs
+
+\* Monitoring \& Metrics
+
+\* Enterprise Authentication
+
+\* Hardware Security Modules
+
+\* Cloud Key Management
+
+\* Distributed Replay
+
+\* Production Hardening
+
+
+
+\---
+
+
+
+\# Philosophy
+
+
+
+Traditional AI systems ask:
+
+
+
+> \*\*Can the AI perform this action?\*\*
+
+
+
+Parmana asks:
+
+
+
+> \*\*Can this action be trusted?\*\*
+
+
+
+Parmana introduces an execution authorization layer between AI decision-making and enterprise execution, ensuring every high-impact action is authorized, verifiable, and replayable before it reaches production systems.
+
+
+
+Execution Trust is the missing infrastructure required for Enterprise AI.
+
+
+
+\---
+
+
+
+\# License
+
+
+
+Copyright © Parmana.
+
+
+
+All rights reserved.
+
+
 
