@@ -7,9 +7,9 @@ import {
   Override,
   Receipt,
   SignedExecutionAuthorization,
+  SignedExecutionPermit,
   Verification,
 } from "@parmana/shared";
-
 /**
  * Canonical Runtime Context.
  *
@@ -38,6 +38,16 @@ export interface RuntimeContext {
    * ExecutionGate has approved the Decision.
    */
   readonly authorization?: SignedExecutionAuthorization;
+  /**
+   * Signed Execution Permit.
+   *
+   * Cryptographically binds the approved
+   * Business Transaction to execution.
+   *
+   * Enterprise execution systems verify this
+   * permit before allowing execution.
+   */
+  readonly permit?: SignedExecutionPermit;
 
   /**
    * Execution artifact.

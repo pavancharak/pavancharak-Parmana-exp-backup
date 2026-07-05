@@ -44,9 +44,15 @@ export class AuthorizationSigner {
     keyId: string,
     ttlSeconds: number,
   ): Promise<SignedExecutionAuthorization> {
-    if (ttlSeconds <= 0) {
+    //
+    // Validate TTL before computing expiry.
+    //
+    if (
+      !Number.isFinite(ttlSeconds) ||
+      ttlSeconds <= 0
+    ) {
       throw new Error(
-        "Authorization TTL must be positive.",
+        `Invalid authorization TTL: ${ttlSeconds}`,
       );
     }
 
@@ -58,26 +64,37 @@ export class AuthorizationSigner {
 
     const payload: ExecutionAuthorizationPayload = {
       authorizationId: randomUUID(),
+
       nonce: randomUUID(),
+
       decisionId: input.decisionId,
+
       businessTransactionId:
         input.businessTransactionId,
+
       policyName: input.policyName,
+
       policyVersion: input.policyVersion,
-      authorizedAt: issuedAt.toISOString(),
-      expiresAt: expiresAt.toISOString(),
+
+      authorizedAt:
+        issuedAt.toISOString(),
+
+      expiresAt:
+        expiresAt.toISOString(),
     };
 
-    const signature = await this.signer.sign(
-      payload,
-      privateKey,
-    );
+    const signature =
+      await this.signer.sign(
+        payload,
+        privateKey,
+      );
 
     return {
       payload,
       signature,
       keyId,
-      algorithm: this.crypto.signature.algorithm,
+      algorithm:
+        this.crypto.signature.algorithm,
     };
   }
 }

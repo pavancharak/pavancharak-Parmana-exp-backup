@@ -16,3 +16,4 @@ export type { ExecutionTransaction } from "./types/ExecutionTransaction.js";
 export type { Metadata } from "./types/Metadata.js";
 
 export { normalizePolicy } from "./utils/normalize-policy.js";
+export * from "./domain/execution-permit.js";

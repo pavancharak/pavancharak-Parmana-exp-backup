@@ -1,3 +1,4 @@
+import { RuntimeExecutionPermitService } from "./RuntimeExecutionPermitService.js";
 import {
   ExecutionTrustRecordRepository,
   loadConfig,
@@ -118,6 +119,8 @@ const router =
     //
     const authorizationSigner =
       new RuntimeAuthorizationSigner();
+const executionPermitService =
+  new RuntimeExecutionPermitService();
 
     const { ttlSeconds: authorizationTtlSeconds } =
       loadConfig().authorization;
@@ -135,6 +138,7 @@ const router =
     new ExecutionBuilder(),
     trustPipeline,
     authorizationSigner,
+    executionPermitService,
     authorizationTtlSeconds,
   );
 

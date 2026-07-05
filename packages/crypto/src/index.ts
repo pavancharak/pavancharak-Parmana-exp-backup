@@ -48,7 +48,7 @@ export * from "./KeyProvider.js";
 // -----------------------------------------------------------------------------
 
 export * from "./providers/CryptoProvider.js";
-export * from "./providers/HashProvider.js";
+
 export * from "./providers/SignatureProvider.js";
 export * from "./providers/ProviderFactory.js";
 
@@ -66,3 +66,5 @@ export * from "./CryptoBootstrap.js";
 export * from "./KeyPair.js";
 export * from "./KeyStore.js";
 export * from "./providers/key/FileKeyProvider.js";
+export * from "./ExecutionPermitSigner.js";
+ 

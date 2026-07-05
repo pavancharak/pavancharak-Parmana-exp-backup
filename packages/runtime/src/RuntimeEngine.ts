@@ -1,4 +1,4 @@
-
+import { RuntimeExecutionPermitService } from "./RuntimeExecutionPermitService.js";
 import { DecisionBuilder } from "./DecisionBuilder.js";
 import { ExecutionBuilder } from "./ExecutionBuilder.js";
 import { ExecutionGate } from "./ExecutionGate.js";
@@ -40,8 +40,9 @@ export class RuntimeEngine {
   private readonly executionGate: ExecutionGate,
   private readonly executionBuilder: ExecutionBuilder,
   private readonly trustPipeline: ExecutionTrustPipeline,
-  private readonly authorizationSigner: RuntimeAuthorizationSigner,
-  private readonly authorizationTtlSeconds: number,
+private readonly authorizationSigner: RuntimeAuthorizationSigner,
+private readonly executionPermitService: RuntimeExecutionPermitService,
+private readonly authorizationTtlSeconds: number,
 ) {
     if (!pipeline) {
       throw new Error("RuntimePipeline is required.");
@@ -59,9 +60,11 @@ export class RuntimeEngine {
       throw new Error("ExecutionTrustPipeline is required.");
     }
 
-    if (!authorizationSigner) {
-      throw new Error("RuntimeAuthorizationSigner is required.");
-    }
+    if (!executionPermitService) {
+  throw new Error(
+    "RuntimeExecutionPermitService is required.",
+  );
+}
   }
 
   public async execute(
@@ -127,6 +130,11 @@ const authorization =
     },
     this.authorizationTtlSeconds,
   );
+const permit =
+  await this.executionPermitService.create(
+    transaction,
+    authorization,
+  );
 
 const execution =
   this.executionBuilder.build(
@@ -138,16 +146,17 @@ const execution =
     // Canonical Runtime Context.
     //
     const context: RuntimeContext = {
-      transaction: {
-        ...transaction,
-        status:
-          transaction.status ??
-          BusinessTransactionStatus.RECEIVED,
-      },
-      decision,
-      authorization,
-      execution,
-    };
+  transaction: {
+    ...transaction,
+    status:
+      transaction.status ??
+      BusinessTransactionStatus.RECEIVED,
+  },
+  decision,
+  authorization,
+  permit,
+  execution,
+};
 
     //
     // Execute runtime pipeline.
