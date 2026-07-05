@@ -3,7 +3,6 @@
   "references": [
   { "path": "./packages/shared" },
   { "path": "./packages/runtime" },
-  { "path": "./packages/verification" },
   { "path": "./packages/crypto" },
   { "path": "./packages/storage" },
   { "path": "./packages/replay" },
