@@ -88,6 +88,35 @@ function buildRequest(
 }
 
 describe("ExecutionGateway", () => {
+it("requires either connector or executionControl", () => {
+  const { publicKey } = generateKeyPair();
+
+  expect(() =>
+    new ExecutionGateway({
+      publicKey,
+      nonceStore: new MemoryNonceStore(),
+    }),
+  ).toThrow(
+    "ExecutionGateway requires a connector or executionControl.",
+  );
+});
+
+it("rejects connector and executionControl together", () => {
+  const { publicKey } = generateKeyPair();
+
+  expect(() =>
+    new ExecutionGateway({
+      publicKey,
+      nonceStore: new MemoryNonceStore(),
+      connector: new RecordingConnector(),
+      executionControl: {
+        route: () => "stripe",
+      },
+    }),
+  ).toThrow(
+    "ExecutionGateway accepts connector or executionControl, not both.",
+  );
+});
   it("releases a valid request to the connector", async () => {
     const { privateKey, publicKey } = generateKeyPair();
     const authorization = await signAuthorization(privateKey);

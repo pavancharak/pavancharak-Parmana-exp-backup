@@ -8,6 +8,7 @@
   { "path": "./packages/replay" },
   { "path": "./packages/envelope-verifier" },
   { "path": "./packages/execution-system" },
+  { "path": "./packages/execution-control" },
   { "path": "./packages/execution-gateway" }
 ],
   "compilerOptions": {

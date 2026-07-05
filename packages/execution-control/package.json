@@ -1,7 +1,7 @@
 {
-  "name": "@parmana/execution-gateway",
+  "name": "@parmana/execution-control",
   "version": "0.1.0",
-  "description": "The sole boundary through which Parmana releases approved execution requests to connectors, binding each release to the exact authorized content",
+  "description": "Credential-isolating, single-use execution release for Parmana connectors",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,27 +11,20 @@
       "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
-    "@parmana/shared": "0.1.0",
     "@parmana/crypto": "0.1.0",
-    "@parmana/envelope-verifier": "0.1.0",
-    "@parmana/execution-control": "0.1.0",
-    "@parmana/execution-system": "0.1.0"
+    "@parmana/shared": "0.1.0"
   },
   "devDependencies": {
     "typescript": "^5.9.0",
     "vitest": "^4.1.9"
   },
-  "engines": {
-    "node": ">=22"
-  },
+  "engines": { "node": ">=22" },
   "license": "Apache-2.0"
 }

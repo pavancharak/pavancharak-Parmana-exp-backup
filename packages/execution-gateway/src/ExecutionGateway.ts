@@ -4,6 +4,8 @@ import { CryptoBootstrap, ExecutableContentHasher } from "@parmana/crypto";
 
 import { EnvelopeVerifier, type NonceStore } from "@parmana/envelope-verifier";
 
+import type { ExecutionControl } from "@parmana/execution-control";
+
 import type {
   ExecutionRequest,
   ExecutionSystem,
@@ -21,8 +23,14 @@ import type { GatewayVerificationResult } from "./GatewayVerificationResult.js";
 import type { ExecutionChannel, GatewayIdentityProvider } from "./execution-control/types.js";
 
 export interface ExecutionControlOptions {
-  readonly channel: ExecutionChannel;
-  readonly gatewayIdentity: GatewayIdentityProvider;
+  /** New package-level control service. */
+  readonly service?: ExecutionControl;
+  readonly gatewayAuthentication?: unknown;
+
+  /** @deprecated Embedded prototype retained for backward compatibility. */
+  readonly channel?: ExecutionChannel;
+  /** @deprecated Use gatewayAuthentication with service. */
+  readonly gatewayIdentity?: GatewayIdentityProvider;
 
   /** Deterministic deployment routing. It must not inspect credentials. */
   readonly route: (content: Readonly<ExecutableContent>) => string;
@@ -206,6 +214,23 @@ export class ExecutionGateway implements ExecutionSystem {
     const transaction = deepFreeze(executableContent);
 
     if (this.executionControl !== undefined) {
+      if (this.executionControl.service !== undefined) {
+        return this.executionControl.service.execute({
+          connectorName: this.executionControl.route(transaction),
+          authorization: request.authorization,
+          executableContent: transaction,
+          verifiedTransaction: {
+            authorizationVerified: true,
+            executableContentVerified: true,
+            replayCheckPassed: true,
+          },
+          executionTimestamp: new Date().toISOString(),
+        }, this.executionControl.gatewayAuthentication);
+      }
+      if (this.executionControl.channel === undefined ||
+        this.executionControl.gatewayIdentity === undefined) {
+        throw new Error("Execution Gateway executionControl is incomplete.");
+      }
       return this.executionControl.channel.release({
         executionId: request.authorization.payload.authorizationId,
         connectorId: this.executionControl.route(transaction),

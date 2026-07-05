@@ -3,21 +3,15 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-
     "composite": true,
-
     "declaration": true,
     "declarationMap": true,
-
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules", "test"],
   "references": [
     { "path": "../shared" },
-    { "path": "../crypto" },
-    { "path": "../envelope-verifier" },
-    { "path": "../execution-control" },
-    { "path": "../execution-system" }
+    { "path": "../crypto" }
   ]
 }
