@@ -1,0 +1,24 @@
+/**
+ * @parmana/execution-gateway
+ *
+ * Canonical public API.
+ *
+ * The Execution Gateway is the sole boundary through which
+ * Parmana releases approved execution requests to Connectors,
+ * within Parmana-mediated execution for systems integrated
+ * behind it (see docs/CLAIMS.md for the exact scope of this
+ * claim). It is a new execution boundary built around the
+ * existing @parmana/envelope-verifier machinery — it does not
+ * modify RuntimeEngine, RuntimePipeline, or any other core
+ * decision-flow component. It plugs into the existing
+ * ExecutionSystem seam (see @parmana/execution-system) exactly
+ * like any other ExecutionSystem implementation.
+ */
+
+export * from "./GatewayVerificationResult.js";
+export * from "./ConnectorRequest.js";
+export * from "./Connector.js";
+export * from "./ExecutionGateway.js";
+export * from "./HttpConnector.js";
+export * from "./deepFreeze.js";
+export * from "./execution-control/index.js";

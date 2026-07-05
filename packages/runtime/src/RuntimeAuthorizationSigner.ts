@@ -6,6 +6,7 @@ import {
 } from "@parmana/crypto";
 
 import type {
+  ExecutableContent,
   SignedExecutionAuthorization,
 } from "@parmana/shared";
 
@@ -38,6 +39,7 @@ export class RuntimeAuthorizationSigner {
       readonly businessTransactionId: string;
       readonly policyName: string;
       readonly policyVersion: string;
+      readonly executableContent: ExecutableContent;
     },
     ttlSeconds: number,
   ): Promise<SignedExecutionAuthorization> {

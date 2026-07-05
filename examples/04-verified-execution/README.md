@@ -13,9 +13,10 @@ database at all**, using only:
 
 It demonstrates two roles, in a single script:
 
-- **PARMANA SIDE** — configures the Runtime, submits an approved
-  `BusinessTransaction`, and shows the `SignedExecutionAuthorization`
-  attached to the outgoing execution request.
+- **PARMANA SIDE** — configures the Runtime behind an `ExecutionGateway`
+  (`@parmana/execution-gateway`), submits an approved `BusinessTransaction`,
+  and shows the `SignedExecutionAuthorization` and the Gateway's own
+  verification result for the outgoing request.
 - **RECEIVING SIDE** — an independent Express server using
   `requireParmanaAuthorization` (from `@parmana/envelope-verifier/express`)
   with a `MemoryNonceStore`, demonstrating four outcomes:
@@ -24,6 +25,11 @@ It demonstrates two roles, in a single script:
   3. Tampered payload (changed `decisionId`) → rejected (`403`,
      `signatureVerified: false`)
   4. Missing authorization → rejected (`401`)
+- **PARMANA SIDE, again** — a fifth scenario that attacks the Gateway
+  itself rather than the receiving side: a validly-signed envelope for the
+  right `businessTransactionId`, paired with a payload whose `amount` was
+  changed after the fact. The Gateway's content-hash check rejects it
+  before it is ever handed to a Connector.
 
 Both roles run in the same process for convenience, but nothing about the
 receiving side depends on that — it is a plain HTTP server that only ever
@@ -35,11 +41,18 @@ sees JSON over the wire and Parmana's public key.
 
 Parmana forwards every approved execution request to a pluggable
 `ExecutionSystem` (`@parmana/execution-system`). This example wires
-`RuntimeFactory.create(...)` with a small `RecordingHttpExecutionSystem`
-(the same request-forwarding contract as the package's own
-`HttpExecutionSystem`, plus recording for this example's console output) so
-you can see exactly what left Parmana's process and exactly what the
-receiving side saw.
+`RuntimeFactory.create(...)` with an `ExecutionGateway`
+(`@parmana/execution-gateway`) — the sole boundary through which Parmana
+releases a request to a Connector. The Gateway composes
+`@parmana/envelope-verifier` and adds one more check: it recomputes the
+canonical hash of the exact content it is about to forward (business
+transaction id, action, target, parameters) and compares it to the
+`businessTransactionHash` bound into the signed authorization at signing
+time. Only if every check passes does it call the configured `Connector`
+— here, a small `RecordingHttpConnector` (the same request-forwarding
+contract as the package's reference `HttpConnector`, plus recording for
+this example's console output) — so you can see exactly what left
+Parmana's process and exactly what the receiving side saw.
 
 ---
 
@@ -107,16 +120,23 @@ The script prints, in order:
 
 1. The submitted Business Transaction.
 2. Confirmation that the Runtime executed (policy evaluation, authorization
-   signing, forwarding to the receiving side, verification, receipt
-   generation).
-3. The full `SignedExecutionAuthorization` that left Parmana's process.
-4. The resulting `ExecutionTrustRecord`.
-5. Scenario 1 (valid envelope) — the real HTTP response from the receiving
+   signing, Gateway verification, forwarding to the receiving side,
+   Trust Record verification, receipt generation).
+3. The full `SignedExecutionAuthorization` that left Parmana's process,
+   including its `businessTransactionHash`.
+4. The Gateway's own verification result for that request (all checks
+   `true`).
+5. The resulting `ExecutionTrustRecord`.
+6. Scenario 1 (valid envelope) — the real HTTP response from the receiving
    side, `200` with `checks.nonceUnseen: true`.
-6. Scenario 2 (replay) — `403`, `checks.nonceUnseen: false`.
-7. Scenario 3 (tampered payload) — `403`, `checks.signatureVerified: false`.
-8. Scenario 4 (missing authorization) — `401`.
-9. A one-line summary of all four outcomes.
+7. Scenario 2 (replay) — `403`, `checks.nonceUnseen: false`.
+8. Scenario 3 (tampered payload) — `403`, `checks.signatureVerified: false`.
+9. Scenario 4 (missing authorization) — `401`.
+10. Scenario 5 (authorized envelope + modified payload) — the Gateway's
+    own verification result, `valid: false`,
+    `checks.businessTransactionHashMatches: false`, with a `hashMismatch`
+    naming both the expected and actual hash. Never reaches the Connector.
+11. A one-line summary of all five outcomes.
 
 ## What this does *not* prove
 

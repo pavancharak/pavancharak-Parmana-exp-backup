@@ -2,11 +2,13 @@ import { randomUUID } from "node:crypto";
 import type { KeyObject } from "node:crypto";
 
 import type {
+  ExecutableContent,
   ExecutionAuthorizationPayload,
   SignedExecutionAuthorization,
 } from "@parmana/shared";
 
 import { ArtifactSigner } from "./ArtifactSigner.js";
+import { ExecutableContentHasher } from "./ExecutableContentHasher.js";
 
 import type { CryptoProvider } from "./providers/CryptoProvider.js";
 
@@ -15,15 +17,19 @@ import type { CryptoProvider } from "./providers/CryptoProvider.js";
  *
  * Produces a SignedExecutionAuthorization for an
  * approved decision. Delegates all cryptography to
- * ArtifactSigner over the CanonicalSerializer.
+ * ArtifactSigner over the CanonicalSerializer, and
+ * content hashing to ExecutableContentHasher (the
+ * same hasher the execution gateway uses to verify).
  */
 export class AuthorizationSigner {
   private readonly signer: ArtifactSigner;
+  private readonly contentHasher: ExecutableContentHasher;
 
   constructor(
     private readonly crypto: CryptoProvider,
   ) {
     this.signer = new ArtifactSigner(crypto);
+    this.contentHasher = new ExecutableContentHasher(crypto);
   }
 
   /**
@@ -39,6 +45,7 @@ export class AuthorizationSigner {
       readonly businessTransactionId: string;
       readonly policyName: string;
       readonly policyVersion: string;
+      readonly executableContent: ExecutableContent;
     },
     privateKey: KeyObject,
     keyId: string,
@@ -62,7 +69,14 @@ export class AuthorizationSigner {
       issuedAt.getTime() + ttlSeconds * 1000,
     );
 
+    const businessTransactionHash =
+      await this.contentHasher.hash(
+        input.executableContent,
+      );
+
     const payload: ExecutionAuthorizationPayload = {
+      version: 1,
+
       authorizationId: randomUUID(),
 
       nonce: randomUUID(),
@@ -81,6 +95,8 @@ export class AuthorizationSigner {
 
       expiresAt:
         expiresAt.toISOString(),
+
+      businessTransactionHash,
     };
 
     const signature =

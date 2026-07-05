@@ -9,15 +9,28 @@ import { SignatureVerifier } from "./SignatureVerifier.js";
 import type { CryptoProvider } from "./providers/CryptoProvider.js";
 
 /**
+ * Payload format version this verifier accepts.
+ * Fail-closed: any other value (including a
+ * missing field) is rejected before signature
+ * verification is attempted.
+ */
+const SUPPORTED_PAYLOAD_VERSION = 1;
+
+/**
  * Result of verifying a
  * SignedExecutionAuthorization.
  *
- * All checks always run; no early return.
+ * versionSupported is checked first; when it
+ * fails, signatureVerified and notExpired are
+ * reported false without being evaluated, since a
+ * payload of an unrecognized version cannot be
+ * safely interpreted at all.
  */
 export interface AuthorizationVerificationResult {
   readonly valid: boolean;
 
   readonly checks: {
+    readonly versionSupported: boolean;
     readonly signatureVerified: boolean;
     readonly notExpired: boolean;
   };
@@ -46,17 +59,38 @@ export class AuthorizationVerifier {
   }
 
   /**
-   * Verifies signature and expiry.
+   * Verifies payload version, signature, and
+   * expiry.
    *
-   * Both checks always run — no early return
-   * before cryptographic verification, to avoid
-   * a timing oracle on the expiry field.
+   * The version check runs first and fails closed:
+   * an unrecognized version is not signature/secret
+   * dependent, so short-circuiting on it does not
+   * introduce a timing oracle. Once version is
+   * confirmed, signature and expiry both always run
+   * — no early return between them, to avoid a
+   * timing oracle on the expiry field.
    */
   async verify(
     authorization: SignedExecutionAuthorization,
     publicKey: KeyObject,
     now: Date = new Date(),
   ): Promise<AuthorizationVerificationResult> {
+    const versionSupported =
+      authorization.payload.version ===
+      SUPPORTED_PAYLOAD_VERSION;
+
+    if (!versionSupported) {
+      return {
+        valid: false,
+
+        checks: {
+          versionSupported: false,
+          signatureVerified: false,
+          notExpired: false,
+        },
+      };
+    }
+
     const signatureVerified =
       await this.verifier.verify(
         authorization.payload,
@@ -76,6 +110,7 @@ export class AuthorizationVerifier {
       valid: signatureVerified && notExpired,
 
       checks: {
+        versionSupported,
         signatureVerified,
         notExpired,
       },

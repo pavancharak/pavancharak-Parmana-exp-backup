@@ -6,7 +6,9 @@
   { "path": "./packages/crypto" },
   { "path": "./packages/storage" },
   { "path": "./packages/replay" },
-  { "path": "./packages/envelope-verifier" }
+  { "path": "./packages/envelope-verifier" },
+  { "path": "./packages/execution-system" },
+  { "path": "./packages/execution-gateway" }
 ],
   "compilerOptions": {
     "target": "ES2022",

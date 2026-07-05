@@ -7,7 +7,10 @@ import {
   CryptoBootstrap,
 } from "@parmana/crypto";
 
-import type { SignedExecutionAuthorization } from "@parmana/shared";
+import type {
+  ExecutableContent,
+  SignedExecutionAuthorization,
+} from "@parmana/shared";
 
 import { EnvelopeVerifier } from "../src/EnvelopeVerifier.js";
 import { MemoryNonceStore } from "../src/MemoryNonceStore.js";
@@ -18,6 +21,13 @@ const crypto = CryptoBootstrap.create();
 function generateKeyPair() {
   return generateKeyPairSync("ed25519");
 }
+
+const SAMPLE_EXECUTABLE_CONTENT: ExecutableContent = {
+  businessTransactionId: "txn-1",
+  action: "TransferFunds",
+  target: "account/12345",
+  parameters: { amount: 100 },
+};
 
 async function signAuthorization(
   privateKey: ReturnType<typeof generateKeyPair>["privateKey"],
@@ -31,6 +41,7 @@ async function signAuthorization(
       businessTransactionId: "txn-1",
       policyName: "policy-a",
       policyVersion: "1.0.0",
+      executableContent: SAMPLE_EXECUTABLE_CONTENT,
     },
     privateKey,
     "key-1",
@@ -78,6 +89,41 @@ describe("EnvelopeVerifier", () => {
     expect(second.checks.signatureVerified).toBe(true);
     expect(second.checks.notExpired).toBe(true);
     expect(second.checks.ttlWithinPolicy).toBe(true);
+  });
+
+  it("verifyChecks() never consumes the nonce, even on failure", async () => {
+    const { privateKey, publicKey } = generateKeyPair();
+    const signed = await signAuthorization(privateKey);
+
+    const tampered: SignedExecutionAuthorization = {
+      ...signed,
+      payload: {
+        ...signed.payload,
+        decisionId: "decision-2",
+      },
+    };
+
+    const nonceStore = new MemoryNonceStore();
+
+    const verifier = new EnvelopeVerifier({
+      publicKey,
+      nonceStore,
+    });
+
+    // A failing call to verifyChecks() alone (not verify())
+    // must not touch the nonce store at all.
+    const checksResult = await verifier.verifyChecks(tampered);
+
+    expect(checksResult.passed).toBe(false);
+    expect(checksResult.checks.signatureVerified).toBe(false);
+
+    // The original, untampered envelope must still be
+    // accepted afterward — proving the failed verifyChecks()
+    // call left the nonce store untouched.
+    const originalResult = await verifier.verify(signed);
+
+    expect(originalResult.valid).toBe(true);
+    expect(originalResult.checks.nonceUnseen).toBe(true);
   });
 
   it("a forged envelope does not burn the nonce", async () => {

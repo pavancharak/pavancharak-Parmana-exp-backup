@@ -106,6 +106,10 @@ console.log();
 console.log("Authorization Summary");
 
 console.log(
+  `Payload Version  : ${authorization.payload.version}`,
+);
+
+console.log(
   `Authorization ID : ${authorization.payload.authorizationId}`,
 );
 
@@ -139,6 +143,10 @@ console.log(
 
 console.log(
   `Nonce            : ${authorization.payload.nonce}`,
+);
+
+console.log(
+  `Content Hash     : ${authorization.payload.businessTransactionHash}`,
 );
 
 console.log();

@@ -7,7 +7,10 @@ import {
   CryptoBootstrap,
 } from "@parmana/crypto";
 
-import type { SignedExecutionAuthorization } from "@parmana/shared";
+import type {
+  ExecutableContent,
+  SignedExecutionAuthorization,
+} from "@parmana/shared";
 
 import { EnvelopeVerifier } from "../src/EnvelopeVerifier.js";
 import { MemoryNonceStore } from "../src/MemoryNonceStore.js";
@@ -36,6 +39,13 @@ function generateKeyPair() {
   return generateKeyPairSync("ml-dsa-65");
 }
 
+const SAMPLE_EXECUTABLE_CONTENT: ExecutableContent = {
+  businessTransactionId: "txn-1",
+  action: "TransferFunds",
+  target: "account/12345",
+  parameters: { amount: 100 },
+};
+
 async function signAuthorization(
   privateKey: ReturnType<typeof generateKeyPair>["privateKey"],
   ttlSeconds = 60,
@@ -48,6 +58,7 @@ async function signAuthorization(
       businessTransactionId: "txn-1",
       policyName: "policy-a",
       policyVersion: "1.0.0",
+      executableContent: SAMPLE_EXECUTABLE_CONTENT,
     },
     privateKey,
     "key-1",

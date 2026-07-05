@@ -1,4 +1,4 @@
-import { RuntimeExecutionPermitService } from "./RuntimeExecutionPermitService.js";
+
 import { DecisionBuilder } from "./DecisionBuilder.js";
 import { ExecutionBuilder } from "./ExecutionBuilder.js";
 import { ExecutionGate } from "./ExecutionGate.js";
@@ -7,8 +7,10 @@ import { RuntimeAuthorizationSigner } from "./RuntimeAuthorizationSigner.js";
 import {
   BusinessTransaction,
   BusinessTransactionStatus,
+  ExecutableContent,
   ExecutionTrustRecord,
   JsonValue,
+  toExecutableContent,
 } from "@parmana/shared";
 
 import {
@@ -40,9 +42,8 @@ export class RuntimeEngine {
   private readonly executionGate: ExecutionGate,
   private readonly executionBuilder: ExecutionBuilder,
   private readonly trustPipeline: ExecutionTrustPipeline,
-private readonly authorizationSigner: RuntimeAuthorizationSigner,
-private readonly executionPermitService: RuntimeExecutionPermitService,
-private readonly authorizationTtlSeconds: number,
+  private readonly authorizationSigner: RuntimeAuthorizationSigner,
+  private readonly authorizationTtlSeconds: number,
 ) {
     if (!pipeline) {
       throw new Error("RuntimePipeline is required.");
@@ -60,11 +61,9 @@ private readonly authorizationTtlSeconds: number,
       throw new Error("ExecutionTrustPipeline is required.");
     }
 
-    if (!executionPermitService) {
-  throw new Error(
-    "RuntimeExecutionPermitService is required.",
-  );
-}
+    if (!authorizationSigner) {
+      throw new Error("RuntimeAuthorizationSigner is required.");
+    }
   }
 
   public async execute(
@@ -113,6 +112,20 @@ const decision =
 );
 
 //
+// The exact content that will cross the execution
+// boundary, bound into the authorization's
+// businessTransactionHash.
+//
+const executableContent: ExecutableContent =
+  toExecutableContent({
+    businessTransactionId:
+      transaction.businessTransactionId,
+    action: transaction.intent.action,
+    target: transaction.intent.target,
+    parameters: transaction.intent.parameters,
+  });
+
+//
 // Sign the Execution Authorization.
 //
 // Reached only when the Decision is APPROVED —
@@ -127,13 +140,9 @@ const authorization =
         transaction.businessTransactionId,
       policyName: transaction.policy.name,
       policyVersion: transaction.policy.version,
+      executableContent,
     },
     this.authorizationTtlSeconds,
-  );
-const permit =
-  await this.executionPermitService.create(
-    transaction,
-    authorization,
   );
 
 const execution =
@@ -146,17 +155,16 @@ const execution =
     // Canonical Runtime Context.
     //
     const context: RuntimeContext = {
-  transaction: {
-    ...transaction,
-    status:
-      transaction.status ??
-      BusinessTransactionStatus.RECEIVED,
-  },
-  decision,
-  authorization,
-  permit,
-  execution,
-};
+      transaction: {
+        ...transaction,
+        status:
+          transaction.status ??
+          BusinessTransactionStatus.RECEIVED,
+      },
+      decision,
+      authorization,
+      execution,
+    };
 
     //
     // Execute runtime pipeline.

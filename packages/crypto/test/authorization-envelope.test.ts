@@ -10,6 +10,7 @@ import {
 } from "../src/index.js";
 
 import type {
+  ExecutableContent,
   ExecutionAuthorizationPayload,
   SignedExecutionAuthorization,
 } from "@parmana/shared";
@@ -19,6 +20,13 @@ const crypto = CryptoBootstrap.create();
 function generateKeyPair() {
   return generateKeyPairSync("ed25519");
 }
+
+const SAMPLE_EXECUTABLE_CONTENT: ExecutableContent = {
+  businessTransactionId: "txn-1",
+  action: "TransferFunds",
+  target: "account/12345",
+  parameters: { amount: 100 },
+};
 
 describe("Execution Authorization Envelope", () => {
   it("signs and verifies a round-tripped authorization", async () => {
@@ -33,6 +41,7 @@ describe("Execution Authorization Envelope", () => {
         businessTransactionId: "txn-1",
         policyName: "policy-a",
         policyVersion: "1.0.0",
+        executableContent: SAMPLE_EXECUTABLE_CONTENT,
       },
       privateKey,
       "key-1",
@@ -57,6 +66,7 @@ describe("Execution Authorization Envelope", () => {
     const { privateKey } = generateKeyPair();
 
     const payload: ExecutionAuthorizationPayload = {
+      version: 1,
       authorizationId: "auth-fixed",
       nonce: "nonce-fixed",
       decisionId: "decision-fixed",
@@ -65,6 +75,7 @@ describe("Execution Authorization Envelope", () => {
       policyVersion: "1.0.0",
       authorizedAt: "2026-01-01T00:00:00.000Z",
       expiresAt: "2026-01-01T00:01:00.000Z",
+      businessTransactionHash: "hash-fixed",
     };
 
     const artifactSigner = new ArtifactSigner(crypto);
@@ -94,6 +105,7 @@ describe("Execution Authorization Envelope", () => {
         businessTransactionId: "txn-1",
         policyName: "policy-a",
         policyVersion: "1.0.0",
+        executableContent: SAMPLE_EXECUTABLE_CONTENT,
       },
       privateKey,
       "key-1",
@@ -129,6 +141,7 @@ describe("Execution Authorization Envelope", () => {
         businessTransactionId: "txn-1",
         policyName: "policy-a",
         policyVersion: "1.0.0",
+        executableContent: SAMPLE_EXECUTABLE_CONTENT,
       },
       privateKey,
       "key-1",
@@ -169,6 +182,7 @@ describe("Execution Authorization Envelope", () => {
         businessTransactionId: "txn-1",
         policyName: "policy-a",
         policyVersion: "1.0.0",
+        executableContent: SAMPLE_EXECUTABLE_CONTENT,
       },
       privateKey,
       "key-1",
@@ -190,6 +204,44 @@ describe("Execution Authorization Envelope", () => {
     expect(result.checks.notExpired).toBe(false);
   });
 
+  it("rejects an unknown payload version before verifying the signature", async () => {
+    const { privateKey, publicKey } = generateKeyPair();
+
+    const signer = new AuthorizationSigner(crypto);
+    const verifier = new AuthorizationVerifier(crypto);
+
+    const signed = await signer.sign(
+      {
+        decisionId: "decision-1",
+        businessTransactionId: "txn-1",
+        policyName: "policy-a",
+        policyVersion: "1.0.0",
+        executableContent: SAMPLE_EXECUTABLE_CONTENT,
+      },
+      privateKey,
+      "key-1",
+      60,
+    );
+
+    const tampered = {
+      ...signed,
+      payload: {
+        ...signed.payload,
+        version: 2,
+      },
+    } as unknown as SignedExecutionAuthorization;
+
+    const result = await verifier.verify(
+      tampered,
+      publicKey,
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.checks.versionSupported).toBe(false);
+    expect(result.checks.signatureVerified).toBe(false);
+    expect(result.checks.notExpired).toBe(false);
+  });
+
   it("rejects a signature from a different key", async () => {
     const keyPairA = generateKeyPair();
     const keyPairB = generateKeyPair();
@@ -203,6 +255,7 @@ describe("Execution Authorization Envelope", () => {
         businessTransactionId: "txn-1",
         policyName: "policy-a",
         policyVersion: "1.0.0",
+        executableContent: SAMPLE_EXECUTABLE_CONTENT,
       },
       keyPairA.privateKey,
       "key-1",
@@ -229,6 +282,7 @@ describe("Execution Authorization Envelope", () => {
           businessTransactionId: "txn-1",
           policyName: "policy-a",
           policyVersion: "1.0.0",
+          executableContent: SAMPLE_EXECUTABLE_CONTENT,
         },
         privateKey,
         "key-1",

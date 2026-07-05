@@ -23,12 +23,14 @@ import {
 import { RuntimeFactory } from "@parmana/runtime";
 
 import type {
-  ExecutionRequest,
-  ExecutionSystem,
-} from "@parmana/execution-system";
+  Connector,
+  ConnectorRequest,
+} from "@parmana/execution-gateway";
+import { ExecutionGateway } from "@parmana/execution-gateway";
 
 import type {
   BusinessTransaction,
+  ExecutableContent,
   ExecutionResult,
   SignedExecutionAuthorization,
 } from "@parmana/shared";
@@ -114,27 +116,37 @@ function ensureKeysAvailable(): void {
 }
 
 /**
- * Records the ExecutionRequest Parmana forwards downstream, then
- * behaves exactly like @parmana/execution-system's HttpExecutionSystem
- * (POSTs to "<baseUrl>/execute") — except it also records the HTTP
- * response so this example can show it as proof of Scenario 1.
+ * Records the ConnectorRequest the Execution Gateway forwards
+ * downstream, then behaves like @parmana/execution-gateway's
+ * reference HttpConnector (POSTs to "<baseUrl>/execute") — except
+ * it also records the HTTP response so this example can show it
+ * as proof of Scenario 1.
+ *
+ * This Connector never runs directly: RuntimeFactory.create() is
+ * wired with an ExecutionGateway wrapping this Connector, so every
+ * request is verified (signature, expiry, TTL, content hash,
+ * nonce) before this class ever sees it. The Gateway is the only
+ * thing that can call it.
  */
-class RecordingHttpExecutionSystem implements ExecutionSystem {
-  public lastRequest?: ExecutionRequest;
+class RecordingHttpConnector implements Connector {
+  public lastRequest?: ConnectorRequest;
   public lastResponseStatus?: number;
   public lastResponseBody?: unknown;
 
   constructor(private readonly baseUrl: string) {}
 
   async execute(
-    request: ExecutionRequest,
+    request: ConnectorRequest,
   ): Promise<ExecutionResult> {
     this.lastRequest = request;
 
     const response = await fetch(`${this.baseUrl}/execute`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
+      body: JSON.stringify({
+        ...request.transaction,
+        authorization: request.authorization,
+      }),
     });
 
     this.lastResponseStatus = response.status;
@@ -147,10 +159,10 @@ class RecordingHttpExecutionSystem implements ExecutionSystem {
     }
 
     return {
-      businessTransactionId: request.businessTransactionId,
-      action: request.action,
-      target: request.target,
-      parameters: request.parameters,
+      businessTransactionId: request.transaction.businessTransactionId,
+      action: request.transaction.action,
+      target: request.transaction.target,
+      parameters: request.transaction.parameters,
       success: true,
       executedAt: new Date(),
       metadata: this.lastResponseBody as Record<string, unknown>,
@@ -246,20 +258,32 @@ async function main(): Promise<void> {
     path.join(repoRoot, "policies"),
   );
 
-  const executionSystem = new RecordingHttpExecutionSystem(
-    RECEIVING_SIDE_URL,
-  );
+  const gatewayPublicKey =
+    await new FileKeyProvider().getPublicKey("default");
+
+  const nonceStore = new MemoryNonceStore();
+
+  const connector = new RecordingHttpConnector(RECEIVING_SIDE_URL);
+
+  const gateway = new ExecutionGateway({
+    publicKey: gatewayPublicKey,
+    nonceStore,
+    connector,
+  });
 
   const application = RuntimeFactory.create(
     transactions,
     trustRecords,
     policyRepository,
-    executionSystem,
+    gateway,
   );
 
   console.log(
-    "Runtime configured with a custom ExecutionSystem that " +
-      `forwards approved requests to ${RECEIVING_SIDE_URL}.`,
+    "Runtime configured with an ExecutionGateway — the sole " +
+      "boundary through which Parmana releases approved requests " +
+      "to a Connector. Every request is verified (signature, " +
+      "expiry, TTL, content hash, nonce) before the Connector " +
+      `ever sees it, which forwards to ${RECEIVING_SIDE_URL}.`,
   );
 
   //
@@ -283,14 +307,31 @@ async function main(): Promise<void> {
       "the resulting Trust Record, and generated a Receipt.",
   );
 
-  const outgoingRequest = executionSystem.lastRequest!;
+  const outgoingConnectorRequest = connector.lastRequest!;
   const authorization: SignedExecutionAuthorization =
-    outgoingRequest.authorization;
+    outgoingConnectorRequest.authorization;
+
+  const outgoingExecutableContent: ExecutableContent =
+    outgoingConnectorRequest.transaction;
+
+  // The flat wire body the Connector actually sent — same shape
+  // scenarios 2-5 below use to simulate an attacker who captured
+  // (or is trying to forge) a request and bypasses Parmana
+  // entirely, posting straight to the receiving side.
+  const outgoingWireBody = {
+    ...outgoingExecutableContent,
+    authorization,
+  };
 
   print(
     "Signed Execution Authorization attached to the outgoing " +
-      "ExecutionRequest",
+      "ConnectorRequest",
     authorization,
+  );
+
+  print(
+    "Gateway verification result (recorded on the ConnectorRequest)",
+    outgoingConnectorRequest.verification,
   );
 
   print("Execution Trust Record", trustRecord);
@@ -303,15 +344,15 @@ async function main(): Promise<void> {
     "RECEIVING SIDE: Scenario 1 - Valid envelope (already happened above)",
   );
 
-  console.log(`HTTP ${executionSystem.lastResponseStatus}`);
-  print("Response body", executionSystem.lastResponseBody);
+  console.log(`HTTP ${connector.lastResponseStatus}`);
+  print("Response body", connector.lastResponseBody);
 
   //
   // Scenario 2: replay the exact same envelope.
   //
   printHeading("RECEIVING SIDE: Scenario 2 - Replayed envelope");
 
-  const replay = await postToReceivingSide(outgoingRequest);
+  const replay = await postToReceivingSide(outgoingWireBody);
 
   console.log(`HTTP ${replay.status}`);
   print("Response body", replay.body);
@@ -321,8 +362,8 @@ async function main(): Promise<void> {
   //
   printHeading("RECEIVING SIDE: Scenario 3 - Tampered payload");
 
-  const tamperedRequest: ExecutionRequest = {
-    ...outgoingRequest,
+  const tamperedRequest = {
+    ...outgoingWireBody,
     authorization: {
       ...authorization,
       payload: {
@@ -343,7 +384,7 @@ async function main(): Promise<void> {
   printHeading("RECEIVING SIDE: Scenario 4 - Missing authorization");
 
   const { authorization: _omit, ...requestWithoutAuthorization } =
-    outgoingRequest;
+    outgoingWireBody;
 
   const missing = await postToReceivingSide(
     requestWithoutAuthorization,
@@ -353,6 +394,48 @@ async function main(): Promise<void> {
   print("Response body", missing.body);
 
   //
+  // Scenario 5: authorized envelope + modified payload.
+  //
+  // This is the content-binding gap this session closes: a
+  // valid, correctly-signed envelope for this exact
+  // businessTransactionId, paired with a payload whose amount
+  // was changed after the fact. Unlike scenarios 2-4 (which
+  // attack the RECEIVING side directly), this attacks Parmana's
+  // own ExecutionGateway — the boundary that must never release
+  // this request to a Connector in the first place. Verified
+  // with gateway.verify() (not execute()) so it never touches
+  // the nonce store, leaving the other scenarios unaffected.
+  //
+  printHeading(
+    "PARMANA SIDE: Scenario 5 - Authorized envelope + modified payload " +
+      "(rejected at the Gateway, never reaches the Connector)",
+  );
+
+  const modifiedPayloadRequest = {
+    businessTransactionId: outgoingExecutableContent.businessTransactionId,
+    action: outgoingExecutableContent.action,
+    target: outgoingExecutableContent.target,
+    parameters: {
+      ...outgoingExecutableContent.parameters,
+      amount: 50_000,
+    },
+    authorization,
+  };
+
+  const { result: gatewayRejection } = await gateway.verify(
+    modifiedPayloadRequest,
+  );
+
+  print("Gateway verification result", gatewayRejection);
+
+  console.log();
+  console.log(
+    `Released to Connector: ${gatewayRejection.valid} ` +
+      `(businessTransactionHashMatches: ` +
+      `${gatewayRejection.checks.businessTransactionHashMatches})`,
+  );
+
+  //
   // Summary.
   //
   printHeading("Summary");
@@ -360,12 +443,16 @@ async function main(): Promise<void> {
   console.log(
     [
       "1. Valid envelope           -> " +
-        `HTTP ${executionSystem.lastResponseStatus} (accepted)`,
+        `HTTP ${connector.lastResponseStatus} (accepted)`,
       `2. Replayed envelope        -> HTTP ${replay.status} ` +
         "(nonceUnseen: false)",
       `3. Tampered payload         -> HTTP ${tampered.status} ` +
         "(signatureVerified: false)",
       `4. Missing authorization    -> HTTP ${missing.status}`,
+      "5. Authorized + modified    -> rejected at the Gateway " +
+        `(valid: ${gatewayRejection.valid}, ` +
+        `businessTransactionHashMatches: ` +
+        `${gatewayRejection.checks.businessTransactionHashMatches})`,
     ].join("\n"),
   );
 
