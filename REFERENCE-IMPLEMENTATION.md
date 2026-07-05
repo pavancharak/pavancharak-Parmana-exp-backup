@@ -156,23 +156,30 @@ Produces immutable `ExecutionTransaction` instances.
 
 
 
-\## @parmana/verification
+\## Verification
 
 
 
-Responsible for:
+Verification is not a separate package. It lives in
+`packages/runtime/src/services/verification-service.ts` and runs on the
+live execution path (`ExecutionTrustApplication.execute()` /
+`POST /verify`), checking:
 
 
 
-\* Verification pipeline
+\* Integrity — recomputed trust-record hash matches the stored hash
 
-\* Verification reports
+\* Signature — cryptographic signature verifies against the stored key
 
-\* Trust evaluation
+\* Authorization binding — every APPROVED execution carries an authorizationId
 
 
 
-Consumes immutable execution records.
+A separate six-stage `@parmana/verification` pipeline package (Authority /
+Authorization / Intent / Evidence / Signature stages) previously existed as
+unwired scaffolding — no real implementation, no real test coverage — and
+was retired in Session 5. Authority, Intent, and Evidence checks remain
+unimplemented; see docs/CLAIMS.md's Future Claims.
 
 
 

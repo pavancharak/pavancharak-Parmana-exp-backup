@@ -14,6 +14,26 @@ Status: Public
 
 
 
+\# Key Compromise Notice
+
+
+
+The default signing key (\`keys/default.private.pem\` / \`keys/default.public.pem\`) committed to this repository prior to 2026-07-05 was publicly exposed in the public GitHub repository. The private key must be treated as permanently compromised.
+
+
+
+All signatures produced by that key are void for authenticity purposes, regardless of when the signed artifact was created.
+
+
+
+The key pair was rotated on 2026-07-05.
+
+
+
+\---
+
+
+
 \# Purpose
 
 
@@ -272,7 +292,9 @@ Evidence
 
 
 
-\* VerificationComponent
+\* packages/runtime/src/services/verification-service.ts
+
+\* packages/runtime/test/verification-service.test.ts
 
 \* VerificationCrypto
 
@@ -472,6 +494,30 @@ Evidence
 
 
 
+\## 2.15 Authorization-Binding Verification
+
+
+
+Every APPROVED execution in a verified Execution Trust Record must carry a non-empty authorizationId in its metadata; absence fails verification and names the execution. REJECTED-decision executions are not required to carry one. All checks (integrity, signature, authorization binding) run unconditionally and independently — a single failure never suppresses reporting of the others.
+
+
+
+Evidence
+
+
+
+\* VerificationService (packages/runtime/src/services/verification-service.ts)
+
+\* packages/runtime/test/verification-service.test.ts — all 6 cases
+
+\* packages/api/test/verification-negative.integration.test.ts — "reports FAILED when the persisted record is tampered after execution"
+
+
+
+\---
+
+
+
 \# 3. Conditional Claims
 
 
@@ -552,7 +598,7 @@ The following claims are planned but are intentionally withheld until supported 
 
 \* Enterprise-grade key custody — current key storage is local PEM files read by FileKeyProvider; no KMS, HSM, or cloud key vault integration exists.
 
-\* A functioning Authority / Authorization / Intent / Evidence / Signature verification pipeline in @parmana/verification. The stages in this package (AuthorityVerificationStage, AuthorizationVerificationStage, IntentVerificationStage, EvidenceVerificationStage, SignatureVerificationStage) currently only null-check their input and return it unchanged; SignatureVerificationStage does not call @parmana/crypto. None of these stages are wired into RuntimeFactory or RuntimeBuilder. The verification that actually runs in production is packages/runtime's verification-service.ts, which calls @parmana/crypto's VerificationCrypto directly — a separate, real implementation unrelated to this package.
+\* Authority, Intent, and Evidence verification checks in verification-service.ts. Only integrity, signature, and authorization binding are implemented today (2.15). The prior six-stage pipeline package (@parmana/verification) was retired in Session 5 — it had no real implementation and no real test coverage; its stage architecture is not being resurrected. Authority/Intent/Evidence checks, if built, will be added directly to verification-service.ts. Tracked for Session 6.
 
 \* Algorithm migration — re-keying from one signature provider to another (for example Ed25519 to ML-DSA-65) while retaining the ability to verify previously-signed records. AuthorizationVerifier does not dispatch verification based on the envelope's algorithm field; a verifying process supports exactly one configured SIGNATURE\_PROVIDER at a time.
 

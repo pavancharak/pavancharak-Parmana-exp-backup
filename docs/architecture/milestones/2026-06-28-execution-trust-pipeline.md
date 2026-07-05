@@ -58,6 +58,13 @@ All packages compile successfully.
 
 ```
 
+_(Historical snapshot, unchanged: this reflects the build as of 2026-06-28.
+`@parmana/verification` compiled and existed at that date, but was never
+wired into the runtime and had no real implementation or test coverage
+behind its stages. It was retired in Session 5 (docs/CLAIMS.md); integrity,
+signature, and authorization-binding verification now live directly in
+`packages/runtime/src/services/verification-service.ts`.)_
+
 
 
 \---

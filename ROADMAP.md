@@ -172,7 +172,7 @@ Implement deterministic execution orchestration.
 
 
 
-\*\*Status:\*\* Planned
+\*\*Status:\*\* Partially complete
 
 
 
@@ -184,35 +184,36 @@ Implement independent execution verification.
 
 
 
-\### Packages
+\### Where it lives
 
 
 
-\* @parmana/verification
+Not a separate package. `packages/runtime/src/services/verification-service.ts`,
+running on the live execution path. A separate `@parmana/verification`
+six-stage pipeline package was scaffolded but never implemented or wired in,
+and was retired in Session 5 — see docs/CLAIMS.md.
 
 
 
-\### Deliverables
+\### Delivered
 
 
 
-\* VerificationEngine
+\* Integrity verification (recomputed hash vs. stored hash)
 
-\* VerificationPipeline
+\* Signature verification (delegates to @parmana/crypto)
 
-\* VerificationReport
+\* Authorization-binding verification (APPROVED executions require an authorizationId)
 
-\* AuthorityVerifier
 
-\* IntentVerifier
 
-\* AuthorizationVerifier
+\### Remaining
 
-\* ExecutionVerifier
 
-\* EvidenceVerifier
 
-\* IntegrityVerifier
+\* AuthorityVerifier / IntentVerifier / EvidenceVerifier — not implemented;
+
+  tracked as Future Claims in docs/CLAIMS.md, targeting verification-service.ts
 
 
 

@@ -876,7 +876,7 @@ npx tsx examples/tutorials/11-execution-authorization/run.ts
 
 | Execution Trust Record  | ✅ Complete |
 
-| Verification            | ✅ Complete |
+| Verification             | 🟡 Partial — integrity, signature & authorization-binding checks live; authority/intent/evidence on roadmap (see docs/CLAIMS.md) |
 
 | Receipt Generation      | ✅ Complete |
 
@@ -886,9 +886,9 @@ npx tsx examples/tutorials/11-execution-authorization/run.ts
 
 | Storage                 | ✅ Complete |
 
-| REST API                | ✅ Complete |
+| REST API                | ✅ Complete — requires PARMANA_POLICY_DIR (see packages/api/README.md) |
 
-| Integration Tests       | ✅ Complete |
+| Integration Tests       | 🟡 Hermetic core suite; Supabase-backed tests skip without credentials |
 
 | Tutorials               | ✅ Complete |
 
