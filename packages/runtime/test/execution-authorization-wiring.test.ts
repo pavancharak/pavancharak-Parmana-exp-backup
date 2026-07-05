@@ -254,7 +254,7 @@ describe("Execution Authorization Wiring", () => {
     const transaction = createTransaction("txn-approved-1");
     await transactions.create(transaction);
 
-    const trustRecord = await runtime.execute(transaction);
+    const { trustRecord } = await runtime.execute(transaction);
 
     expect(executionSystem.lastRequest).toBeDefined();
 
@@ -346,7 +346,7 @@ describe("Execution Authorization Wiring", () => {
     const transaction = createTransaction("txn-trust-ref-1");
     await transactions.create(transaction);
 
-    const trustRecord = await runtime.execute(transaction);
+    const { trustRecord } = await runtime.execute(transaction);
     const authorization = executionSystem.lastRequest!.authorization;
 
     expect(trustRecord.executions[0]!.metadata?.authorizationId).toBe(

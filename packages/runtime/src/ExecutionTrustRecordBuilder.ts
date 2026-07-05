@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-import { CryptoBootstrap, VerificationCrypto } from "@parmana/crypto";
+import { CryptoBootstrap, DEFAULT_KEY_ID, VerificationCrypto } from "@parmana/crypto";
 
 import {
   ExecutionTrustRecord,
@@ -80,7 +80,7 @@ export class ExecutionTrustRecordBuilder {
         algorithm:
           CryptoBootstrap.create().signature.algorithm,
 
-        keyId: "default",
+        keyId: DEFAULT_KEY_ID,
 
         value: "",
 

@@ -13,8 +13,8 @@ describe("Runtime Integration", () => {
       const policyRepository =
         new FilePolicyRepository(
           path.resolve(
-            process.cwd(),
-            "../../policies",
+            import.meta.dirname,
+            "../../../policies",
           ),
         );
 
@@ -28,7 +28,7 @@ describe("Runtime Integration", () => {
           )
           .build(trustRecords);
 
-      const trustRecord =
+      const { trustRecord } =
         await runtime.execute({
           policy: {
             name: "vendor-payment",

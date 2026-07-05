@@ -67,12 +67,9 @@ export class ExecutionTrustApplication {
     //
 
 
-   const result =
-  await this.runtime.execute(
-    transaction,
-  );
-
-   
+    await this.runtime.execute(
+      transaction,
+    );
 
     //
     // Verification

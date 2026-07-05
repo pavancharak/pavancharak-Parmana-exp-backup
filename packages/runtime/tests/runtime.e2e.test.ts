@@ -25,7 +25,7 @@ import { RuntimeAuthorizationSigner } from "../src/RuntimeAuthorizationSigner.js
  */
 describe("RuntimeEngine E2E", () => {
   const policyRepository = new FilePolicyRepository(
-    path.resolve(process.cwd(), "../../policies"),
+    path.resolve(import.meta.dirname, "../../../policies"),
   );
 
   const router = new PolicyRouter(

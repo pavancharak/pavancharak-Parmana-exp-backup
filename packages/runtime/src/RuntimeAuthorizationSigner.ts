@@ -1,6 +1,7 @@
 import {
   AuthorizationSigner,
   CryptoBootstrap,
+  DEFAULT_KEY_ID,
   FileKeyProvider,
 } from "@parmana/crypto";
 
@@ -17,7 +18,7 @@ import type {
  * (CryptoBootstrap + FileKeyProvider, keyId "default").
  */
 export class RuntimeAuthorizationSigner {
-  private static readonly KEY_ID = "default";
+  private static readonly KEY_ID = DEFAULT_KEY_ID;
 
   private readonly crypto =
     CryptoBootstrap.create();

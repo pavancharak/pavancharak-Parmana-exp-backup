@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 
 import {
+  DecisionOutcome,
+  ExecutionTrustRecord,
   ExecutionTrustRecordRepository,
   Verification,
   VerificationStatus,
@@ -15,7 +17,10 @@ import { VerificationCrypto } from "@parmana/crypto";
  * Execution Trust Records.
  *
  * Verification is deterministic and validates
- * the complete Execution Trust Record.
+ * the complete Execution Trust Record. All checks
+ * always run and report — a failure in one check
+ * does not skip the others, so the resulting message
+ * can name every check that failed.
  */
 export class VerificationService {
   private readonly crypto =
@@ -43,10 +48,10 @@ export class VerificationService {
       );
     }
 
-    const verified =
-      await this.crypto.verify(
-        trustRecord,
-      );
+    const failures =
+      await this.runChecks(trustRecord);
+
+    const verified = failures.length === 0;
 
     const verification: Verification = {
       verificationId:
@@ -60,7 +65,7 @@ export class VerificationService {
 
       message: verified
         ? "Execution Trust Record verified successfully."
-        : "Execution Trust Record verification failed.",
+        : failures.join("; "),
 
       verifiedAt: new Date(),
 
@@ -74,5 +79,76 @@ export class VerificationService {
     );
 
     return verification;
+  }
+
+  /**
+   * Runs every verification check independently and
+   * returns the failure messages for every check that
+   * did not pass. An empty array means every check
+   * passed.
+   */
+  private async runChecks(
+    trustRecord: ExecutionTrustRecord,
+  ): Promise<string[]> {
+    const failures: string[] = [];
+
+    //
+    // Integrity: recomputed hash must match the
+    // stored hash.
+    //
+    const expectedHash =
+      await this.crypto.hash(trustRecord);
+
+    if (expectedHash !== trustRecord.trustRecordHash) {
+      failures.push(
+        "Integrity check failed: recomputed trust record hash " +
+          `("${expectedHash}") does not match the stored hash ` +
+          `("${trustRecord.trustRecordHash}").`,
+      );
+    }
+
+    //
+    // Signature: cryptographic signature must verify
+    // against the stored public key.
+    //
+    const signatureVerified =
+      await this.crypto.verifySignature(trustRecord);
+
+    if (!signatureVerified) {
+      failures.push(
+        "Signature check failed: signature does not verify " +
+          "against the stored key.",
+      );
+    }
+
+    //
+    // Authorization binding: every APPROVED execution
+    // must carry a non-empty authorizationId in its
+    // metadata. REJECTED executions are not required to.
+    //
+    for (const execution of trustRecord.executions) {
+      if (
+        execution.decision.outcome !==
+        DecisionOutcome.APPROVED
+      ) {
+        continue;
+      }
+
+      const authorizationId =
+        execution.metadata?.authorizationId;
+
+      if (
+        typeof authorizationId !== "string" ||
+        authorizationId.length === 0
+      ) {
+        failures.push(
+          `Authorization binding check failed: execution ` +
+            `"${execution.executionId}" is APPROVED but has no ` +
+            "authorizationId in its metadata.",
+        );
+      }
+    }
+
+    return failures;
   }
 }
