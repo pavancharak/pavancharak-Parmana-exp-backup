@@ -4,7 +4,6 @@ SDK Information.
 
 from parmana import ParmanaClient
 
-
 client = ParmanaClient(
     endpoint="http://localhost:3000",
 )

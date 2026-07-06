@@ -13,7 +13,6 @@ from parmana.api.replay_api import ReplayApi
 from parmana.api.transaction_api import TransactionApi
 from parmana.api.trust_record_api import TrustRecordApi
 from parmana.api.verification_api import VerificationApi
-
 from parmana.transport.http_transport import HttpTransport
 from parmana.version import __version__
 
@@ -37,17 +36,25 @@ class ParmanaClient:
     ... )
     """
 
-    DEFAULT_TIMEOUT = 30
+    DEFAULT_TIMEOUT = HttpTransport.DEFAULT_TIMEOUT
+
+    DEFAULT_MAX_RETRIES = HttpTransport.DEFAULT_MAX_RETRIES
+
+    DEFAULT_BACKOFF_FACTOR = HttpTransport.DEFAULT_BACKOFF_FACTOR
 
     def __init__(
         self,
         *,
         endpoint: str,
         timeout: int = DEFAULT_TIMEOUT,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
         debug: bool = False,
     ) -> None:
         """
         Create a Parmana SDK client.
+
+        This client is synchronous only. There is no async variant.
 
         Parameters
         ----------
@@ -55,15 +62,25 @@ class ParmanaClient:
             Base URL of the Parmana Runtime.
 
         timeout:
-            HTTP timeout in seconds.
+            HTTP timeout in seconds, applied per request.
+
+        max_retries:
+            Retry attempts for idempotent (GET) requests that fail with
+            a connection error or a 502/503/504 response. POST requests
+            (execute, verify, receipt, replay) are never retried.
+
+        backoff_factor:
+            Exponential backoff factor between retries, in seconds.
 
         debug:
-            Enable request/response logging.
+            Enable request/response debug logging on the "parmana" logger.
         """
 
         self._transport = HttpTransport(
             endpoint=endpoint,
             timeout=timeout,
+            max_retries=max_retries,
+            backoff_factor=backoff_factor,
             debug=debug,
         )
 

@@ -30,9 +30,7 @@ def main() -> None:
 
     print(f"Business Transaction ID: {business_transaction_id}\n")
 
-    verification = client.verification.verify(
-        business_transaction_id
-    )
+    verification = client.verification.verify(business_transaction_id)
 
     print(
         json.dumps(

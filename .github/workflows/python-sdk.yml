@@ -1,0 +1,88 @@
+name: Python SDK
+
+# NOTE: python/.github/workflows/ci.yml exists but is NOT picked up by
+# GitHub Actions in this monorepo -- GitHub only scans
+# <repo-root>/.github/workflows/, and there was no such directory here
+# before this file. That file is written as if python/ were the root of
+# its own standalone repo (plain `pip install -e .`, no working-directory),
+# which is what it becomes if python/ is ever split out on its own. This
+# workflow is the one that actually runs against this monorepo today, and
+# is the only place the model drift guard (which needs packages/shared
+# and the workspace node_modules) can run.
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+    paths:
+      - "python/**"
+      - "packages/shared/**"
+      - "package.json"
+      - "package-lock.json"
+
+jobs:
+  python-sdk:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version:
+          - "3.11"
+          - "3.12"
+          - "3.13"
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install workspace
+        run: npm ci
+
+      - name: Check generated models are up to date
+        # Invoked via the local tsx binary directly, NOT `npm run
+        # check:python-models` or `npx tsx ...`: root package.json and
+        # typescript/package.json both declare "name": "parmana", which
+        # makes npm's workspace resolution ambiguous and breaks both
+        # `npm run <script>` (cascades across every workspace) and `npx`
+        # (resolves relative to an arbitrary workspace directory instead
+        # of the repo root) at the repo root. Pre-existing, unrelated to
+        # this SDK -- see the consolidated core-API/repo findings note.
+        run: ./node_modules/.bin/tsx python/scripts/generate_models.ts --check
+        # python/parmana/models/*.py is generated from
+        # packages/shared/src/domain/*.ts (and CryptoAlgorithms.ts) by
+        # python/scripts/generate_models.ts. This fails the build if
+        # regenerating would change the committed output, so the SDK
+        # cannot silently drift from @parmana/shared.
+
+      - name: Install Python package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "./python[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+        working-directory: python
+
+      - name: Format check (black)
+        run: black --check .
+        working-directory: python
+
+      - name: Type check (mypy)
+        run: mypy
+        working-directory: python
+
+      - name: Run tests
+        run: pytest -v
+        working-directory: python

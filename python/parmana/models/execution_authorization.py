@@ -1,0 +1,46 @@
+"""
+GENERATED FILE -- DO NOT EDIT BY HAND.
+
+Generated from packages/shared/src/domain/execution-authorization.ts by
+python/scripts/generate_models.ts. Run "npm run
+generate:python-models" to regenerate.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Literal
+
+
+@dataclass(frozen=True)
+class ExecutionAuthorizationPayload:
+    version: Literal[1]
+
+    authorization_id: str
+
+    nonce: str
+
+    decision_id: str
+
+    business_transaction_id: str
+
+    policy_name: str
+
+    policy_version: str
+
+    authorized_at: str
+
+    expires_at: str
+
+    business_transaction_hash: str
+
+
+@dataclass(frozen=True)
+class SignedExecutionAuthorization:
+    payload: ExecutionAuthorizationPayload
+
+    signature: str
+
+    key_id: str
+
+    algorithm: str

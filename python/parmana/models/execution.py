@@ -1,50 +1,71 @@
 """
-Parmana Execution Model.
+GENERATED FILE -- DO NOT EDIT BY HAND.
+
+Generated from packages/shared/src/domain/decision.ts, domain/execution.ts by
+python/scripts/generate_models.ts. Run "npm run
+generate:python-models" to regenerate.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
+from typing import Any
 
+from .execution_evidence import ExecutionEvidence
 from .policy import PolicyReference
+
+
+class DecisionOutcome(str, Enum):
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
 
 
 @dataclass(frozen=True)
 class Decision:
-    """
-    Runtime policy decision.
-    """
-
     decision_id: str
 
     intent_id: str
 
     policy: PolicyReference
 
-    signals: dict
+    signals: dict[str, Any]
 
-    outcome: str
-
-    reason: str
+    outcome: DecisionOutcome
 
     evaluated_at: datetime
+
+    reason: str | None = None
+
+
+class ExecutionStatus(str, Enum):
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class ExecutionMode(str, Enum):
+    SYNC = "SYNC"
+    ASYNC = "ASYNC"
 
 
 @dataclass(frozen=True)
 class Execution:
-    """
-    Execution performed by the Runtime.
-    """
-
     execution_id: str
 
     business_transaction_id: str
 
     decision: Decision
 
-    status: str
+    status: ExecutionStatus
 
-    mode: str
+    mode: ExecutionMode
 
     started_at: datetime
+
+    completed_at: datetime | None = None
+
+    evidence: ExecutionEvidence | None = None
+
+    metadata: dict[str, Any] | None = None

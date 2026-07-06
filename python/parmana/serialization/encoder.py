@@ -30,25 +30,21 @@ def encode(value: Any) -> Any:
     # Dataclass
     #
     if is_dataclass(value):
-        return encode(asdict(value))
+        # `is_dataclass` narrows to `DataclassInstance | type[DataclassInstance]`;
+        # `encode()` is only ever called with instances, never a class.
+        return encode(asdict(value))  # type: ignore[arg-type]
 
     #
     # Dictionary
     #
     if isinstance(value, dict):
-        return {
-            _camel(key): encode(item)
-            for key, item in value.items()
-        }
+        return {_camel(key): encode(item) for key, item in value.items()}
 
     #
     # List
     #
     if isinstance(value, list):
-        return [
-            encode(item)
-            for item in value
-        ]
+        return [encode(item) for item in value]
 
     #
     # datetime

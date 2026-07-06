@@ -6,7 +6,7 @@ Execute Business Transactions through the Parmana Runtime.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from parmana.config.transport import Transport
 from parmana.models.business_transaction import BusinessTransaction
@@ -21,6 +21,7 @@ class ExecutionApi:
     Responsibilities
     ----------------
     - Runtime health check
+    - Runtime version info
     - Execute Business Transactions
 
     This API does NOT:
@@ -43,9 +44,27 @@ class ExecutionApi:
         Returns the Runtime health status.
         """
 
-        return self._transport.send(
-            method="GET",
-            path="/health",
+        return cast(
+            "dict[str, Any]",
+            self._transport.send(
+                method="GET",
+                path="/health",
+            ),
+        )
+
+    def version(
+        self,
+    ) -> dict[str, Any]:
+        """
+        Returns the Runtime name, version, and API version.
+        """
+
+        return cast(
+            "dict[str, Any]",
+            self._transport.send(
+                method="GET",
+                path="/version",
+            ),
         )
 
     def execute(

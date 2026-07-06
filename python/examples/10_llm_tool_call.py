@@ -33,7 +33,6 @@ def main() -> None:
 
     transaction = BusinessTransaction(
         business_transaction_id=transaction_id,
-
         metadata=BusinessTransactionMetadata(
             business_transaction_id=transaction_id,
             correlation_id="llm-tool-call-demo",
@@ -42,7 +41,6 @@ def main() -> None:
             submitted_by="llm-agent",
             submitted_at=now,
         ),
-
         authority=Authority(
             authority_id="authority-001",
             authority_type="SERVICE",
@@ -50,14 +48,12 @@ def main() -> None:
             display_name="LLM Agent",
             issued_at=now,
         ),
-
         authorization=Authorization(
             authorization_id="authorization-001",
             authority_id="authority-001",
             purpose="LLM Tool Call",
             issued_at=now,
         ),
-
         intent=Intent(
             intent_id="intent-001",
             authorization_id="authorization-001",
@@ -69,13 +65,11 @@ def main() -> None:
             },
             created_at=now,
         ),
-
         policy=PolicyReference(
             name="llm-tool-call",
             version="1.0.0",
             schema_version="1.0.0",
         ),
-
         signals={
             "toolAllowed": True,
             "resourceAuthorized": True,
@@ -83,7 +77,6 @@ def main() -> None:
             "riskScore": 12,
             "executionEnvironment": "production",
         },
-
         status="RECEIVED",
         created_at=now,
     )

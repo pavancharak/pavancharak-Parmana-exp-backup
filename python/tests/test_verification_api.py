@@ -68,3 +68,29 @@ def test_verify():
     )
 
     assert verification.status == "VERIFIED"
+
+
+def test_get_latest():
+
+    transport = FakeTransport()
+
+    api = VerificationApi(
+        transport,
+    )
+
+    verification = api.get_latest(
+        "tx-001",
+    )
+
+    assert transport.called
+
+    assert transport.method == "GET"
+
+    assert transport.path == "/verification/tx-001"
+
+    assert transport.response_model is Verification
+
+    assert isinstance(
+        verification,
+        Verification,
+    )

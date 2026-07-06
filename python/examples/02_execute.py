@@ -40,7 +40,6 @@ def main() -> None:
 
     transaction = BusinessTransaction(
         business_transaction_id=transaction_id,
-
         metadata=BusinessTransactionMetadata(
             business_transaction_id=transaction_id,
             correlation_id="demo-execution",
@@ -49,7 +48,6 @@ def main() -> None:
             submitted_by="sdk-demo",
             submitted_at=now,
         ),
-
         authority=Authority(
             authority_id="authority-001",
             authority_type="SERVICE",
@@ -57,14 +55,12 @@ def main() -> None:
             display_name="Python SDK",
             issued_at=now,
         ),
-
         authorization=Authorization(
             authorization_id="authorization-001",
             authority_id="authority-001",
             purpose="Execute demo transaction",
             issued_at=now,
         ),
-
         intent=Intent(
             intent_id="intent-001",
             authorization_id="authorization-001",
@@ -76,21 +72,17 @@ def main() -> None:
             },
             created_at=now,
         ),
-
         policy=PolicyReference(
             name="vendor-payment",
             version="1.0.0",
             schema_version="1.0.0",
         ),
-
         signals={
             "vendorVerified": True,
             "paymentApproved": True,
             "amount": 1000,
         },
-
         status="RECEIVED",
-
         created_at=now,
     )
 

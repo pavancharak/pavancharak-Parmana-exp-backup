@@ -19,7 +19,6 @@ def test_encode_business_transaction():
 
     transaction = BusinessTransaction(
         business_transaction_id="tx-001",
-
         metadata=BusinessTransactionMetadata(
             business_transaction_id="tx-001",
             correlation_id="corr-001",
@@ -28,7 +27,6 @@ def test_encode_business_transaction():
             submitted_by="tester",
             submitted_at=now,
         ),
-
         authority=Authority(
             authority_id="authority-001",
             authority_type="SERVICE",
@@ -36,14 +34,12 @@ def test_encode_business_transaction():
             display_name="PyTest",
             issued_at=now,
         ),
-
         authorization=Authorization(
             authorization_id="authz-001",
             authority_id="authority-001",
             purpose="Unit Test",
             issued_at=now,
         ),
-
         intent=Intent(
             intent_id="intent-001",
             authorization_id="authz-001",
@@ -52,19 +48,15 @@ def test_encode_business_transaction():
             parameters={"amount": 100},
             created_at=now,
         ),
-
         policy=PolicyReference(
             name="policy",
             version="1.0.0",
             schema_version="1.0.0",
         ),
-
         signals={
             "approved": True,
         },
-
         status="RECEIVED",
-
         created_at=now,
     )
 

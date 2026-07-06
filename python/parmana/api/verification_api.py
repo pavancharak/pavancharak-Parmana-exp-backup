@@ -16,7 +16,8 @@ class VerificationApi:
 
     Responsibilities
     ----------------
-    - Verify Execution Trust Records
+    - Verify Execution Trust Records (fresh verification)
+    - Retrieve the latest cached Verification
 
     This API does NOT:
     - execute Business Transactions
@@ -36,7 +37,10 @@ class VerificationApi:
         business_transaction_id: str,
     ) -> Verification:
         """
-        Verify an Execution Trust Record.
+        Run a fresh verification of an Execution Trust Record.
+
+        Maps to POST /verify. Each call re-verifies the record and
+        appends a new Verification to its history.
 
         Parameters
         ----------
@@ -49,10 +53,36 @@ class VerificationApi:
         """
 
         return self._transport.send(
-    method="POST",
-    path="/verify",
-    body={
-        "businessTransactionId": business_transaction_id,
-    },
-    response_model=Verification,
-)
+            method="POST",
+            path="/verify",
+            body={
+                "businessTransactionId": business_transaction_id,
+            },
+            response_model=Verification,
+        )
+
+    def get_latest(
+        self,
+        business_transaction_id: str,
+    ) -> Verification:
+        """
+        Retrieve the most recent Verification without re-verifying.
+
+        Maps to GET /verification/:id, distinct from `verify()` (POST
+        /verify), which performs a fresh verification.
+
+        Parameters
+        ----------
+        business_transaction_id:
+            Business Transaction identifier.
+
+        Returns
+        -------
+        Verification.
+        """
+
+        return self._transport.send(
+            method="GET",
+            path=f"/verification/{business_transaction_id}",
+            response_model=Verification,
+        )

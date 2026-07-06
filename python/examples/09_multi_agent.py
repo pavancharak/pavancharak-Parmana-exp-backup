@@ -33,7 +33,6 @@ def main() -> None:
 
     transaction = BusinessTransaction(
         business_transaction_id=transaction_id,
-
         metadata=BusinessTransactionMetadata(
             business_transaction_id=transaction_id,
             correlation_id="multi-agent-demo",
@@ -42,7 +41,6 @@ def main() -> None:
             submitted_by="multi-agent-runtime",
             submitted_at=now,
         ),
-
         authority=Authority(
             authority_id="authority-001",
             authority_type="SERVICE",
@@ -50,14 +48,12 @@ def main() -> None:
             display_name="Multi-Agent Runtime",
             issued_at=now,
         ),
-
         authorization=Authorization(
             authorization_id="authorization-001",
             authority_id="authority-001",
             purpose="Execute multi-agent workflow",
             issued_at=now,
         ),
-
         intent=Intent(
             intent_id="intent-001",
             authorization_id="authorization-001",
@@ -74,7 +70,6 @@ def main() -> None:
             },
             created_at=now,
         ),
-
         #
         # Use the policy that already exists on the server.
         #
@@ -83,12 +78,10 @@ def main() -> None:
             version="1.0.0",
             schema_version="1.0.0",
         ),
-
         signals={
             "vendorVerified": True,
             "paymentApproved": True,
             "amount": 1000,
-
             #
             # Example multi-agent signals.
             #
@@ -96,9 +89,7 @@ def main() -> None:
             "riskApproved": True,
             "financeApproved": True,
         },
-
         status="RECEIVED",
-
         created_at=now,
     )
 

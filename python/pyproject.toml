@@ -38,7 +38,16 @@ classifiers = [
 ]
 
 dependencies = [
-    "requests>=2.32.0",
+    "requests>=2.32.0,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "responses>=0.25.0",
+    "ruff>=0.6.0",
+    "black>=24.0.0",
+    "mypy>=1.10.0",
 ]
 
 [project.urls]
@@ -51,3 +60,37 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 include = ["parmana*"]
+
+[tool.setuptools.package-data]
+parmana = ["py.typed"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Import order in parmana/models/*.py is produced deterministically by
+# generate_models.ts and enforced by the drift-guard check, not by
+# isort/ruff conventions.
+"parmana/models/*.py" = ["I001"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312", "py313"]
+extend-exclude = '''
+(
+  ^/parmana/models/
+)
+'''
+# parmana/models/*.py formatting is owned by generate_models.ts and
+# enforced by the drift-guard check (npm run check:python-models), not
+# by black.
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["parmana"]
+strict = true
+warn_unused_ignores = true

@@ -26,7 +26,10 @@
     "coverage": "vitest run --coverage",
 
     "typecheck": "tsc --noEmit -p tsconfig.json",
-     "examples": "tsx scripts/run-examples.ts"
+     "examples": "tsx scripts/run-examples.ts",
+
+    "generate:python-models": "tsx python/scripts/generate_models.ts",
+    "check:python-models": "tsx python/scripts/generate_models.ts --check"
   },
   "engines": {
     "node": ">=22"

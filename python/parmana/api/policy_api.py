@@ -6,7 +6,7 @@ Validate Runtime policies.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from parmana.config.transport import Transport
 
@@ -17,9 +17,13 @@ class PolicyApi:
 
     Responsibilities
     ----------------
-    - Validate Runtime policies
+    - Confirm a policy (name + version) is loadable by the Runtime
 
     This API does NOT:
+    - validate an arbitrary policy document's contents. POST
+      /policies/validate (packages/api/src/routes/policies.ts) only
+      checks that `policyRepository.load(policyId, policyVersion)`
+      succeeds -- it does not accept or check a policy document body.
     - execute Business Transactions
     - verify trust records
     - replay executions
@@ -34,23 +38,33 @@ class PolicyApi:
 
     def validate(
         self,
-        policy: dict[str, Any],
+        policy_id: str,
+        policy_version: str,
     ) -> dict[str, Any]:
         """
-        Validate a Runtime policy.
+        Confirm that a policy (name + version) is loadable.
 
         Parameters
         ----------
-        policy:
-            Policy document.
+        policy_id:
+            Policy identifier (`policyId`).
+
+        policy_version:
+            Policy version (`policyVersion`).
 
         Returns
         -------
-        Policy validation result.
+        `{"valid": bool, "errors": list[str]}`.
         """
 
-        return self._transport.send(
-            method="POST",
-            path="/policies/validate",
-            body=policy,
+        return cast(
+            "dict[str, Any]",
+            self._transport.send(
+                method="POST",
+                path="/policies/validate",
+                body={
+                    "policyId": policy_id,
+                    "policyVersion": policy_version,
+                },
+            ),
         )

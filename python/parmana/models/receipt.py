@@ -1,3 +1,11 @@
+"""
+GENERATED FILE -- DO NOT EDIT BY HAND.
+
+Generated from packages/shared/src/domain/receipt.ts by
+python/scripts/generate_models.ts. Run "npm run
+generate:python-models" to regenerate.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,10 +14,6 @@ from datetime import datetime
 
 @dataclass(frozen=True)
 class Receipt:
-    """
-    Cryptographic execution receipt.
-    """
-
     receipt_id: str
 
     business_transaction_id: str
@@ -18,8 +22,10 @@ class Receipt:
 
     receipt_hash: str
 
-    issued_at: datetime
+    signature: str
 
     algorithm: str
 
-    signature: str
+    issued_at: datetime
+
+    execution_id: str | None = None

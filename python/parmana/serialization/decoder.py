@@ -7,11 +7,15 @@ Decode Runtime JSON into Parmana domain models.
 from __future__ import annotations
 
 import re
+import types
 from dataclasses import fields, is_dataclass
 from datetime import datetime
-from typing import Any, Type, TypeVar, get_args, get_origin, get_type_hints
+from enum import Enum
+from typing import Any, TypeVar, Union, cast, get_args, get_origin, get_type_hints
 
 T = TypeVar("T")
+
+_UNION_ORIGINS = {Union, types.UnionType}
 
 
 def _snake(name: str) -> str:
@@ -28,15 +32,18 @@ def _snake(name: str) -> str:
 
 def decode(
     value: Any,
-    model: Type[T],
+    model: type[T],
 ) -> T:
     """
     Decode Runtime JSON into a Parmana model.
     """
 
-    return _decode(
-        value,
-        model,
+    return cast(
+        T,
+        _decode(
+            value,
+            model,
+        ),
     )
 
 
@@ -54,16 +61,29 @@ def _decode(
     origin = get_origin(model)
 
     #
+    # Optional[T] / T | None
+    #
+    # `get_type_hints` resolves postponed annotations, so an optional
+    # field's model here is a Union, not the inner type directly. Without
+    # unwrapping it, `is_dataclass(model)` and `model is datetime` below
+    # never match for a populated optional field, and the raw undecoded
+    # value (str, dict, ...) is silently returned instead.
+    #
+    if origin in _UNION_ORIGINS:
+
+        inner_types = [arg for arg in get_args(model) if arg is not type(None)]
+
+        if len(inner_types) == 1:
+            return _decode(value, inner_types[0])
+
+    #
     # list[T]
     #
     if origin is list:
 
         item_type = get_args(model)[0]
 
-        return [
-            _decode(item, item_type)
-            for item in value
-        ]
+        return [_decode(item, item_type) for item in value]
 
     #
     # dict
@@ -79,9 +99,18 @@ def _decode(
         if isinstance(value, datetime):
             return value
 
-        return datetime.fromisoformat(
-            value.replace("Z", "+00:00")
-        )
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+    #
+    # Enum (e.g. AuthorityType, VerificationStatus, SignatureAlgorithm)
+    #
+    # Without this, a field typed as an Enum decodes to the raw wire
+    # string instead of an actual enum member -- `isinstance(x, MyEnum)`
+    # would silently be False even though equality checks against the
+    # member's string value happen to still pass for str-mixin enums.
+    #
+    if isinstance(model, type) and issubclass(model, Enum):
+        return model(value)
 
     #
     # dataclass
@@ -92,10 +121,7 @@ def _decode(
         # Convert Runtime JSON keys
         # camelCase -> snake_case
         #
-        normalized = {
-            _snake(key): val
-            for key, val in value.items()
-        }
+        normalized = {_snake(key): val for key, val in value.items()}
 
         #
         # Resolve postponed annotations.
@@ -111,7 +137,10 @@ def _decode(
                 type_hints[field.name],
             )
 
-        return model(**kwargs)
+        # `is_dataclass` narrows to the `DataclassInstance` protocol, which
+        # has no declared constructor -- this dynamic reflection-based
+        # decoder has no static return type to give mypy here.
+        return model(**kwargs)  # type: ignore[operator]
 
     #
     # Primitive

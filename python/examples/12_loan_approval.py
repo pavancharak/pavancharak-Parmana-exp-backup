@@ -33,7 +33,6 @@ def main() -> None:
 
     transaction = BusinessTransaction(
         business_transaction_id=transaction_id,
-
         metadata=BusinessTransactionMetadata(
             business_transaction_id=transaction_id,
             correlation_id="loan-approval-demo",
@@ -42,7 +41,6 @@ def main() -> None:
             submitted_by="loan-officer",
             submitted_at=now,
         ),
-
         authority=Authority(
             authority_id="authority-001",
             authority_type="SERVICE",
@@ -50,14 +48,12 @@ def main() -> None:
             display_name="Loan Processing Engine",
             issued_at=now,
         ),
-
         authorization=Authorization(
             authorization_id="authorization-001",
             authority_id="authority-001",
             purpose="Loan Approval",
             issued_at=now,
         ),
-
         intent=Intent(
             intent_id="intent-001",
             authorization_id="authorization-001",
@@ -71,13 +67,11 @@ def main() -> None:
             },
             created_at=now,
         ),
-
         policy=PolicyReference(
             name="loan-approval",
             version="1.0.0",
             schema_version="1.0.0",
         ),
-
         signals={
             "creditScore": 782,
             "incomeVerified": True,
@@ -85,9 +79,7 @@ def main() -> None:
             "existingDefaults": False,
             "debtToIncomeRatio": 0.32,
         },
-
         status="RECEIVED",
-
         created_at=now,
     )
 

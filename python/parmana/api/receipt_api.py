@@ -17,6 +17,7 @@ class ReceiptApi:
     Responsibilities
     ----------------
     - Generate execution receipts
+    - Retrieve the latest cached receipt
 
     This API does NOT:
     - execute Business Transactions
@@ -38,6 +39,8 @@ class ReceiptApi:
         """
         Generate an execution receipt.
 
+        Maps to POST /receipt.
+
         Parameters
         ----------
         business_transaction_id:
@@ -49,10 +52,36 @@ class ReceiptApi:
         """
 
         return self._transport.send(
-    method="POST",
-    path="/receipt",
-    body={
-        "businessTransactionId": business_transaction_id,
-    },
-    response_model=Receipt,
-)
+            method="POST",
+            path="/receipt",
+            body={
+                "businessTransactionId": business_transaction_id,
+            },
+            response_model=Receipt,
+        )
+
+    def get_latest(
+        self,
+        business_transaction_id: str,
+    ) -> Receipt:
+        """
+        Retrieve the most recent Receipt without generating a new one.
+
+        Maps to GET /receipt/latest/:id, distinct from `generate()`
+        (POST /receipt), which generates a new Receipt.
+
+        Parameters
+        ----------
+        business_transaction_id:
+            Business Transaction identifier.
+
+        Returns
+        -------
+        Receipt.
+        """
+
+        return self._transport.send(
+            method="GET",
+            path=f"/receipt/latest/{business_transaction_id}",
+            response_model=Receipt,
+        )

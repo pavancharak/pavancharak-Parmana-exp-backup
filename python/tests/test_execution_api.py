@@ -11,6 +11,7 @@ from parmana.models.business_transaction import (
 )
 from parmana.models.intent import Intent
 from parmana.models.policy import PolicyReference
+from parmana.models.signature import Signature, SignatureAlgorithm
 from parmana.models.trust_record import ExecutionTrustRecord
 
 
@@ -45,6 +46,12 @@ class FakeTransport:
             verifications=[],
             receipts=[],
             trust_record_hash="hash",
+            signature=Signature(
+                algorithm=SignatureAlgorithm.ED25519,
+                key_id="key-001",
+                value="c2lnbmF0dXJl",
+                signed_at=datetime.now(UTC),
+            ),
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
@@ -56,7 +63,6 @@ def test_execute():
 
     transaction = BusinessTransaction(
         business_transaction_id="tx-001",
-
         metadata=BusinessTransactionMetadata(
             business_transaction_id="tx-001",
             correlation_id="corr-001",
@@ -65,7 +71,6 @@ def test_execute():
             submitted_by="tester",
             submitted_at=now,
         ),
-
         authority=Authority(
             authority_id="authority-001",
             authority_type="SERVICE",
@@ -73,14 +78,12 @@ def test_execute():
             display_name="PyTest",
             issued_at=now,
         ),
-
         authorization=Authorization(
             authorization_id="authz-001",
             authority_id="authority-001",
             purpose="Unit Test",
             issued_at=now,
         ),
-
         intent=Intent(
             intent_id="intent-001",
             authorization_id="authz-001",
@@ -89,13 +92,11 @@ def test_execute():
             parameters={},
             created_at=now,
         ),
-
         policy=PolicyReference(
             name="policy",
             version="1.0.0",
             schema_version="1.0.0",
         ),
-
         signals={},
         status="RECEIVED",
         created_at=now,
@@ -121,3 +122,5 @@ def test_execute():
         record,
         ExecutionTrustRecord,
     )
+
+    assert record.signature.algorithm == SignatureAlgorithm.ED25519
