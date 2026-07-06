@@ -1,0 +1,78 @@
+---
+title: "Policy Evaluation"
+description: "Deterministic, first-match rule evaluation over runtime signals."
+---
+
+<Info>**[AVAILABLE]** — `packages/policy`, 61 tests. CLAIMS.md 2.2/2.3.</Info>
+
+## Deterministic policy selection
+
+The runtime executes exactly one, explicitly-referenced business policy — identified by
+`PolicyReference { name, version, schemaVersion }` on the Business Transaction. It does
+not discover policies, negotiate them, auto-select "latest," or substitute an alternative.
+`PolicyRouter` loads by exact name+version; `PolicyValidator` checks the loaded policy's
+identity before evaluation.
+
+## Real policy shape
+
+From `policies/vendor-payment/2.0.0/policy.json` (a real policy in this repo):
+
+```json
+{
+  "policyId": "vendor-payment",
+  "policyVersion": "2.0.0",
+  "schemaVersion": "1.0.0",
+  "signalsSchema": {
+    "vendorVerified": "boolean",
+    "invoiceVerified": "boolean",
+    "paymentApproved": "boolean",
+    "sufficientFunds": "boolean",
+    "paymentAmount": "number",
+    "riskScore": "number"
+  },
+  "rules": [
+    {
+      "id": "approve-payment",
+      "condition": {
+        "all": [
+          { "fact": "vendorVerified", "operator": "eq", "value": true },
+          { "fact": "invoiceVerified", "operator": "eq", "value": true },
+          { "fact": "paymentApproved", "operator": "eq", "value": true },
+          { "fact": "sufficientFunds", "operator": "eq", "value": true },
+          { "fact": "paymentAmount", "operator": "gt", "value": 0 },
+          { "fact": "riskScore", "operator": "lte", "value": 20 }
+        ]
+      },
+      "outcome": { "action": "approve", "reason": "..." }
+    }
+  ]
+}
+```
+
+Rules are evaluated **sequentially, first match wins**. A trailing default rule (`"always":
+true`) typically covers the reject-by-default case.
+
+## What a Decision records
+
+```typescript
+// packages/shared/src/domain/decision.ts
+export interface Decision {
+  readonly decisionId: string;
+  readonly intentId: string;
+  readonly policy: PolicyReference;
+  readonly signals: Record<string, JsonValue>;   // captured for deterministic replay
+  readonly outcome: DecisionOutcome;              // APPROVED | REJECTED
+  readonly reason?: string;
+  readonly evaluatedAt: Date;
+}
+```
+
+The signals evaluated are captured on the Decision itself — this is what
+[Replay](/replay/overview) reconstructs from.
+
+## Fail-closed on missing prerequisites
+
+`TrustChainValidationComponent` and `RuntimeEngine` refuse to execute when required trust
+artifacts are missing or the Decision is not `APPROVED` (CLAIMS.md 2.4). See
+[The Execution Pipeline](/architecture/execution-pipeline) for where this sits relative to
+authorization signing.

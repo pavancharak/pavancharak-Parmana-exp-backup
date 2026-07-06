@@ -1,0 +1,60 @@
+---
+title: "Local / Self-Hosted Deployment"
+description: "The real, current deployment model: a single Node.js process, local PEM keys, your choice of memory or Supabase storage."
+---
+
+<Info>**[AVAILABLE]** — this is what actually runs. Cloud/KMS/multi-instance/HA deployment is [ROADMAP] — see [Roadmap](/roadmap).</Info>
+
+## What runs today
+
+One Express process (`packages/api/src/server.ts`), single instance, no load balancer or
+orchestration assumed. Signing keys are local PEM files read by `FileKeyProvider`. Storage
+is either fully in-process (`memory`, non-persistent) or Supabase.
+
+## Configuration
+
+Real `.env` keys (from this repo, values redacted):
+
+```bash
+NODE_ENV=...
+PORT=3000
+DATABASE_PROVIDER=supabase   # or: memory
+PARMANA_STORAGE=supabase     # or: memory
+HASH_PROVIDER=sha256
+SIGNATURE_PROVIDER=ed25519   # or: dilithium3 (needs Node >= 24)
+KEY_PROVIDER=local
+PRIVATE_KEY_PATH=./keys/default.private.pem
+PUBLIC_KEY_PATH=./keys/default.public.pem
+TRUST_PROFILE=v1
+LOG_LEVEL=...                # read into config; no logger currently consumes it, see Roadmap
+PARMANA_POLICY_DIR=...
+```
+
+## Running it
+
+```bash
+DATABASE_PROVIDER=memory PARMANA_STORAGE=memory \
+  PARMANA_POLICY_DIR=/absolute/path/to/policies \
+  node_modules/.bin/tsx packages/api/src/server.ts
+```
+
+<Warning>
+Invoke the local `tsx` binary directly. Plain `npm run dev` and `npx tsx ...` break at
+this repo's root today: both `package.json` and `typescript/package.json` declare
+`"name": "parmana"`, which corrupts npm's workspace resolution for both `npm run` and
+`npx`. See [Troubleshooting](/troubleshooting).
+</Warning>
+
+## What this deployment does not give you
+
+- **No content-binding enforcement.** The server never constructs an `ExecutionGateway`.
+  See [Content Binding & TOCTOU](/concepts/content-binding-toctou).
+- **No authentication.** Every route is open.
+- **No KMS/HSM.** Your private key is a file on disk, exactly the exposure that produced
+  the incident noted on [Security](/security/overview).
+- **Single process, single instance.** No shared `NonceStore` across replicas, no HA.
+
+## Node version
+
+Root `package.json` requires Node ≥ 22. ML-DSA-65 (post-quantum signing) specifically
+requires Node ≥ 24 for native `node:crypto` support (CLAIMS.md 2.14).

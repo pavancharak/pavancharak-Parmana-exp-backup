@@ -1,0 +1,70 @@
+---
+title: "Architecture Overview"
+description: "How Parmana's packages fit together, and which parts of the pipeline actually run today."
+---
+
+<Info>**[AVAILABLE]**, with one important exception called out below.</Info>
+
+Parmana is an npm/TypeScript monorepo (`packages/*`) plus two SDKs (`typescript/`,
+`python/`). Every package is independently testable; `packages/api` is the only one that
+runs as a long-lived process.
+
+## The real request path today
+
+```
+HTTP request
+     │
+     ▼
+packages/api (Express server, packages/api/src/app.ts)
+     │
+     ▼
+packages/runtime (ExecutionTrustApplication → Runtime → RuntimeEngine)
+     │
+     ├─► packages/policy      (deterministic rule evaluation)
+     ├─► packages/crypto      (signing, hashing)
+     └─► packages/storage     (append-only persistence)
+     │
+     ▼
+ExecutionTrustRecord (returned to caller)
+```
+
+<Warning>
+**`packages/execution-gateway` and `packages/execution-control` are not in this path.**
+`packages/api/src/application.ts` calls `RuntimeFactory.create(businessTransactionRepository,
+executionTrustRecordRepository, policyRepository, executionSystem)` — the fourth argument
+is optional, and the server's own singleton (`export const application = createApplication();`)
+supplies none. The default execution system the server runs today does not perform
+content-binding verification. The gateway is a real, tested library
+(`packages/execution-gateway`, 25 tests) — but only a consuming service that explicitly
+constructs one and passes it as `executionSystem` gets that protection. See
+[Content Binding & TOCTOU](/concepts/content-binding-toctou) for the full detail.
+</Warning>
+
+## Package map
+
+See [Packages](/architecture/packages) for the full table with status and evidence per
+package. Grouped by role:
+
+**Trust core** — `shared`, `policy`, `runtime`, `crypto`, `storage`, `receipt`, `replay`
+(all `[AVAILABLE]`, `replay` `[PARTIAL]` — see its page).
+
+**HTTP surface** — `api` (`[AVAILABLE]`) is the only long-running server. `execution-system`
+(`[AVAILABLE]`) is the interface/default implementation it uses when no gateway is supplied.
+
+**Content-binding / release control** — `envelope-verifier` (`[AVAILABLE]` library),
+`execution-gateway` (`[AVAILABLE]` library, not server-wired), `execution-control`
+(`[PARTIAL]` — a real, tested in-memory scaffold toward credential isolation, not the
+finished cross-system claim; see [Roadmap](/roadmap)).
+
+**SDKs** — `python/` (`[AVAILABLE]`), `typescript/` (`[PARTIAL]` — real client code, but its
+entire test suite is currently empty and its HTTP transport does not raise on 4xx/5xx
+responses; see [TypeScript SDK](/sdks/typescript)).
+
+## Why this split exists
+
+The gateway/execution-control split lets a consuming service opt into stronger guarantees
+(content-binding, credential isolation) without every deployment paying for a `Connector`,
+`NonceStore`, and public key it might not need. The cost of that flexibility is that
+"Parmana enforces content-binding" is true of the library, not automatically true of any
+given running server — see the Warning above and the dedicated
+[Content Binding & TOCTOU](/concepts/content-binding-toctou) page before assuming otherwise.

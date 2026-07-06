@@ -1,0 +1,63 @@
+---
+title: "Troubleshooting"
+description: "Real problems encountered while building and using this repo, with real causes."
+---
+
+## `npm run <script>` or `npx <bin>` does something unexpected at the repo root
+
+**Cause, confirmed:** `package.json` and `typescript/package.json` both declare `"name":
+"parmana"`. This duplicate workspace name breaks npm's resolution: `npm run <script>`
+cascades across every workspace instead of running only the root script, and `npx <bin>`
+resolves paths relative to an arbitrary workspace directory instead of the repo root.
+
+**Workaround:** invoke the local binary directly:
+
+```bash
+./node_modules/.bin/tsx packages/api/src/server.ts
+./node_modules/.bin/vitest run   # from within the specific package directory
+```
+
+## `vitest run` from the repo root shows failures in `packages/runtime`
+
+**Cause, confirmed:** `packages/runtime/tests/PolicyRouter.test.ts` resolves its policy
+directory as `path.resolve(process.cwd(), "../../policies")`. This assumes
+`process.cwd()` is a package directory (e.g. `packages/runtime`), which is true when you
+`cd` into the package and run vitest there, but not true when a single vitest process runs
+from the true repo root against every package's tests at once — then `process.cwd()` is
+the repo root itself, and `"../../policies"` overshoots by two directory levels (landing on
+`D:\policies` rather than `D:\...\parmana-exp\policies` on this checkout).
+
+**Not a functional bug** — it's a test-path assumption that only holds under per-package
+invocation, which is how the project's own `"test": "vitest run"` script in each
+`package.json` is meant to be run:
+
+```bash
+cd packages/runtime && ../../node_modules/.bin/vitest run   # passes
+```
+
+## `POST /execute` returns 404 "Policy '...' was not found"
+
+**Cause:** the referenced `policy.version` doesn't match a real
+`policies/<name>/<version>/policy.json` on disk. Check `PARMANA_POLICY_DIR` and the exact
+version folder — for example `policies/vendor-payment/` currently only has a `2.0.0/`
+folder, not `1.0.0/`.
+
+## `PARMANA_POLICY_DIR` and running from a fresh clone
+
+`02-REMAINING.md` (Tier 1) tracks this as an open item: `PARMANA_POLICY_DIR` has no
+repo-relative fallback today, so execution routes can 500 on a bare clone if the env var
+isn't set to an absolute, correct path. Set it explicitly, as shown in
+[Quickstart](/quickstart).
+
+## A resubmitted, modified transaction under the same ID isn't rejected the way I expected
+
+You're likely expecting content-binding protection from the plain API. It isn't there by
+default — read [Content Binding & TOCTOU](/concepts/content-binding-toctou) before
+debugging further; this is very likely working as currently (if incompletely) designed,
+not a bug.
+
+## The TypeScript SDK isn't throwing on a 4xx/5xx response
+
+Confirmed, not a misunderstanding on your part — see [TypeScript SDK](/sdks/typescript).
+Check `response.status` on the returned object yourself, or use the
+[Python SDK](/sdks/python), which raises structured exceptions.

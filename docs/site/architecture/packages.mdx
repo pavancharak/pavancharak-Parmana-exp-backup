@@ -1,0 +1,37 @@
+---
+title: "Packages"
+description: "Every package in packages/*, its real purpose, and its evidence-backed status."
+---
+
+Test counts below are from a per-package `vitest run` on 2026-07-06 (commit `1f62e24` plus
+this session's uncommitted work). Running `vitest run` once from the repo root instead
+of per-package will produce spurious failures in `packages/runtime` — several tests resolve
+fixture paths relative to `process.cwd()` assuming a per-package invocation; this is a
+pre-existing test fragility, not a functional bug (see [Troubleshooting](/troubleshooting)).
+
+| Package | Purpose | Status | Tests | Evidence |
+|---|---|---|---|---|
+| `shared` | Domain types, config, canonical JSON types | [AVAILABLE] | 6 | `packages/shared/src/domain/*.ts` |
+| `crypto` | Signing, hashing, key providers, canonical serialization | [AVAILABLE] | 29 | `AuthorizationSigner`, `Ed25519SignatureProvider`, `Dilithium3SignatureProvider` |
+| `policy` | Deterministic, first-match-semantics rule evaluation | [AVAILABLE] | 61 | `PolicyRouter`, `PolicyValidator`, CLAIMS.md 2.2/2.3 |
+| `runtime` | Orchestrates policy → decision → execution → trust record; the 3-check `VerificationService` | [AVAILABLE] | 31 | `packages/runtime/src/services/verification-service.ts` |
+| `api` | The Express HTTP server — the only long-running process | [AVAILABLE] | 30 + 1 skipped | `packages/api/src/app.ts` |
+| `receipt` | Cryptographic receipts over a verified Trust Record | [AVAILABLE] | — (covered via runtime/api) | `ReceiptCrypto`, `ReceiptHasher` |
+| `replay` | Deterministic execution reconstruction | [PARTIAL] | 9 | Package + engine real; **semantic verification of every trust artifact is an explicit Future Claim in CLAIMS.md, not yet true** |
+| `storage` | Append-only ledger abstraction; memory / Postgres / Supabase providers | [AVAILABLE] | 8 | `memory` provider verified live this session; Supabase/Postgres providers exist in source, not independently verified in this audit |
+| `envelope-verifier` | Verifies a `SignedExecutionAuthorization`: signature, expiry, TTL, nonce | [AVAILABLE] | 15 | `EnvelopeVerifier`, CLAIMS.md 2.9/2.10 |
+| `execution-gateway` | Recomputes content hash, compares to `businessTransactionHash`, releases to a `Connector` | [AVAILABLE] as a library; **not wired into the running server** | 25 | `ExecutionGateway.ts:150-165`; see the Warning on [Architecture Overview](/architecture/overview) |
+| `execution-control` | Gateway-authenticated, session-scoped credential isolation for connectors | [PARTIAL] | 11 | `ExecutionControlService`, `InMemoryCredentialVault` — real scaffold, not the finished "AI never holds credentials" claim (see [Roadmap](/roadmap)) |
+| `execution-system` | `ExecutionSystem` interface + the default (non-gateway) implementation the server actually uses | [AVAILABLE] | 1 | `packages/execution-system/src` |
+
+## SDKs and app
+
+| Package | Purpose | Status | Evidence |
+|---|---|---|---|
+| `python/` | Python SDK | [AVAILABLE] | 26 tests, structured HTTP exceptions, generated + drift-guarded models |
+| `typescript/` | TypeScript SDK | [PARTIAL] | Real client/model code; **all 9 test files are empty (0 lines)**; `HttpTransport.ts:107-125` returns any HTTP status as a "successful" response — 4xx/5xx are never raised |
+
+## Not a package: `python-old/`
+
+A prior Python SDK generation (v0.1.0) was being removed from the repository as of this
+session (uncommitted deletion in the working tree). Not part of the current architecture.

@@ -1,0 +1,156 @@
+---
+title: "Content Binding & TOCTOU"
+description: "The real mechanism that closes the check-vs-use gap between authorization and execution — what it covers, and what it doesn't."
+---
+
+<Info>
+**[AVAILABLE] as a library. Confirmed NOT invoked by the default running server.** This
+page states both halves plainly; neither is optional context.
+</Info>
+
+## The problem: check-vs-use (TOCTOU)
+
+A system that authorizes an action by checking a payload, then executes a *different*
+payload under the same authorization, has a Time-Of-Check-To-Time-Of-Use gap. An
+authorization that only names an ID (`businessTransactionId: "tx-001"`) — without binding
+to the actual content — cannot detect this: anything can be substituted under a
+previously-approved ID.
+
+## The real mechanism
+
+Parmana's `SignedExecutionAuthorization` binds a **canonical content hash** into the signed
+payload, not just an ID:
+
+```typescript
+// packages/shared/src/domain/execution-authorization.ts
+export interface ExecutionAuthorizationPayload {
+  readonly version: 1;
+  readonly authorizationId: string;
+  readonly nonce: string;
+  readonly decisionId: string;
+  readonly businessTransactionId: string;
+  readonly policyName: string;
+  readonly policyVersion: string;
+  readonly authorizedAt: string;
+  readonly expiresAt: string;
+
+  /**
+   * Canonical content hash of the ExecutableContent (businessTransactionId,
+   * action, target, parameters) approved for execution. Computed identically
+   * by the signing side and the verifying side via the same
+   * ExecutableContentHasher, so a receiving gateway can recompute this hash
+   * from the exact content it is about to forward and reject any mismatch.
+   */
+  readonly businessTransactionHash: string;
+}
+```
+
+`ExecutionGateway.verify()` is where the check-vs-use gap actually closes: it recomputes
+the hash of the content it is about to forward, and compares it to the signed
+`businessTransactionHash`:
+
+```typescript
+// packages/execution-gateway/src/ExecutionGateway.ts:150-165
+if (passed) {
+  const actualHash = await this.contentHasher.hash(executableContent);
+  const expectedHash = request.authorization.payload.businessTransactionHash;
+
+  businessTransactionHashMatches = actualHash === expectedHash;
+
+  if (!businessTransactionHashMatches) {
+    hashMismatch = { expected: expectedHash, actual: actualHash };
+  }
+}
+```
+
+Verification order, side-effect-free checks first (`ExecutionGateway.ts:86-90`):
+
+```
+version → signature → expiry → TTL policy → businessTransactionHash recompute-and-compare → nonce
+```
+
+The nonce (single-use) check runs **last**, and only if every prior check — including the
+content hash — passed. This matters: a forged or mismatched request must never burn a
+nonce, or an attacker who observes a nonce in transit could poison it and get the
+*legitimate* request rejected instead (`ExecutionGateway.ts:170-180`).
+
+`ExecutableContentHasher` delegates to the same `TrustRecordHasher` used elsewhere in the
+system (`packages/crypto/src/ExecutableContentHasher.ts`) — the signing side and verifying
+side run identical canonical serialization and hashing, never two parallel
+implementations of the same computation.
+
+## What this proves — precisely scoped
+
+<Note>
+From CLAIMS.md 3.1 (Conditional Claim, load-bearing scope): *"For any system running the
+Parmana envelope verifier, execution requests not authorized by Parmana are
+cryptographically impossible to accept. This claim holds only for a receiving system that
+(a) runs `@parmana/envelope-verifier` and (b) gates every execution-triggering code path
+behind its verification result. Parmana enforces nothing at the network level."*
+</Note>
+
+This is real, tested protection — for a **gateway-integrated system**. It is not a
+network-level guarantee, and it is not automatically true of every Parmana deployment.
+
+## Confirmed: the default local server does NOT enforce this
+
+This was traced directly, not assumed. `packages/api/src/application.ts`:
+
+```typescript
+export function createApplication(executionSystem?: ExecutionSystem) {
+  return RuntimeFactory.create(
+    businessTransactionRepository,
+    executionTrustRecordRepository,
+    policyRepository,
+    executionSystem,
+  );
+}
+
+// SINGLE INSTANCE ONLY (NO DUPLICATES)
+export const application = createApplication();
+```
+
+`executionSystem` is optional — and the server's own singleton passes none. A `grep` for
+`SignedExecutionAuthorization` / `ExecutionGateway` across every file in
+`packages/api/src/routes/*` returns zero matches.
+
+### Demonstrated live
+
+Submitting a Business Transaction, then resubmitting a **modified** payload (different
+payment amount) under the **same** `businessTransactionId`, against the plain local
+server:
+
+```
+Original transaction accepted: 7bc85031-eeca-41a3-a6d5-48f4fc7cd2f3
+  amount authorized: 1000
+  trust record hash: fd12a7d100a76e9713f8b74e65661d06f51e3e163164d5615a2b33845f603b49
+
+Resubmitting SAME businessTransactionId with amount changed to 50000 ...
+Rejected: Business Transaction '7bc85031-eeca-41a3-a6d5-48f4fc7cd2f3' already exists. (HTTP 409)
+```
+
+Real output, `python/examples/content_binding/`, run 2026-07-06. The rejection is
+`DuplicateBusinessTransactionError` — **Business Transaction ID uniqueness**, not content
+binding. It's a coincidental protection with a different mechanism and different coverage:
+a modified payload under a **new**, never-seen `businessTransactionId` would not be
+rejected at all, because nothing recomputes or checks a content hash at this layer.
+
+## What wiring real content-binding enforcement requires
+
+A consuming service must construct its own `ExecutionGateway` (with a `Connector` and
+`NonceStore`) and pass it as the `executionSystem` argument to
+`RuntimeFactory.create(...)` / `createApplication(...)`. No such server exists in this
+repo today to point either SDK at — this is tracked on the [Roadmap](/roadmap), not shipped
+as a default.
+
+## Related, and also worth knowing
+
+- **Nonce single-use is scoped to whichever `NonceStore` instance checks it.** Multiple
+  independent gateway instances each using their own `MemoryNonceStore` can each accept the
+  same authorization once. Fleet-wide single-use requires one shared store (CLAIMS.md 3.2).
+- **ML-DSA-65 (post-quantum) signatures are randomized, not deterministic.** Signing the
+  same message twice with the same key produces two different, both-valid signatures — only
+  *verification* is deterministic. Don't build tooling that assumes identical input produces
+  an identical PQ signature (CLAIMS.md §5).
+- Every envelope carries a bounded TTL specifically so the exposure window from either of
+  the above gaps is bounded, not unlimited.

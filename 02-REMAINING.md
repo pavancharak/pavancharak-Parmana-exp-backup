@@ -20,6 +20,10 @@ the provability layer is done; what remains is the unavoidability layer.
       repo — but first rescue its `policies/` directory into `parmana-exp` and update `.env`
       (local `.env` currently points `PARMANA_POLICY_DIR` at the old repo).
 - [ ] **Record the 5-scenario demo** from example 04 — the design-partner opener.
+- [ ] **CLAIMS.md and UNAVOIDABILITY-ARC.md need a status update**: credential-brokering
+      moved from "not started" to "in-memory scaffold built (`execution-control`, 11
+      tests)" — still [PARTIAL], not the finished claim. (Found while building the docs
+      site, Session 9.)
 
 ---
 

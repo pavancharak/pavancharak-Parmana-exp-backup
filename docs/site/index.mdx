@@ -1,0 +1,80 @@
+---
+title: "Overview"
+description: "Parmana is Execution Trust Infrastructure: a verifiable trust chain between business authorization, policy evaluation, runtime execution, and execution evidence."
+---
+
+<Info>
+**Last verified against commit `1f62e24`, 2026-07-06.** This site documents the reference
+implementation in this repository as of that commit, plus in-progress Python SDK and
+documentation work from the current session (not yet committed). Every `[AVAILABLE]` claim
+below cites the source file or test that proves it. See [Contributing](/contributing) for
+the rule this site follows.
+</Info>
+
+## What Parmana is
+
+Parmana establishes a verifiable trust chain between business authorization, policy
+evaluation, runtime execution, and execution evidence. It lets an organization verify
+**what** an automated system executed — not simply trust that it executed correctly.
+
+This is not a single claim. It's a set of specific, separately-provable guarantees, each
+tagged below by how far it actually is from "built and tested" today. Source:
+[`docs/CLAIMS.md`](https://github.com/parmana-ai/parmana/blob/main/docs/CLAIMS.md), the
+authoritative claims register this site mirrors.
+
+## Status tags used throughout this site
+
+<CardGroup cols={3}>
+  <Card title="[AVAILABLE]" icon="circle-check">
+    Built and tested in this repo today. Cites the source file(s) and/or test(s) that prove it.
+  </Card>
+  <Card title="[PARTIAL]" icon="circle-half-stroke">
+    Exists, but incomplete. States exactly what works and what doesn't.
+  </Card>
+  <Card title="[ROADMAP]" icon="signpost">
+    Designed, not yet built. Says so in the first sentence — never documented as if it ships.
+  </Card>
+</CardGroup>
+
+A page or section with no tag is a bug in this site — [file it as such](/contributing).
+
+## The trust chain, at a glance
+
+```
+Business Transaction → Policy Evaluation → Decision → Signed Execution Authorization
+        │                                                        │
+        ▼                                                        ▼
+ Execution Trust Record ◄──────────────────────────────  Execution Gateway
+        │                                              (content-binding check)
+        ▼                                                        │
+   Verification                                                  ▼
+   (integrity, signature,                                   Connector
+    authorization binding)                              (reference: HTTP)
+```
+
+<Warning>
+**The gateway stage is real but not wired into the default server.** The plain,
+running API server (`packages/api`) never constructs an `ExecutionGateway` — its
+`application` singleton is built with no `executionSystem` argument
+(`packages/api/src/application.ts`). So `POST /execute` against a stock local server
+does **not** get content-binding enforcement today. See
+[Content Binding & TOCTOU](/concepts/content-binding-toctou) for the full trace and what
+wiring the gateway in requires.
+</Warning>
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run the local API server and execute your first Business Transaction with the Python SDK.
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture/overview">
+    Every package, what it actually does, and its current status.
+  </Card>
+  <Card title="Content Binding & TOCTOU" icon="shield-check" href="/concepts/content-binding-toctou">
+    The real mechanism that closes the check-vs-use gap — and its real, current limits.
+  </Card>
+  <Card title="Roadmap" icon="map" href="/roadmap">
+    What's designed but not yet built, stated plainly — KMS custody, credential brokering, more.
+  </Card>
+</CardGroup>

@@ -1,0 +1,122 @@
+---
+title: "Quickstart"
+description: "Run a local Parmana Runtime and execute your first Business Transaction with the Python SDK."
+---
+
+<Info>
+**[AVAILABLE]** — every step below is copied from a real run against a local server on
+2026-07-06. Source: `python/examples/quickstart/`.
+</Info>
+
+## 1. Start the Runtime locally
+
+The committed `.env` defaults to Supabase-backed storage. To run fully locally with no
+external dependency, override storage to `memory`:
+
+```bash
+DATABASE_PROVIDER=memory PARMANA_STORAGE=memory \
+  PARMANA_POLICY_DIR=/absolute/path/to/policies \
+  node_modules/.bin/tsx packages/api/src/server.ts
+```
+
+<Warning>
+Plain `npm run dev` / `npx tsx ...` do not resolve correctly at the repo root today: both
+the root `package.json` and `typescript/package.json` declare `"name": "parmana"`, which
+breaks npm's workspace resolution for both `npm run` and `npx`. Invoke the local `tsx`
+binary directly, as shown above, until that's fixed upstream.
+</Warning>
+
+Confirm it's up:
+
+```bash
+curl http://localhost:3000/health
+# {"status":"UP"}
+curl http://localhost:3000/version
+# {"name":"Parmana","version":"0.4.0","api":"v1"}
+```
+
+## 2. Install the Python SDK
+
+```bash
+pip install -e ./python
+```
+
+## 3. Execute a Business Transaction
+
+```python
+from datetime import UTC, datetime
+from uuid import uuid4
+
+from parmana import (
+    Authority, Authorization, BusinessTransaction,
+    BusinessTransactionMetadata, Intent, ParmanaClient, PolicyReference,
+)
+
+client = ParmanaClient(endpoint="http://localhost:3000")
+
+transaction_id = str(uuid4())
+now = datetime.now(UTC)
+
+transaction = BusinessTransaction(
+    business_transaction_id=transaction_id,
+    metadata=BusinessTransactionMetadata(
+        business_transaction_id=transaction_id,
+        correlation_id="quickstart",
+        tenant_id=None,
+        source_system="python-sdk-quickstart",
+        submitted_by="sdk-demo",
+        submitted_at=now,
+    ),
+    authority=Authority(
+        authority_id="authority-001", authority_type="SERVICE",
+        principal_id="python-sdk", display_name="Python SDK Quickstart", issued_at=now,
+    ),
+    authorization=Authorization(
+        authorization_id="authorization-001", authority_id="authority-001",
+        purpose="Quickstart demo", issued_at=now,
+    ),
+    intent=Intent(
+        intent_id="intent-001", authorization_id="authorization-001",
+        action="VendorPayment", target="vendor/V-100",
+        parameters={"amount": 1000, "currency": "USD"}, created_at=now,
+    ),
+    policy=PolicyReference(name="vendor-payment", version="2.0.0", schema_version="1.0.0"),
+    signals={
+        "vendorVerified": True, "invoiceVerified": True, "paymentApproved": True,
+        "sufficientFunds": True, "paymentAmount": 1000, "riskScore": 5,
+    },
+    status="RECEIVED",
+    created_at=now,
+)
+
+trust_record = client.execution.execute(transaction)
+print(trust_record.trust_record_hash)
+```
+
+Full runnable version: `python/examples/quickstart/run.py`.
+
+## 4. Real output
+
+Captured from an actual run, 2026-07-06 (IDs and hashes differ on every run):
+
+```
+Business Transaction ID: 111a9197-21b3-42fb-8b7b-a000f1278680
+Trust Record ID:         71dc39c9-2f24-401c-b999-6cbc12ee4156
+Trust Record Hash:       8d8fc49457038134776ac20fee289991596ab30dff5765e2d1007aed2f51ad69
+Signature Algorithm:     SignatureAlgorithm.ED25519
+```
+
+The full `ExecutionTrustRecord` includes the `signature` block, the `executions[0].evidence`
+(what was actually executed), and an initial `verifications` / `receipts` history. See
+[Trust Record](/trust-record/overview) for the complete shape.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Verify & replay" icon="check-double" href="/verification/overview">
+    Read back or re-run verification against the record you just created.
+  </Card>
+  <Card title="Content binding" icon="shield-check" href="/concepts/content-binding-toctou">
+    Understand exactly what protection you do — and don't — get from the plain API.
+  </Card>
+</CardGroup>

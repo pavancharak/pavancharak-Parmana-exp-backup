@@ -1,0 +1,127 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "maple",
+  "name": "Parmana",
+  "description": "Execution Trust Infrastructure — verifiable trust between business authorization, policy evaluation, runtime execution, and execution evidence.",
+  "colors": {
+    "primary": "#E8871E",
+    "light": "#F2A94E",
+    "dark": "#1B1B1F"
+  },
+  "background": {
+    "color": {
+      "light": "#F6EFE1",
+      "dark": "#141416"
+    }
+  },
+  "logo": {
+    "light": "/logo/logo-light.svg",
+    "dark": "/logo/logo-dark.svg"
+  },
+  "favicon": "/logo/seal.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "index",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/packages",
+              "architecture/execution-pipeline"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/execution-trust",
+              "concepts/content-binding-toctou"
+            ]
+          },
+          {
+            "group": "Authorization & Gateway",
+            "pages": [
+              "authorization/signed-execution-authorization",
+              "authorization/execution-gateway"
+            ]
+          },
+          {
+            "group": "Runtime",
+            "pages": [
+              "runtime/policy-evaluation",
+              "trust-record/overview",
+              "verification/overview",
+              "replay/overview"
+            ]
+          },
+          {
+            "group": "Cryptography & Storage",
+            "pages": [
+              "cryptography/overview",
+              "storage/overview"
+            ]
+          },
+          {
+            "group": "SDKs",
+            "pages": [
+              "sdks/python",
+              "sdks/typescript",
+              "sdks/other-languages"
+            ]
+          },
+          {
+            "group": "REST API",
+            "pages": [
+              "api-reference/introduction",
+              "api-reference/endpoints"
+            ]
+          },
+          {
+            "group": "Security & Deployment",
+            "pages": [
+              "security/overview",
+              "deployment/local"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/overview"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "roadmap",
+              "troubleshooting",
+              "faq",
+              "glossary",
+              "contributing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/parmana-ai/parmana"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/parmana-ai/parmana"
+    }
+  }
+}

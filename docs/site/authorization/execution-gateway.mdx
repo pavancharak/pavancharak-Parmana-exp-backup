@@ -1,0 +1,73 @@
+---
+title: "Execution Gateway"
+description: "The sole boundary through which Parmana releases approved execution requests to connectors — as a library you wire in, not a default."
+---
+
+<Info>**[AVAILABLE] as a library.** 25 tests, `packages/execution-gateway`.</Info>
+
+<Warning>
+Not invoked by the default running API server. See the Warning on
+[Architecture Overview](/architecture/overview) and the full trace on
+[Content Binding & TOCTOU](/concepts/content-binding-toctou) before assuming a stock
+`packages/api` deployment gets this protection.
+</Warning>
+
+## What it does
+
+`ExecutionGateway` implements `@parmana/execution-system`'s `ExecutionSystem` interface, so
+it plugs into `RuntimeFactory.create()` exactly like the default execution system — no
+change to `RuntimeEngine` or `RuntimePipeline` is required to use it. It composes
+`@parmana/envelope-verifier`'s checks and adds exactly one more: recomputing the executable
+content hash and comparing it to `businessTransactionHash` (see
+[Content Binding & TOCTOU](/concepts/content-binding-toctou) for that mechanism in detail).
+
+```typescript
+const gateway = new ExecutionGateway({
+  publicKey,          // Parmana's public key
+  nonceStore,          // shared across instances for fleet-wide single-use
+  connector,           // e.g. new HttpConnector({ baseUrl, headers })
+  // or: executionControl: { service: executionControlService, route }
+});
+
+const application = createApplication(gateway); // wires it into RuntimeFactory.create()
+```
+
+## Connectors
+
+A `Connector` is what the Gateway hands verified, frozen content to after every check
+passes. One reference implementation ships:
+
+```typescript
+// packages/execution-gateway/src/HttpConnector.ts
+// Forwards { ...transaction, authorization } to `${baseUrl}/execute` via POST.
+// This is the same wire body @parmana/execution-system's HttpExecutionSystem
+// already sent, so existing receiving sides require no changes.
+```
+
+No SAP/Salesforce/OpenAI/etc. connector exists. See [Integrations](/integrations/overview).
+
+## Execution Control (credential isolation) — [PARTIAL]
+
+`ExecutionGatewayOptions.executionControl` is an alternative to a direct `Connector`: it
+routes a verified release through `@parmana/execution-control`'s `ExecutionControlService`,
+which authenticates the calling gateway, issues a short-lived session
+(`InMemoryGatewaySessionStore`), and only then invokes the target connector — auditing
+`session.created` / `execution.completed` / `execution.rejected` at each step
+(`ExecutionControlService.ts`).
+
+This is real and tested (11 tests), but it's a single-process, in-memory scaffold — not the
+finished "AI systems never possess Parmana's execution credentials" claim. See
+[Roadmap](/roadmap) for exactly what's left (KMS-backed, cross-system, real-cloud-provider
+credential minting).
+
+## Failure reporting
+
+`ExecutionGateway.execute()` throws on any failed check, naming every failing check and —
+on a content mismatch — both hashes:
+
+```
+Execution Gateway rejected request: failed checks [businessTransactionHashMatches].
+businessTransactionHash mismatch: expected <hash>, got <hash>.
+```
+
+(`ExecutionGateway.ts:250-265`, `describeFailure`.)

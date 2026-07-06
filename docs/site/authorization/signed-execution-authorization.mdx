@@ -1,0 +1,77 @@
+---
+title: "Signed Execution Authorization"
+description: "The v1 envelope: proof that Parmana authorized a specific execution request."
+---
+
+<Info>**[AVAILABLE]** — `packages/shared/src/domain/execution-authorization.ts`, `AuthorizationSigner`, `AuthorizationVerifier`.</Info>
+
+<Note>
+An earlier prototype called this concept "Execution Permit"
+(`packages/shared/src/domain/execution-permit.ts`, added then deleted the same day in
+favor of this architecture — see [Glossary](/glossary)). If you find "Execution Permit" in
+older material, this page is the current, shipped equivalent.
+</Note>
+
+## The envelope
+
+```typescript
+// packages/shared/src/domain/execution-authorization.ts
+export interface SignedExecutionAuthorization {
+  readonly payload: ExecutionAuthorizationPayload;
+  readonly signature: string;
+  readonly keyId: string;
+  readonly algorithm: string;
+}
+```
+
+Where `payload` carries: a format `version` (verifiers reject anything but `1`), a unique
+`authorizationId`, a single-use `nonce`, the `decisionId` and `businessTransactionId` it
+authorizes, the exact `policyName`/`policyVersion` that produced the Decision, an
+`authorizedAt`/`expiresAt` bounded window, and `businessTransactionHash` — the content
+binding covered in depth on [Content Binding & TOCTOU](/concepts/content-binding-toctou).
+
+All timestamps in the payload are ISO-8601 UTC **strings**, not `Date` objects — this keeps
+the artifact byte-identical before signing and after JSON transport, which is what makes
+independent signature verification possible at all.
+
+## Properties, each with a test
+
+- **Signed only after approval.** A `REJECTED` Decision never produces a
+  `SignedExecutionAuthorization` — signing happens only after `ExecutionGate.enforce()`
+  approves (`RuntimeEngine`; `execution-authorization-wiring.test.ts` — "rejected
+  transaction produces no authorization").
+- **Single-use.** A receiving system must reject an authorization whose nonce has been seen
+  before (enforced by whichever `NonceStore` performs the check — see
+  [Content Binding & TOCTOU](/concepts/content-binding-toctou) for the fleet-wide caveat).
+- **Time-bounded.** `expiresAt` is required; a receiving system must reject an expired
+  authorization.
+- **Algorithm-agile.** Ed25519 by default; ML-DSA-65 (FIPS 204) selectable via
+  `SIGNATURE_PROVIDER` — see [Cryptography](/cryptography/overview).
+
+## Independent verification
+
+A receiving system can verify a `SignedExecutionAuthorization` **without** trusting
+Parmana's runtime process or database — it needs only Parmana's public key and the
+envelope itself:
+
+```typescript
+// @parmana/envelope-verifier
+const verifier = new EnvelopeVerifier({ publicKey, nonceStore });
+const result = await verifier.verify(authorization);
+// result.valid, result.checks: { versionSupported, signatureVerified, notExpired, ttlWithinPolicy, nonceUnseen }
+```
+
+An Express middleware ships for this: `requireParmanaAuthorization(verifier)`
+(`packages/envelope-verifier/src/express.ts`) — reads `req.body.authorization`, verifies
+it, and either rejects with 401/403 or calls `next()`.
+
+`EnvelopeVerifier.verify()` checks signature, expiry, TTL policy, and nonce — it does
+**not** check `businessTransactionHash`. That's `ExecutionGateway.verify()`'s job (one
+layer up), because it needs the actual executable content to hash, not just the envelope.
+See [Content Binding & TOCTOU](/concepts/content-binding-toctou).
+
+## Rejections proven by test
+
+`packages/envelope-verifier/test/envelope-verifier.test.ts` proves: a forged signature is
+rejected and does not burn the nonce; an expired envelope is rejected and does not burn the
+nonce; a second use of the same nonce is rejected.

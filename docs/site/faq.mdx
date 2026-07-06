@@ -1,0 +1,51 @@
+---
+title: "FAQ"
+description: "Direct answers, including the ones that aren't flattering."
+---
+
+<AccordionGroup>
+  <Accordion title="Does Parmana prevent an AI from executing an unauthorized action?">
+    Within a scope you have to actively choose, yes — see
+    [Content Binding & TOCTOU](/concepts/content-binding-toctou). The plain default API
+    server does not enforce content-binding; a consuming service has to wire in the
+    [Execution Gateway](/authorization/execution-gateway) to get that guarantee. Today, an
+    AI system can still hold and use its own execution credentials directly — Parmana
+    authorizes, it does not (yet) make unauthorized execution structurally unreachable.
+    That's the explicit subject of the [Roadmap](/roadmap)'s three "unavoidability" moves.
+  </Accordion>
+  <Accordion title="Is Parmana's signing key stored securely?">
+    Today it's a PEM file on disk, read by `FileKeyProvider` — the only implemented key
+    provider. There's a live incident on record: an earlier committed key was publicly
+    exposed and is permanently compromised (rotated 2026-07-05). KMS/HSM custody is
+    designed but not built — see [Cryptography](/cryptography/overview) and
+    [Roadmap](/roadmap).
+  </Accordion>
+  <Accordion title="Which SDK should I use?">
+    Python, without much hesitation right now. It's [AVAILABLE]: real tests, structured
+    errors that actually raise, generated models with a drift guard. The TypeScript SDK is
+    [PARTIAL] — real client code, but its test suite is currently empty and its HTTP
+    transport doesn't raise on 4xx/5xx. See [Python SDK](/sdks/python) and
+    [TypeScript SDK](/sdks/typescript).
+  </Accordion>
+  <Accordion title="Can I use Go / Java / .NET?">
+    Not via an SDK — none exists. Call the [REST API](/api-reference/endpoints) directly;
+    it's 13 small, documented routes. See [Other Languages](/sdks/other-languages).
+  </Accordion>
+  <Accordion title="Does Parmana support post-quantum signatures?">
+    Yes — ML-DSA-65 (FIPS 204), selectable via `SIGNATURE_PROVIDER=dilithium3`, real and
+    tested. Requires Node ≥ 24. Its signatures are randomized, not deterministic — don't
+    build tooling that assumes otherwise. See [Cryptography](/cryptography/overview).
+  </Accordion>
+  <Accordion title="What does 'replay' actually do?">
+    Two different things share the name, and neither is what you might assume. See
+    [Replay](/replay/overview) — this is worth reading in full before relying on either.
+  </Accordion>
+  <Accordion title="Is there an 'Execution Permit'?">
+    Not anymore, under that name. An early prototype used it; it was deleted the same
+    session it was replaced by the current `SignedExecutionAuthorization` + Execution
+    Gateway architecture, which is what actually ships. See [Glossary](/glossary).
+  </Accordion>
+  <Accordion title="Is this API authenticated?">
+    No. No auth middleware exists on any route today. See [Security](/security/overview).
+  </Accordion>
+</AccordionGroup>

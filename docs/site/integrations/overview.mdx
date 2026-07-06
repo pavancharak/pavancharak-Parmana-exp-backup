@@ -1,0 +1,24 @@
+---
+title: "Integrations"
+description: "[ROADMAP] for everything except one reference HTTP connector."
+---
+
+<Warning>**[ROADMAP]**, except the one item marked [AVAILABLE] below. One honest page, not seventeen fabricated guides.</Warning>
+
+## What exists
+
+**`HttpConnector`** (`packages/execution-gateway/src/HttpConnector.ts`) — [AVAILABLE]. A
+reference `Connector` implementation: forwards Gateway-verified content and its
+authorization to `${baseUrl}/execute` via POST, with the same wire body
+`@parmana/execution-system`'s prior `HttpExecutionSystem` used, so existing receiving
+sides need no changes. This is generic HTTP forwarding, not an integration with any named
+third-party product.
+
+## What doesn't exist
+
+No connector or integration guide for OpenAI, Anthropic, SAP, Salesforce, ServiceNow,
+Workday, or any other named platform exists in this repository. If your use case needs one,
+you would build a `Connector` implementing the interface in
+`packages/execution-gateway/src/Connector.ts` and wire it into an
+[Execution Gateway](/authorization/execution-gateway) — that part is real and documented;
+a pre-built connector for your target system is not.

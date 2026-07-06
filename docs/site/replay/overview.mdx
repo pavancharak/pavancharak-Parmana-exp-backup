@@ -1,0 +1,56 @@
+---
+title: "Replay"
+description: "Two separate things share this name today — what each actually does."
+---
+
+<Warning>
+**[PARTIAL], and more precisely split than the name suggests.** There are two unconnected
+things called "replay" in the current codebase. Conflating them would overclaim what
+either one does.
+</Warning>
+
+## 1. `POST /replay` (what the SDKs and HTTP API expose)
+
+This is what `client.replay.replay(transaction_id)` actually calls. Its real
+implementation, `ExecutionTrustApplication.replay()`
+(`packages/runtime/src/ExecutionTrustApplication.ts:142-171`):
+
+```typescript
+async replay(businessTransactionId: string): Promise<{
+  businessTransactionId: string;
+  trustRecordHash: string;
+  verified: boolean;
+}> {
+  const trustRecord = await this.trustRecords.findByTransactionId(businessTransactionId);
+  if (!trustRecord) throw new Error("Execution Trust Record not found.");
+  const verified = await this.crypto.verify(trustRecord);
+  return { businessTransactionId, trustRecordHash: trustRecord.trustRecordHash, verified };
+}
+```
+
+**This re-verifies the Trust Record's cryptographic signature — it does not reconstruct or
+re-execute anything.** [AVAILABLE], but narrower than "replay" implies: it's a signature
+recheck with a `replay`-shaped response, not deterministic execution reconstruction.
+
+## 2. `packages/replay` (the deterministic reconstruction engine)
+
+A separate, real package: `ReplayEngine`, `ReplayPipeline`, `ReplayExecutor`,
+`ReplayBuilder` — builds an execution plan from recorded execution IDs and replays it,
+proven deterministic regardless of input order (`ReplayDeterminism.test.ts` — "should
+produce identical output regardless of input order"; `ReplayEngine.test.ts`; 9 tests
+total).
+
+<Warning>
+**Confirmed disconnected: nothing in `packages/api` or `packages/runtime` imports
+`@parmana/replay`.** This engine is not reachable through `POST /replay` or any other
+route today. It's real, tested, standalone library code — not yet wired into the
+runtime or the HTTP surface.
+</Warning>
+
+## What "semantic verification" would add — not built yet
+
+CLAIMS.md explicitly withholds this claim: *"Replay semantically verifies every trust
+artifact"* is listed under Future Claims, not Supported Claims. Neither of the two
+mechanisms above re-evaluates the original policy against the recorded signals and
+confirms the same Decision would result — that's what "semantic" replay verification
+would mean, and it doesn't exist yet. See [Roadmap](/roadmap).

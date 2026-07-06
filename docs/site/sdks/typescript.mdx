@@ -1,0 +1,75 @@
+---
+title: "TypeScript SDK"
+description: "Real client code and a full error taxonomy — neither is tested, and the error taxonomy is never actually used."
+---
+
+<Warning>
+**[PARTIAL].** Downgraded from an initial [AVAILABLE] label after checking source
+directly. Two specific, unfixed problems, stated precisely below — this page exists so you
+know them before relying on this SDK, not to discourage using it.
+</Warning>
+
+## What's real
+
+`typescript/src/` has genuine structure: a `client/`, per-resource API classes, a
+`transport/HttpTransport`, `models/`, and `config/`. It builds. Version `1.0.0`.
+
+## Problem 1 — the entire test suite is empty
+
+Every file under `typescript/test/*.test.ts` — `ParmanaClient.test.ts`,
+`HttpTransport.test.ts`, `Errors.test.ts`, `VerificationApi.test.ts`,
+`RuntimeApi.test.ts`, `ReplayApi.test.ts`, `PolicyApi.test.ts`, `HealthApi.test.ts`,
+`Configuration.test.ts` — is **0 bytes**. `vitest run` reports "9 passed" because an empty
+file trivially has nothing to fail; it asserts nothing.
+
+```
+$ wc -l typescript/test/*.test.ts
+0 typescript/test/Configuration.test.ts
+0 typescript/test/Errors.test.ts
+0 typescript/test/HealthApi.test.ts
+0 typescript/test/HttpTransport.test.ts
+0 typescript/test/ParmanaClient.test.ts
+0 typescript/test/PolicyApi.test.ts
+0 typescript/test/ReplayApi.test.ts
+0 typescript/test/RuntimeApi.test.ts
+0 typescript/test/VerificationApi.test.ts
+0 total
+```
+
+## Problem 2 — a full error taxonomy exists and is never thrown
+
+`typescript/src/errors/` declares `AuthenticationError`, `AuthorizationError`,
+`ExecutionRejectedError`, `ValidationError`, `InternalServerError`, `VerificationError`,
+`ReplayError`, `NetworkError`, `TimeoutError`, `ConfigurationError` — a complete,
+well-named taxonomy. Checked directly: **none of `AuthenticationError`,
+`AuthorizationError`, `ExecutionRejectedError`, `ValidationError`, or
+`InternalServerError` is ever constructed anywhere in the SDK source.**
+
+The reason: `HttpTransport.send()` returns `{ status, headers, body }` for **any** HTTP
+status code, with no check against 4xx/5xx:
+
+```typescript
+// typescript/src/transport/HttpTransport.ts:107-125
+let body: T;
+if (response.status === 204) {
+  body = undefined as T;
+} else {
+  body = (await response.json()) as T;
+}
+return { status: response.status, headers, body };
+```
+
+A `400`, `404`, or `500` response comes back looking exactly like a `200` — the error body
+sits in `.body`, un-thrown, un-flagged. Only `NetworkError` (fetch failure) and
+`TimeoutError` (abort) are actually raised, from the `catch` block around `fetch()` itself.
+
+**If you're writing error-handling code against this SDK today, check `response.status`
+in the returned object yourself** — do not rely on a thrown, typed exception for a 4xx/5xx
+from the Runtime. Compare with the [Python SDK](/sdks/python), where this exact problem was
+found and fixed this session, with tests proving each status code raises its specific type.
+
+## What to use this SDK for today
+
+Reading/writing requests against a well-behaved server (2xx responses) works as expected.
+Don't build production error-handling logic on top of it without first fixing Problem 2
+locally, or falling back to inspecting `.status` yourself on every call.

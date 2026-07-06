@@ -1,0 +1,39 @@
+---
+title: "The Execution Pipeline"
+description: "Stage by stage: what runs today in the default server, and what only runs if a consuming service wires it in."
+---
+
+## Stage-by-stage status
+
+| Stage | What it does | Status | Evidence |
+|---|---|---|---|
+| 1. Accept Business Transaction | Validates trust-chain invariants (IDs match across the chain, policy/action present) | [AVAILABLE] | `BusinessTransactionValidator`, `packages/runtime/src/validators/BusinessTransactionValidator.ts` |
+| 2. Policy evaluation | Loads the exact referenced policy (name+version), evaluates signals against sequential rules, first match wins | [AVAILABLE] | `PolicyRouter`, `PolicyEngine`, CLAIMS.md 2.2/2.3 |
+| 3. Execution gate | Refuses to execute when the Decision is not `APPROVED` or required trust artifacts are missing | [AVAILABLE] | `ExecutionGate`, `TrustChainValidationComponent`, CLAIMS.md 2.4 |
+| 4. Signed Execution Authorization | Signs a payload scoped to one Decision, bound to a single-use nonce, valid only within a bounded window — **only after** the gate approves | [AVAILABLE] | `RuntimeAuthorizationSigner`, CLAIMS.md 2.8/2.12 |
+| 5. Execution Gateway (content-binding) | Recomputes the executable-content hash, compares to the authorization's `businessTransactionHash`, rejects a mismatch before consuming the nonce | [AVAILABLE] as a library; **not invoked by the default server** | `ExecutionGateway.ts:141-195`; see [Content Binding & TOCTOU](/concepts/content-binding-toctou) |
+| 6. Connector | Forwards verified content to the target system | [AVAILABLE] (one reference implementation: `HttpConnector`) | `packages/execution-gateway/src/HttpConnector.ts` |
+| 7. Execution Trust Record | Assembles the immutable record: transaction, executions, overrides, verifications, receipts, canonical hash, signature | [AVAILABLE] | `ExecutionTrustRecordBuilder`, CLAIMS.md 2.5 |
+| 8. Verification | Recomputes hash, verifies signature, checks authorization binding on every `APPROVED` execution | [AVAILABLE], exactly 3 checks | `VerificationService`, CLAIMS.md 2.15 |
+| 9. Replay | Deterministically reconstructs the recorded decision | [PARTIAL] | See [Replay](/replay/overview) |
+
+## What actually runs when you call `POST /execute` today
+
+Stages 1–4 and 7–8 run in the default server. Stages 5–6 (gateway, connector) are replaced
+by `packages/execution-system`'s default (non-gateway) implementation, which does not
+recompute or check `businessTransactionHash`. This is the single most important thing to
+understand before relying on Parmana for a threat model that includes payload tampering
+after authorization — see [Content Binding & TOCTOU](/concepts/content-binding-toctou).
+
+## Fail-closed properties that do hold today
+
+- A rejected Decision **never** produces a Signed Execution Authorization — authorization
+  signing happens only after `executionGate.enforce()` approves
+  (`packages/runtime/src/RuntimeEngine.ts`; CLAIMS.md 2.12,
+  `packages/runtime/test/execution-authorization-wiring.test.ts` — "rejected transaction
+  produces no authorization").
+- Signing or verifying with the wrong key type (e.g. an Ed25519 key against an ML-DSA-65
+  provider) fails closed with a named error rather than silently dispatching on the key's
+  own type (`assertKeyType`, CLAIMS.md 2.13).
+- The Trust Record's `authorizationId` is part of the canonically-hashed content, not
+  attached alongside it — tampering with it changes the recomputed hash (CLAIMS.md 2.11).

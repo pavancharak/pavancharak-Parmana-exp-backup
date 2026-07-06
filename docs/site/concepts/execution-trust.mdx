@@ -1,0 +1,63 @@
+---
+title: "Execution Trust & the Trust Chain"
+description: "The canonical chain of immutable artifacts Parmana builds for every Business Transaction."
+---
+
+<Info>**[AVAILABLE]** — every artifact below is a real TypeScript interface in `packages/shared/src/domain/*.ts`.</Info>
+
+Every Business Transaction produces exactly one of each artifact below, in this order.
+Each is immutable once created; later stages reference earlier ones by ID, and (for the
+Trust Record) by cryptographic hash.
+
+```
+Authority           who is empowered to authorize execution
+     │              packages/shared/src/domain/authority.ts
+     ▼
+Authorization        the grant, with purpose and optional expiry
+     │              packages/shared/src/domain/authorization.ts
+     ▼
+Intent               the specific action + target + parameters requested
+     │              packages/shared/src/domain/intent.ts
+     ▼
+Business Transaction the immutable input to policy evaluation
+     │              packages/shared/src/domain/business-transaction.ts
+     ▼
+Decision              the policy's outcome (APPROVED / REJECTED) + reason + evaluated signals
+     │              packages/shared/src/domain/decision.ts
+     ▼
+Execution             what actually happened: status, mode, evidence
+     │              packages/shared/src/domain/execution.ts
+     ▼
+Execution Trust Record  the aggregate: transaction + executions + overrides +
+                         verifications + receipts + canonical hash + signature
+                       packages/shared/src/domain/execution-trust-record.ts
+```
+
+## Why the chain matters
+
+`BusinessTransactionValidator` enforces structural consistency across the chain before
+anything is evaluated — for example, `authorization.authorityId` must match
+`authority.authorityId`, and `intent.authorizationId` must match
+`authorization.authorizationId` (`packages/runtime/src/validators/
+BusinessTransactionValidator.ts:21-37`). A Business Transaction that doesn't hang together
+structurally never reaches policy evaluation.
+
+## The Execution Trust Record is append-only
+
+Once created, a Trust Record's `overrides`, `executions`, `verifications`, and `receipts`
+arrays may only grow — existing entries are never modified or removed. The core fields
+(`businessTransactionId`, the `transaction` itself, `policy`, `signals`, `decision`) never
+change after creation. This is what makes deterministic replay and independent
+verification meaningful: there is exactly one record, and its history is the complete
+history.
+
+## What's cryptographically bound, and what's merely attached
+
+The Trust Record's `trustRecordHash` is computed over its canonical serialized form and
+then signed (`Signature` — algorithm, key ID, base64 value, timestamp). Fields that
+participate in that hash — including `authorizationId` inside execution metadata — cannot
+be altered without changing the recomputed hash and failing verification (CLAIMS.md 2.11).
+Fields that are just JSON alongside the record are not similarly protected. This
+distinction is the entire subject of [Content Binding & TOCTOU](/concepts/content-binding-toctou)
+— read that page before assuming "signed" means "every field is tamper-evident against every
+kind of modification."

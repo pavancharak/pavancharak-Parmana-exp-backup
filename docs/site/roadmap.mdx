@@ -1,0 +1,98 @@
+---
+title: "Roadmap"
+description: "What's designed but not built, stated plainly — this is a feature of this documentation, not an apology."
+---
+
+<Warning>Every item on this page is [ROADMAP] unless a specific sub-point says otherwise. None of it ships in the current server by default.</Warning>
+
+This page consolidates every gap surfaced while building this site, cross-checked against
+`docs/CLAIMS.md` §4 (Future Claims) and the internal strategy document
+`UNAVOIDABILITY-ARC.md` (2026-07-05). Both are being updated to reflect the current state
+as a follow-up (tracked in `02-REMAINING.md`, Tier 0) — this page reflects the **true**
+current state now, not the slightly-stale wording in those two files.
+
+## The unavoidability arc — 3 moves, in dependency order
+
+> *"The provability layer is done: every approved action carries a signed, content-bound,
+> single-use authorization that receiving systems verify independently, byte-for-byte.
+> What that does NOT yet do: it makes Parmana's authorization verifiable, not unavoidable.
+> Today an AI still holds whatever execution credentials it was given."*
+> — `UNAVOIDABILITY-ARC.md`
+
+### Move 1 — KMS / HSM key custody — [ROADMAP], ~1–2 weeks once started
+
+**Today:** `FileKeyProvider` reads a PEM file from disk (`KEY_PROVIDER=local`, the only
+implemented provider). `KeyProviders` declares `aws-kms`/`azure-key-vault`/`gcp-kms`/`hsm`
+as config values with **zero implementing classes**. This is the exact exposure class that
+produced the committed-key incident on [Security](/security/overview).
+
+**Unlocks:** *"Parmana's signing key cannot be exfiltrated from the application process."*
+
+**Open design questions** (from the strategy doc, not yet resolved): does AWS KMS support
+Ed25519 natively, or does this force a move to `ecdsa-p256` (already declared in
+`SignatureAlgorithms`)? ML-DSA in KMS is not yet broadly available. The claim only promotes
+to Supported once a **live** test against a real KMS key has run — a fake/mock passing
+proves nothing here.
+
+### Move 2 — Credential brokering — [PARTIAL] scaffold exists, full claim is [ROADMAP]
+
+**Today, precisely:** `packages/execution-control` is real and tested (11 tests) —
+`ExecutionControlService` authenticates a calling gateway, issues a short-lived
+`InMemoryGatewaySessionStore` session, and only then invokes a connector, auditing every
+step. `InMemoryCredentialVault` isolates credentials from the caller within that flow. This
+is a genuine, working **in-process, in-memory scaffold** — landed 2026-07-05, the same day
+as the strategy doc that describes the *full* version of this capability as not yet started.
+
+**What's still missing for the actual claim:** real cloud-provider credential minting (the
+plan targets AWS STS: a verified envelope causes the *gateway* to mint a short-lived,
+action-scoped credential, use it, and discard it — the AI never receives it, structurally).
+`InMemoryCredentialVault` and `InMemoryGatewaySessionStore` are dev/reference-grade names
+for a reason — no STS integration, no persistence, no cross-process session sharing exists
+yet. The strategy doc is explicit that this move "needs a design partner, not a mock" — a
+fake AWS account proves nothing a diligence review would trust.
+
+**Unlocks (scoped):** *"For [action class] on AWS, AI never possesses execution
+credentials."* Scoped to the integrated system class — never claimed universally.
+
+**Schema note:** extending the envelope with resource/action fields for this is a
+signed-artifact format change, requiring a dedicated versioned session (the `version` field
+already in `ExecutionAuthorizationPayload` exists for exactly this reason).
+
+### Move 3 — Network enforcement + bypass detection — [ROADMAP], needs a partner's red team
+
+**What:** network-policy templates (firewall / security-group / K8s `NetworkPolicy`) so a
+target's ingress accepts traffic only from the gateway, plus a reconciliation loop
+comparing the target's own activity log against issued authorizations — anything without a
+matching envelope raises an alert.
+
+**Why last:** it's a property of a customer's deployment, proven by a partner's security
+team trying to break it — not by a unit test.
+
+**Unlocks (permanently scoped):** *"Non-bypassable per integrated system under the
+reference deployment; bypass detected everywhere."* The unscoped "non-bypassable, period"
+claim is never made — see [Security](/security/overview).
+
+## Other tracked gaps
+
+| Item | Status | Detail |
+|---|---|---|
+| Additional SDKs (Go, Java, .NET, ...) | [ROADMAP] | No source exists. See [Other Languages](/sdks/other-languages). |
+| Third-party connectors (SAP, Salesforce, OpenAI, ...) | [ROADMAP] | One reference `HttpConnector` exists; nothing else. See [Integrations](/integrations/overview). |
+| `postgres` / `sqlite` storage providers | [ROADMAP] | Declared in the type union, throw "not implemented" at construction. See [Storage](/storage/overview). |
+| Replay semantic verification | [ROADMAP] | Neither `POST /replay` (a signature recheck) nor `packages/replay` (a disconnected determinism engine) re-evaluates the original policy against recorded signals. See [Replay](/replay/overview). |
+| Algorithm migration (re-key Ed25519 → ML-DSA-65, verify old records) | [ROADMAP] | `AuthorizationVerifier` supports exactly one configured `SIGNATURE_PROVIDER` at a time. |
+| Structured logging / observability | [ROADMAP] | `LOG_LEVEL` is parsed into config; nothing currently reads it to configure a real logger. Errors go to `console.error`. No metrics, tracing, or dashboards exist. |
+| Nonce store persistence (Redis/Supabase-backed) | [ROADMAP] | `MemoryNonceStore` is the only implementation; loses state on restart (CLAIMS.md 3.2). |
+| Authority/Intent/Evidence verification checks | [ROADMAP] | Only integrity, signature, and authorization-binding exist in `verification-service.ts` today (CLAIMS.md 2.15/§4). Open question on record: does an Authority check add anything the signature check doesn't, before a key/authority registry exists? |
+| API authentication | [ROADMAP] | No auth middleware exists on any route today. |
+| `POST /policies/validate` semantics | Flagged, not scheduled | Validates policy-existence, not a submitted document — naming mismatch. See [core-API findings](https://github.com/parmana-ai/parmana/blob/main/docs/audit/CORE-API-FINDINGS-SDK-AUDITS.md). |
+| `POST /transactions` vs `POST /execute` duplication | Flagged, not scheduled | Same core-API findings note. |
+| Gateway wiring into the default server | Flagged, not scheduled | The single most load-bearing gap on this whole site — see [Content Binding & TOCTOU](/concepts/content-binding-toctou). |
+
+## The permanent ceiling — never claimed, on principle
+
+Directly from `02-REMAINING.md`, matching CLAIMS.md §5: unscoped "non-bypassable," absolute
+prevention of all unauthorized execution, tamper-proof operation in every environment,
+guaranteed regulatory compliance, elimination of all software defects. These are not
+"not yet" items — they're claims Parmana does not intend to ever make unscoped, because no
+implementation could honestly back them.

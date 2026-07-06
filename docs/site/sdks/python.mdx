@@ -1,0 +1,88 @@
+---
+title: "Python SDK"
+description: "The actively maintained SDK — generated models, structured errors, real test coverage."
+---
+
+<Info>**[AVAILABLE]** — `python/`, v1.0.0. 26 passing tests, 0 placeholders. ruff/black/mypy all pass clean.</Info>
+
+## Install
+
+```bash
+pip install -e ./python
+```
+
+`py.typed` is shipped — this is a PEP 561 typed distribution, confirmed by installing into
+a clean venv and checking `parmana.__file__`'s directory for the marker.
+
+## Models are generated, not hand-maintained
+
+Every model in `python/parmana/models/*.py` is generated directly from the TypeScript AST
+of `packages/shared/src/domain/*.ts` (and `CryptoAlgorithms.ts`) by
+`python/scripts/generate_models.ts` — not hand-aligned copies. A drift guard
+(`npm run check:python-models`, wired into CI) regenerates into memory and fails the build
+if the committed output would change:
+
+```
+$ ./node_modules/.bin/tsx python/scripts/generate_models.ts --check
+generate_models --check: python/parmana/models/*.py are up to date.
+```
+
+Demonstrated to actually catch drift, not just pass trivially: hand-reverting a field name
+and re-running `--check` reports `DRIFT DETECTED` and exits 1.
+
+Enums are real Python `str, Enum` classes (e.g. `SignatureAlgorithm`,
+`VerificationStatus`), not bare strings.
+
+## Structured HTTP errors — they actually raise
+
+```python
+from parmana import ConflictError, NotFoundError, ValidationError
+
+try:
+    client.execution.execute(transaction)
+except ConflictError as exc:          # HTTP 409
+    print(exc.status_code, exc)
+```
+
+| Status | Exception |
+|---|---|
+| 400 | `ValidationError` |
+| 401 | `AuthenticationError` |
+| 403 | `ExecutionRejectedError` |
+| 404 | `NotFoundError` |
+| 409 | `ConflictError` |
+| 5xx | `ServerError` |
+| connection failure | `NetworkError` |
+
+All inherit `ParmanaHttpError` → `ApiError`. Proven against the real `HttpTransport` (not a
+test double) using `responses`-mocked HTTP, one test per status code plus a connection
+failure case — 10 tests in `python/tests/test_http_transport.py`.
+
+The client also reuses a `requests.Session()` (connection pooling) and retries idempotent
+GETs with backoff on 502/503/504 — POSTs are never retried.
+
+## Every endpoint the API exposes has a method
+
+```python
+client.execution.execute(transaction)          # POST /execute
+client.execution.health()                       # GET /health
+client.execution.version()                      # GET /version
+client.verification.verify(id)                  # POST /verify        (fresh)
+client.verification.get_latest(id)              # GET /verification/:id (cached)
+client.receipt.generate(id)                     # POST /receipt
+client.receipt.get_latest(id)                   # GET /receipt/latest/:id
+client.replay.replay(id)                        # POST /replay
+client.transactions.get(id) / .list()           # GET /transactions[/:id]
+client.trust_records.get(id)                    # GET /trust-records/:id
+client.policy.validate(policy_id, policy_version) # POST /policies/validate
+```
+
+`policy.validate` takes `(policy_id, policy_version)`, not a policy document — matching
+what the route actually reads (see [REST API](/api-reference/endpoints)).
+
+## Examples
+
+Three runnable examples, each with its own README (prerequisites + real captured output):
+`python/examples/quickstart/`, `python/examples/verify/`, `python/examples/content_binding/`
+(the last one demonstrates — honestly — what content-binding protection you do *not* get
+from the plain API; see [Content Binding & TOCTOU](/concepts/content-binding-toctou)).

@@ -1,0 +1,78 @@
+---
+title: "Execution Trust Record"
+description: "The canonical, immutable, cryptographically signed record of everything Parmana knows about a Business Transaction."
+---
+
+<Info>**[AVAILABLE]** — `packages/shared/src/domain/execution-trust-record.ts`, `ExecutionTrustRecordBuilder`. CLAIMS.md 2.5.</Info>
+
+## Shape
+
+```typescript
+export interface ExecutionTrustRecord {
+  readonly trustRecordId: string;
+  readonly businessTransactionId: string;
+  readonly transaction: BusinessTransaction;
+  readonly overrides: readonly Override[];        // append-only
+  readonly executions: readonly Execution[];       // append-only
+  readonly verifications: readonly Verification[]; // append-only
+  readonly receipts: readonly Receipt[];           // append-only
+  readonly trustRecordHash: string;
+  readonly signature: Signature;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}
+```
+
+## Real example
+
+Captured from a live local run (2026-07-06), trimmed:
+
+```json
+{
+  "trust_record_id": "71dc39c9-2f24-401c-b999-6cbc12ee4156",
+  "business_transaction_id": "111a9197-21b3-42fb-8b7b-a000f1278680",
+  "executions": [
+    {
+      "execution_id": "28a41eeb-1031-4c29-a003-89f400566b8f",
+      "decision": { "outcome": "APPROVED", "reason": "Vendor payment authorized. ..." },
+      "status": "COMPLETED",
+      "evidence": {
+        "action": "VendorPayment",
+        "target": "vendor/V-100",
+        "parameters": { "amount": 1000, "currency": "USD" },
+        "success": true
+      },
+      "metadata": { "authorizationId": "05574322-a94d-470b-afef-ceb435b13023" }
+    }
+  ],
+  "verifications": [{ "status": "VERIFIED", "trust_record_hash": "8d8fc494..." }],
+  "receipts": [{ "algorithm": "ed25519", "receipt_hash": "204ecda1..." }],
+  "trust_record_hash": "8d8fc49457038134776ac20fee289991596ab30dff5765e2d1007aed2f51ad69",
+  "signature": { "algorithm": "ed25519", "key_id": "default", "value": "5haUPDvg..." }
+}
+```
+
+Field names shown in `snake_case` (Python SDK decode); the wire format from the API is
+`camelCase`. Source: `python/examples/quickstart/`.
+
+## What's immutable, and what's append-only
+
+`businessTransactionId`, `metadata`, `policy`, `signals`, and `decision` never change after
+creation. `overrides`, `executions`, `verifications`, and `receipts` may only grow — nothing
+is ever edited or removed from them. This is a hard invariant, not a convention: it's what
+lets a `trustRecordHash` mean anything.
+
+## The signature covers the whole record, including the authorization link
+
+`execution.metadata.authorizationId` is inside the canonically-hashed content — tampering
+with it changes the recomputed `trustRecordHash` and fails verification (CLAIMS.md 2.11,
+`execution-authorization-wiring.test.ts` — "trust record references the authorization").
+
+## Getting one back
+
+```python
+trust_record = client.execution.execute(transaction)     # POST /execute
+trust_record = client.trust_records.get(transaction_id)  # GET /trust-records/:id
+```
+
+See [REST API](/api-reference/endpoints) for both routes' exact request/response shape.

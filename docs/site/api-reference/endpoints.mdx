@@ -1,0 +1,165 @@
+---
+title: "Endpoints"
+description: "All 13 routes mounted in packages/api/src/app.ts. Real examples throughout."
+---
+
+## System
+
+### `GET /health`
+
+`packages/api/src/routes/health.ts`
+
+```json
+{"status":"UP"}
+```
+
+### `GET /version`
+
+`packages/api/src/routes/version.ts`
+
+```json
+{"name":"Parmana","version":"0.4.0","api":"v1"}
+```
+
+## Execution
+
+### `POST /execute`
+
+`packages/api/src/routes/execute.ts`. Validates `businessTransactionId` is a UUID (400 if
+not), maps the body via `BusinessTransactionMapper.fromRequest` (forces
+`status: RECEIVED`, `createdAt: now`, regardless of what the client sends), then executes.
+Returns the full [Execution Trust Record](/trust-record/overview) (see that page for a
+real example).
+
+<Warning>
+This route — like every route on this server — does **not** check content-binding. See
+[Content Binding & TOCTOU](/concepts/content-binding-toctou).
+</Warning>
+
+### `GET/POST /transactions`
+
+`packages/api/src/routes/transactions.ts`.
+
+- `GET /transactions?page=1&pageSize=25` — list.
+- `GET /transactions/:id` — one Business Transaction, 404 if not found.
+- `POST /transactions` — **also executes**, duplicating `POST /execute`, but with weaker
+  validation: no UUID check, and the body is spread directly rather than passed through
+  `BusinessTransactionMapper` (`transactions.ts:91-101`). Returns 201 with an
+  `ExecutionTrustRecord`. This duplication is flagged as a core-API finding, not fixed
+  here — see [Roadmap](/roadmap).
+
+## Verification
+
+### `POST /verify`
+
+`packages/api/src/routes/verify.ts`. Fresh verification — see
+[Verification](/verification/overview).
+
+```json
+// request
+{"businessTransactionId": "111a9197-21b3-42fb-8b7b-a000f1278680"}
+```
+
+```json
+// response
+{
+  "verificationId": "3d611b90-fde3-4c5e-b4e4-9c8c3b3caf2f",
+  "businessTransactionId": "111a9197-21b3-42fb-8b7b-a000f1278680",
+  "status": "VERIFIED",
+  "message": "Execution Trust Record verified successfully.",
+  "verifiedAt": "2026-07-06T04:10:15.021Z",
+  "trustRecordHash": "861fe01aaadf904a003d3e6118e74f967164a52d91eb18f97ca6cbce71292768"
+}
+```
+
+### `GET /verification/:id`
+
+`packages/api/src/routes/verify-get.ts`, mounted at `/verification`. Reads the **latest**
+verification without re-running one — 404 if the Trust Record or its verification history
+is missing. Distinct route from `POST /verify` above.
+
+## Receipts
+
+### `POST /receipt`
+
+`packages/api/src/routes/receipt.ts`. Same request/response pattern as `/verify` —
+`{"businessTransactionId": "..."}` in, a `Receipt` out (see
+[Trust Record](/trust-record/overview) for a `Receipt`'s shape).
+
+### `GET /receipt/latest/:id`
+
+`packages/api/src/routes/receipt-get.ts`, mounted at `/receipt/latest`. Reads the latest
+receipt without generating a new one.
+
+## Replay
+
+### `POST /replay`
+
+`packages/api/src/routes/replay.ts`. **Re-verifies the Trust Record's signature — it does
+not reconstruct or re-execute anything.** See [Replay](/replay/overview) for why this name
+is narrower than it sounds.
+
+```json
+// request
+{"businessTransactionId": "111a9197-21b3-42fb-8b7b-a000f1278680"}
+```
+
+```json
+// response
+{
+  "businessTransactionId": "111a9197-21b3-42fb-8b7b-a000f1278680",
+  "trustRecordHash": "8d8fc49457038134776ac20fee289991596ab30dff5765e2d1007aed2f51ad69",
+  "verified": true
+}
+```
+
+## Trust Records
+
+### `GET /trust-records/:id`
+
+`packages/api/src/routes/trust-records.ts`. Returns the full
+[Execution Trust Record](/trust-record/overview), 404 if not found.
+
+## Policies
+
+### `POST /policies/validate`
+
+`packages/api/src/routes/policies.ts`. **Does not validate a policy document.** It checks
+only that a policy with the given `policyId` + `policyVersion` is loadable from disk —
+`policyRepository.load(policyId, policyVersion)`. This is a naming/semantics gap flagged
+in [Roadmap](/roadmap), not fixed at the route level.
+
+```json
+// request
+{"policyId": "vendor-payment", "policyVersion": "2.0.0"}
+```
+
+```json
+// response (200)
+{"valid": true, "errors": []}
+```
+
+```json
+// response (404, unknown policy/version)
+{"valid": false, "errors": ["<error message>"]}
+```
+
+## Full route list
+
+| Method | Path | Source |
+|---|---|---|
+| GET | `/health` | `routes/health.ts` |
+| GET | `/version` | `routes/version.ts` |
+| POST | `/execute` | `routes/execute.ts` |
+| POST | `/verify` | `routes/verify.ts` |
+| GET | `/verification/:id` | `routes/verify-get.ts` |
+| POST | `/receipt` | `routes/receipt.ts` |
+| GET | `/receipt/latest/:id` | `routes/receipt-get.ts` |
+| GET | `/transactions` | `routes/transactions.ts` |
+| GET | `/transactions/:id` | `routes/transactions.ts` |
+| POST | `/transactions` | `routes/transactions.ts` |
+| POST | `/policies/validate` | `routes/policies.ts` |
+| GET | `/trust-records/:id` | `routes/trust-records.ts` |
+| POST | `/replay` | `routes/replay.ts` |
+
+No other routes exist in `packages/api/src/app.ts`.

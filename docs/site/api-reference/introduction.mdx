@@ -1,0 +1,34 @@
+---
+title: "REST API Introduction"
+description: "13 routes, enumerated from packages/api/src/app.ts. Nothing here is invented."
+---
+
+<Info>**[AVAILABLE]** — every route below is mounted in `packages/api/src/app.ts`. No other routes exist.</Info>
+
+## Base URL
+
+Local: `http://localhost:3000` (see [Quickstart](/quickstart) for starting the server).
+
+## Errors
+
+Non-2xx responses are `{ "error": string }`, sometimes with a `code` field, per
+`packages/api/src/middleware/error-handler.ts`:
+
+| Status | When |
+|---|---|
+| 400 | `BusinessTransactionValidationError`, `PolicyValidationError`, `SignalValidationError` |
+| 404 | `PolicyNotFoundError` |
+| 409 | `DuplicateBusinessTransactionError` |
+| (varies) | Any other `RuntimeError` — status/code from the error itself |
+| 500 | Unexpected failure (logged via `console.error`, not a structured logger — see [Roadmap](/roadmap)) |
+
+The Python SDK raises a specific exception per status code
+(`ValidationError`/`NotFoundError`/`ConflictError`/`ServerError`/etc.) — see
+[Python SDK](/sdks/python). The TypeScript SDK does not — see
+[TypeScript SDK](/sdks/typescript).
+
+## Auth
+
+<Warning>No authentication or authorization middleware exists on this API today. Every route above is unauthenticated in the current implementation.</Warning>
+
+See [Endpoints](/api-reference/endpoints) for the full route reference.
