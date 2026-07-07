@@ -20,7 +20,7 @@ router.get(
     req: Request,
     res: Response,
     next: NextFunction,
-  ) => {
+  ): Promise<void> => {
     try {
       const record =
         await application.getTrustRecord(
@@ -28,24 +28,28 @@ router.get(
         );
 
       if (!record) {
-        return res.status(404).json({
+        res.status(404).json({
           error:
             "Execution Trust Record not found.",
         });
+        return;
       }
 
       const receipt =
         record.receipts.at(-1);
 
       if (!receipt) {
-        return res.status(404).json({
+        res.status(404).json({
           error: "Receipt not found.",
         });
+        return;
       }
 
       res.json(receipt);
+      return;
     } catch (error) {
       next(error);
+      return;
     }
   },
 );

@@ -1,16 +1,19 @@
 {
   "files": [],
   "references": [
-  { "path": "./packages/shared" },
-  { "path": "./packages/runtime" },
-  { "path": "./packages/crypto" },
-  { "path": "./packages/storage" },
-  { "path": "./packages/replay" },
-  { "path": "./packages/envelope-verifier" },
-  { "path": "./packages/execution-system" },
-  { "path": "./packages/execution-control" },
-  { "path": "./packages/execution-gateway" }
-],
+    { "path": "./packages/shared" },
+    { "path": "./packages/runtime" },
+    { "path": "./packages/crypto" },
+    { "path": "./packages/storage" },
+    { "path": "./packages/replay" },
+    { "path": "./packages/policy" },
+    { "path": "./packages/receipt" },
+    { "path": "./packages/api" },
+    { "path": "./packages/envelope-verifier" },
+    { "path": "./packages/execution-system" },
+    { "path": "./packages/execution-control" },
+    { "path": "./packages/execution-gateway" }
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",

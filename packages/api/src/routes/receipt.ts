@@ -36,7 +36,7 @@ router.post(
     req: Request,
     res: Response,
     next: NextFunction,
-  ) => {
+  ): Promise<void> => {
     try {
       const { businessTransactionId } =
         req.body ?? {};
@@ -45,10 +45,11 @@ router.post(
       // Required field
       //
       if (!businessTransactionId) {
-        return res.status(400).json({
+        res.status(400).json({
           error:
             "businessTransactionId is required.",
         });
+        return;
       }
 
       //
@@ -59,10 +60,11 @@ router.post(
           businessTransactionId,
         )
       ) {
-        return res.status(400).json({
+        res.status(400).json({
           error:
             "businessTransactionId must be a valid UUID.",
         });
+        return;
       }
 
       const receipt =
@@ -71,8 +73,10 @@ router.post(
         );
 
       res.json(receipt);
+      return;
     } catch (error) {
       next(error);
+      return;
     }
   },
 );

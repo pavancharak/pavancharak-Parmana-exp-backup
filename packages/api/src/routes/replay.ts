@@ -20,7 +20,7 @@ router.post(
     req: Request,
     res: Response,
     next: NextFunction,
-  ) => {
+  ): Promise<void> => {
     try {
       const { businessTransactionId } =
         req.body ?? {};
@@ -29,10 +29,11 @@ router.post(
       // Required field
       //
       if (!businessTransactionId) {
-        return res.status(400).json({
+        res.status(400).json({
           error:
             "businessTransactionId is required.",
         });
+        return;
       }
 
       const replay =
@@ -41,8 +42,10 @@ router.post(
         );
 
       res.json(replay);
+      return;
     } catch (error) {
       next(error);
+      return;
     }
   },
 );

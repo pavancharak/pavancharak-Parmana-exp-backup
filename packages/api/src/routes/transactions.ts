@@ -20,7 +20,7 @@ router.get(
     req: Request,
     res: Response,
     next: NextFunction,
-  ) => {
+  ): Promise<void> => {
     try {
       const page = Number(
         req.query.page ?? 1,
@@ -37,8 +37,10 @@ router.get(
         );
 
       res.json(transactions);
+      return;
     } catch (error) {
       next(error);
+      return;
     }
   },
 );
@@ -54,7 +56,7 @@ router.get(
     req: Request,
     res: Response,
     next: NextFunction,
-  ) => {
+  ): Promise<void> => {
     try {
       const transaction =
         await application.getTransaction(
@@ -62,15 +64,18 @@ router.get(
         );
 
       if (!transaction) {
-        return res.status(404).json({
+        res.status(404).json({
           error:
             "Business Transaction not found.",
         });
+        return;
       }
 
       res.json(transaction);
+      return;
     } catch (error) {
       next(error);
+      return;
     }
   },
 );
@@ -86,23 +91,25 @@ router.post(
     req: Request,
     res: Response,
     next: NextFunction,
-  ) => {
+  ): Promise<void> => {
     try {
       const transaction = {
-  ...req.body,
-  createdAt: new Date(
-    req.body.createdAt,
-  ),
-};
+        ...req.body,
+        createdAt: new Date(
+          req.body.createdAt,
+        ),
+      };
 
-const result =
-  await application.execute(
-    transaction,
-  );
+      const result =
+        await application.execute(
+          transaction,
+        );
 
       res.status(201).json(result);
+      return;
     } catch (error) {
       next(error);
+      return;
     }
   },
 );

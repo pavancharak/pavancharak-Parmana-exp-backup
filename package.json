@@ -3,17 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
- "workspaces": [
-  "packages/*",
-  "typescript",
-  "python",
-  "examples"
-],
+  "workspaces": [
+    "packages/*",
+    "typescript",
+    "python",
+    "examples"
+  ],
   "scripts": {
     "build": "tsc -b",
-    "clean": "npm run clean --workspaces",
+    "build:verbose": "tsc -b --verbose",
+    "build:force": "tsc -b --force --verbose",
+
+    "clean": "tsc -b --clean",
+    "rebuild": "npm run clean && npm run build:force",
 
     "dev": "tsx packages/api/src/server.ts",
+
+    "typecheck": "tsc --noEmit -p tsconfig.json",
 
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
@@ -26,8 +32,7 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
 
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-     "examples": "tsx scripts/run-examples.ts",
+    "examples": "tsx scripts/run-examples.ts",
 
     "generate:python-models": "tsx python/scripts/generate_models.ts",
     "check:python-models": "tsx python/scripts/generate_models.ts --check"

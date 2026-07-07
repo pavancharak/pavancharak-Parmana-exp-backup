@@ -1,18 +1,37 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "Node",
-    "outDir": "dist",
     "rootDir": "src",
+    "outDir": "dist",
 
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "types": ["node"]
+    "composite": true,
+
+    "declaration": true,
+    "declarationMap": true,
+
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
 
-  "include": ["src/**/*.ts"],
+  "include": [
+    "src/**/*.ts"
+  ],
 
-  "exclude": ["dist", "test", "tests", "**/*.test.ts", "**/*.spec.ts"]
+  "exclude": [
+    "dist",
+    "node_modules",
+    "tests",
+    "test",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
+
+  "references": [
+    { "path": "../shared" },
+    { "path": "../storage" },
+    { "path": "../runtime" },
+    { "path": "../policy" },
+    { "path": "../receipt" },
+    { "path": "../replay" },
+    { "path": "../execution-system" }
+  ]
 }

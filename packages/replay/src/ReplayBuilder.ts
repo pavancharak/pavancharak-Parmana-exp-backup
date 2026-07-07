@@ -1,9 +1,9 @@
 import { ReplayEngine } from "./ReplayEngine.js";
 
-import type { ReplayContext } from "./types/ReplayContext.js";
+import type { ReplayRequest } from "./types/ReplayRequest.js";
 
 export class ReplayBuilder {
-  constructor(private readonly context: ReplayContext) {}
+constructor(private readonly request: ReplayRequest) {}
 
   build(): ReplayEngine {
     return new ReplayEngine();

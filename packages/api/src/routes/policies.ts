@@ -22,7 +22,7 @@ router.post(
     req: Request,
     res: Response,
     next: NextFunction,
-  ) => {
+  ): Promise<void> => {
     try {
       const {
         policyId,
@@ -33,24 +33,26 @@ router.post(
         typeof policyId !== "string" ||
         policyId.length === 0
       ) {
-        return res.status(400).json({
+        res.status(400).json({
           valid: false,
           errors: [
             "policyId is required.",
           ],
         });
+        return;
       }
 
       if (
         typeof policyVersion !== "string" ||
         policyVersion.length === 0
       ) {
-        return res.status(400).json({
+        res.status(400).json({
           valid: false,
           errors: [
             "policyVersion is required.",
           ],
         });
+        return;
       }
 
       await policyRepository.load(
@@ -58,21 +60,24 @@ router.post(
         policyVersion,
       );
 
-      return res.json({
+      res.json({
         valid: true,
         errors: [],
       });
+      return;
     } catch (error) {
       if (error instanceof Error) {
-        return res.status(404).json({
+        res.status(404).json({
           valid: false,
           errors: [
             error.message,
           ],
         });
+        return;
       }
 
       next(error);
+      return;
     }
   },
 );

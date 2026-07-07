@@ -125,29 +125,38 @@ export class PolicyEngine {
   ): boolean {
 
     //
-// Leaf condition
-//
-if ("fact" in condition) {
+    // Leaf condition
+    //
+    if ("fact" in condition) {
 
-  return this.operatorEvaluator.evaluate(
-    signals[
-      condition.fact
-    ],
-    condition.operator,
-    condition.value,
-  );
-}
+      const signal =
+        signals[condition.fact];
 
-//
-// Always
-//
-if ("always" in condition) {
-  return true;
-}
+      //
+      // Missing facts never satisfy
+      // a policy condition.
+      //
+      if (signal === undefined) {
+        return false;
+      }
 
-//
-// Logical AND
-//
+      return this.operatorEvaluator.evaluate(
+        signal,
+        condition.operator,
+        condition.value,
+      );
+    }
+
+    //
+    // Always
+    //
+    if ("always" in condition) {
+      return true;
+    }
+
+    //
+    // Logical AND
+    //
     if ("all" in condition) {
 
       return condition.all.every(

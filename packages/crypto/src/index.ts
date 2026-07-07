@@ -43,6 +43,7 @@ export * from "./CryptoBootstrap.js";
 export * from "./KeyPair.js";
 export * from "./KeyStore.js";
 export * from "./KeyProvider.js";
+export * from "./providers/key/FileKeyProvider.js";
 
 // -----------------------------------------------------------------------------
 // Provider Interfaces
@@ -58,12 +59,3 @@ export * from "./providers/ProviderFactory.js";
 // -----------------------------------------------------------------------------
 
 export * from "./errors/CryptoError.js";
-// -----------------------------------------------------------------------------
-// Bootstrap & Configuration
-// -----------------------------------------------------------------------------
-
-export * from "./CryptoBuilder.js";
-export * from "./CryptoBootstrap.js";
-export * from "./KeyPair.js";
-export * from "./KeyStore.js";
-export * from "./providers/key/FileKeyProvider.js";

@@ -1,14 +1,25 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist",
     "rootDir": "src",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "target": "ES2020",
-    "strict": true,
+    "outDir": "dist",
+
+    "composite": true,
+
     "declaration": true,
     "declarationMap": true,
-    "types": ["node"]
+
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "include": ["src"]
+
+  "include": [
+    "src/**/*.ts"
+  ],
+
+  "exclude": [
+    "dist",
+    "node_modules",
+    "tests",
+    "test"
+  ]
 }

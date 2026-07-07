@@ -4,6 +4,7 @@ import type {
   Request,
   Response,
 } from "express";
+
 import { BusinessTransactionMapper } from "../mappers/BusinessTransactionMapper.js";
 import type {
   ExecutionTrustApplication,
@@ -37,7 +38,7 @@ export function createExecuteRouter(
       req: Request,
       res: Response,
       next: NextFunction,
-    ) => {
+    ): Promise<void> => {
       try {
         const {
           businessTransactionId,
@@ -48,25 +49,28 @@ export function createExecuteRouter(
             businessTransactionId,
           )
         ) {
-          return res.status(400).json({
+          res.status(400).json({
             error:
               "businessTransactionId must be a valid UUID.",
           });
+          return;
         }
 
         const transaction =
-  BusinessTransactionMapper.fromRequest(
-    req.body,
-  );
+          BusinessTransactionMapper.fromRequest(
+            req.body,
+          );
 
-const result =
-  await application.execute(
-    transaction,
-  );
+        const result =
+          await application.execute(
+            transaction,
+          );
 
         res.json(result);
+        return;
       } catch (error) {
         next(error);
+        return;
       }
     },
   );
