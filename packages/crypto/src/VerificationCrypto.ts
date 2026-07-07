@@ -139,70 +139,30 @@ export class VerificationCrypto {
   async verify(
     trustRecord: ExecutionTrustRecord,
   ): Promise<boolean> {
-    console.log("[Crypto] verify() start");
-
     //
     // Verify hash integrity.
     //
-    console.time("[Crypto] hash");
-
     const expectedHash =
       await this.hash(trustRecord);
-
-    console.timeEnd("[Crypto] hash");
 
     if (
       expectedHash !==
       trustRecord.trustRecordHash
     ) {
-      console.log(
-        "[Crypto] Hash mismatch",
-      );
-
-      console.log(
-        "[Crypto] Expected:",
-        expectedHash,
-      );
-
-      console.log(
-        "[Crypto] Actual:",
-        trustRecord.trustRecordHash,
-      );
-
       return false;
     }
-
-    console.log(
-      "[Crypto] Hash verified",
-    );
 
     //
     // Load public key.
     //
-    console.time(
-      "[Crypto] getPublicKey",
-    );
-
     const publicKey =
       await this.keys.getPublicKey(
         trustRecord.signature.keyId,
       );
 
-    console.timeEnd(
-      "[Crypto] getPublicKey",
-    );
-
-    console.log(
-      "[Crypto] Public key loaded",
-    );
-
     //
     // Verify signature.
     //
-    console.time(
-      "[Crypto] verifySignature",
-    );
-
     const verified =
       await this.verifier.verify(
         this.canonicalRecord(
@@ -211,15 +171,6 @@ export class VerificationCrypto {
         trustRecord.signature.value,
         publicKey,
       );
-
-    console.timeEnd(
-      "[Crypto] verifySignature",
-    );
-
-    console.log(
-      "[Crypto] Result:",
-      verified,
-    );
 
     return verified;
   }

@@ -10,8 +10,8 @@ describe(
 
     const router = new PolicyRouter(
       path.resolve(
-        process.cwd(),
-        "../../policies",
+        import.meta.dirname,
+        "../../../policies",
       ),
     );
 

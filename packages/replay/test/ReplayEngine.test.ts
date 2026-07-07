@@ -13,7 +13,7 @@ describe("ReplayEngine - Deterministic Execution", () => {
             decisionId: "d1",
             intentId: "i1",
             policy: TEST_POLICY,
-            signals: {},
+            signals: { riskScore: 10 },
             outcome: DecisionOutcome.APPROVED,
             reason: "ok",
             evaluatedAt: new Date(),
@@ -25,7 +25,7 @@ describe("ReplayEngine - Deterministic Execution", () => {
     const input = {
       trustRecord,
       transaction: {
-        signals: {},
+        signals: { riskScore: 10 },
       },
       policy: TEST_POLICY,
     };
@@ -34,6 +34,14 @@ describe("ReplayEngine - Deterministic Execution", () => {
     const r2 = engine.replay(input);
 
     expect(r1).toEqual(r2);
+
+    // Replay-vs-replay equality alone doesn't catch a replay that
+    // deterministically disagrees with the recording every time —
+    // the recorded outcome must also match what replay produces.
+    expect(r1.matches).toBe(true);
+    expect(r1.replayedDecision.outcome).toBe(
+      trustRecord.executions[0].decision.outcome,
+    );
   });
 
   it("should preserve execution order", () => {
@@ -46,7 +54,7 @@ describe("ReplayEngine - Deterministic Execution", () => {
             decisionId: "d1",
             intentId: "i1",
     policy: TEST_POLICY,
-            signals: {},
+            signals: { riskScore: 10 },
             outcome: DecisionOutcome.APPROVED,
             reason: "ok",
             evaluatedAt: new Date(),
@@ -58,12 +66,13 @@ describe("ReplayEngine - Deterministic Execution", () => {
     const input = {
       trustRecord,
       transaction: {
-        signals: {},
+        signals: { riskScore: 10 },
       },
 policy: TEST_POLICY,    };
 
     const result = engine.replay(input);
 
     expect(result.recordedDecision.intentId).toBe("i1");
+    expect(result.matches).toBe(true);
   });
 });

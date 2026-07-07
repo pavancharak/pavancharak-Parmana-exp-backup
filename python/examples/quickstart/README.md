@@ -22,15 +22,14 @@ Constructs a `ParmanaClient`, submits a Business Transaction through
   repo root:
 
   ```bash
-  DATABASE_PROVIDER=memory PARMANA_STORAGE=memory \
+  PARMANA_STORAGE=memory \
     PARMANA_POLICY_DIR=/absolute/path/to/policies \
     node_modules/.bin/tsx packages/api/src/server.ts
   ```
 
   `memory` storage is used here so the example has no external database
   dependency. The repo's committed `.env` defaults to Supabase-backed
-  storage; override `DATABASE_PROVIDER`/`PARMANA_STORAGE` as shown above
-  to run fully locally.
+  storage; override `PARMANA_STORAGE` as shown above to run fully locally.
 
   > On this repo's current setup, plain `npm run dev` / `npx tsx ...`
   > from the repo root do not resolve correctly, because both the root

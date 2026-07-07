@@ -17,7 +17,16 @@ the provability layer is done; what remains is the unavoidability layer.
       approver, nonce, TTL) before any exposure. Design parameters (roles,
       scopes, rate limits, un-overridable floors) to be set with first design
       partner — see `packages/runtime/src/policy/OverrideVerifier.ts` and
-      `packages/runtime/src/services/override-service.ts`.
+      `packages/runtime/src/services/override-service.ts`. Storage note: the
+      Supabase ETR repository's override READ path was restored in the storage
+      closeout session — if Item 1 of that session is ever reverted, appendOverride
+      must be disabled with it, or round-tripped records with overrides will fail
+      hash verification. Related: neither appendOverride nor appendExecution ever
+      recomputes trustRecordHash (only appendVerification/appendReceipt are safe
+      post-seal, since verifications/receipts sit outside the canonical hash) —
+      appending an override or execution to an already-sealed record necessarily
+      breaks its verification; any future override mechanism must incorporate
+      overrides before sealing, or define a re-sealing protocol.
 - [ ] **Close Session 8**: resolve the duplicated-`executableContent`-extraction deviation
       (consolidate to the single shared derivation, or prove drift is impossible with a
       cited test); apply the full CLAIMS.md set — corrected §2.16 (with the "requests that
@@ -56,6 +65,29 @@ the provability layer is done; what remains is the unavoidability layer.
 - [ ] **Session 8-KMS Phase 1** — investigation only (interface impact of KMS-holds-the-key,
       which algorithms KMS supports, test strategy without live AWS in CI). The
       key-exposure incident is the business case.
+- [ ] **Dev-environment note — npm workspaces cascade**: plain `npm run build`/`npm test`
+      behave unpredictably on any machine whose `~/.npmrc` sets `workspaces=true`
+      (cascades into every workspace's own non-order-aware script instead of the root's).
+      Not a repo defect — each developer should verify `npm config get workspaces` returns
+      null/false. Discovered during audit closeout.
+- [ ] **TypeScript build config gap — execution-system and receipt**: both packages lack
+      `composite`/`tsBuildInfoFile` settings that every sibling package has; a stray
+      `tsconfig.tsbuildinfo` can survive a dist/-only clean and silently skip recompilation
+      — the same failure class as the stale-dist incident (MUST-FIX-1, GAP-AUDIT.md).
+      Micro-edit: align both tsconfigs with the sibling pattern.
+- [ ] **No CI for the TypeScript path**: only `.github/workflows/python-sdk.yml` exists; the
+      TS suite and the stale-dist freshness guard (`scripts/check-dist-fresh.ts`) run only
+      via local pretest. Micro-session: add a GitHub Actions workflow running install →
+      check-dist-fresh → build → full test sweep on push/PR.
+- [ ] **Supabase collection-ordering determinism**: the four collection queries in
+      `SupabaseExecutionTrustRecordRepository.findByTransactionId` apply no `.order(...)`;
+      Postgres guarantees no row order without ORDER BY, and `CanonicalSerializer` preserves
+      array order — so a Trust Record with 2+ overrides or 2+ executions can fail hash
+      verification purely from row-return order (false integrity failure). Dormant while
+      records seal with single-element collections. Micro-fix: `.order("created_at", {
+      ascending: true })` on all four queries plus a documented stable tiebreak (secondary
+      sort on the ID column) matched to write-time insertion order; add a 2-element
+      round-trip test.
 
 ---
 

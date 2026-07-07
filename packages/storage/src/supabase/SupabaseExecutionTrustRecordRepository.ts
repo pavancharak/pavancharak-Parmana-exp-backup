@@ -69,31 +69,17 @@ async findByTransactionId(
   businessTransactionId: string,
 ): Promise<ExecutionTrustRecord | null> {
 
-const result = await Promise.race([
-  this.client
-    .from("execution_trust_records")
-    .select("*")
-    .eq(
-      "business_transaction_id",
-      businessTransactionId,
-    )
-    .maybeSingle(),
-
-  new Promise((_, reject) =>
-    setTimeout(
-      () => reject(new Error("Query1 timeout")),
-      3000,
-    ),
-  ),
-]);
-
-
-
-
 const {
   data: record,
   error,
-} = result as any;
+} = await this.client
+  .from("execution_trust_records")
+  .select("*")
+  .eq(
+    "business_transaction_id",
+    businessTransactionId,
+  )
+  .maybeSingle();
 
   if (error) {
     throw error;
@@ -121,39 +107,20 @@ if (executionError) {
 }
 
 
-const overrides: Override[] = [];
+const overrideResult = await this.client
+  .from("overrides")
+  .select("override_json")
+  .eq(
+    "business_transaction_id",
+    businessTransactionId,
+  );
 
- // console.time("query3");
+const overrides = overrideResult.data;
+const overrideError = overrideResult.error;
 
-// const overrideResult = await Promise.race([
- //  this.client
-  //   .from("overrides")
-  //   .select("override_json")
- //    .eq(
-  //     "business_transaction_id",
-   //    businessTransactionId,
-  //   ),
-
- //  new Promise((_, reject) =>
-  //   setTimeout(
-     //  () => reject(new Error("Query3 timeout")),
-     //  3000,
-  //   ),
- //  ),
-// ]);
-
-// console.timeEnd("query3");
-
-// console.dir(overrideResult, {
- //  depth: null,
-// });
-
-//  const overrides = (overrideResult as any).data;
-// const overrideError = (overrideResult as any).error;
-
-// if (overrideError) {
- //  throw overrideError;
-// }
+if (overrideError) {
+  throw overrideError;
+}
 
 
 const verificationResult = await this.client
@@ -172,22 +139,13 @@ if (verificationError) {
 }
 
 
-const receiptResult = await Promise.race([
-  this.client
-    .from("receipts")
-    .select("receipt_json")
-    .eq(
-      "business_transaction_id",
-      businessTransactionId,
-    ),
-
-  new Promise((_, reject) =>
-    setTimeout(
-      () => reject(new Error("Query5 timeout")),
-      3000,
-    ),
-  ),
-]) as any;
+const receiptResult = await this.client
+  .from("receipts")
+  .select("receipt_json")
+  .eq(
+    "business_transaction_id",
+    businessTransactionId,
+  );
 
 const receipts = receiptResult.data;
 const receiptError = receiptResult.error;
@@ -340,38 +298,22 @@ async appendVerification(
   businessTransactionId: string,
   verification: Verification,
 ): Promise<void> {
-
-
-const result = await Promise.race([
-  this.client
+  const { error } = await this.client
     .from("verifications")
     .insert({
       verification_id: verification.verificationId,
       business_transaction_id: businessTransactionId,
       verification_json: verification,
       verified_at: verification.verifiedAt.toISOString(),
-    }),
+    });
 
-  new Promise((_, reject) =>
-    setTimeout(
-      () => reject(new Error("Verification insert timeout")),
-      3000,
-    ),
-  ),
-]) as any;
-
-
-
-  if (result.error) {
-    throw result.error;
+  if (error) {
+    throw error;
   }
 
-
-
   await this.touch(businessTransactionId);
-
-
-}/**
+}
+/**
  * Appends a Receipt.
  */
 async appendReceipt(

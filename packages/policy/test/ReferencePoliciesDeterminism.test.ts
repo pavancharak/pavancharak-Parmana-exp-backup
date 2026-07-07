@@ -128,8 +128,8 @@ describe(
           const policy = JSON.parse(
             readFileSync(
               path.resolve(
-                process.cwd(),
-                "../../policies",
+                import.meta.dirname,
+                "../../../policies",
                 testCase.file,
               ),
               "utf8",

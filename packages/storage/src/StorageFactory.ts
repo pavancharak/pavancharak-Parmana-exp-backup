@@ -1,3 +1,5 @@
+import { parseStorageProvider } from "@parmana/shared";
+
 import { MemoryStorageProvider } from "./memory/MemoryStorageProvider.js";
 
 import { SupabaseStorageProvider } from "./supabase/SupabaseStorageProvider.js";
@@ -34,8 +36,7 @@ export class StorageFactory {
    */
   static createFromEnvironment(): StorageProvider {
     return this.create({
-      provider: (process.env.PARMANA_STORAGE ??
-        "memory") as StorageConfiguration["provider"],
+      provider: parseStorageProvider(process.env.PARMANA_STORAGE),
     });
   }
 }

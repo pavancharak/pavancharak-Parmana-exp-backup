@@ -40,8 +40,8 @@ describe("Reference Policy Library", () => {
   const validator = new PolicyValidator();
 
   const policiesRoot = path.resolve(
-    process.cwd(),
-    "../../policies",
+    import.meta.dirname,
+    "../../../policies",
   );
 
   const policyFiles =

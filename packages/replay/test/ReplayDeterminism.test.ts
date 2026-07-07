@@ -14,7 +14,7 @@ describe("Replay Determinism", () => {
             decisionId: "d1",
             intentId: "i1",
             policy: TEST_POLICY,
-            signals: {},
+            signals: { riskScore: 10 },
             outcome: DecisionOutcome.APPROVED,
             reason: "ok",
             evaluatedAt: new Date(),
@@ -26,7 +26,7 @@ describe("Replay Determinism", () => {
     const input1 = {
       trustRecord: baseTrustRecord,
       transaction: {
-        signals: {},
+        signals: { riskScore: 10 },
       },
       policy: TEST_POLICY,
     };
@@ -34,13 +34,22 @@ describe("Replay Determinism", () => {
     const input2 = {
       trustRecord: baseTrustRecord,
       transaction: {
-        signals: {},
+        signals: { riskScore: 10 },
       },
       policy: TEST_POLICY,
     };
 
-    expect(engine.replay(input1)).toEqual(
-      engine.replay(input2),
+    const result1 = engine.replay(input1);
+    const result2 = engine.replay(input2);
+
+    expect(result1).toEqual(result2);
+
+    // Replay-vs-replay equality alone doesn't catch a replay that
+    // deterministically disagrees with the recording every time —
+    // the recorded outcome must also match what replay produces.
+    expect(result1.matches).toBe(true);
+    expect(result1.replayedDecision.outcome).toBe(
+      baseTrustRecord.executions[0].decision.outcome,
     );
   });
 });

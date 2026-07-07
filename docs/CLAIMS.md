@@ -598,6 +598,8 @@ The following claims are planned but are intentionally withheld until supported 
 
 \* Enterprise-grade key custody — current key storage is local PEM files read by FileKeyProvider; no KMS, HSM, or cloud key vault integration exists.
 
+\* API-layer authentication and authorization — no route in the Parmana API enforces authentication or authorization today; every request is accepted from any caller who can reach the port. Current deployments assume a trusted network boundary around the API. API-layer auth is a planned workstream, not yet scheduled or implemented.
+
 \* Authority, Intent, and Evidence verification checks in verification-service.ts. Only integrity, signature, and authorization binding are implemented today (2.15). The prior six-stage pipeline package (@parmana/verification) was retired in Session 5 — it had no real implementation and no real test coverage; its stage architecture is not being resurrected. Authority/Intent/Evidence checks, if built, will be added directly to verification-service.ts. Tracked for Session 6.
 
 \* Algorithm migration — re-keying from one signature provider to another (for example Ed25519 to ML-DSA-65) while retaining the ability to verify previously-signed records. AuthorizationVerifier does not dispatch verification based on the envelope's algorithm field; a verifying process supports exactly one configured SIGNATURE\_PROVIDER at a time.

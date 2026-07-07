@@ -26,8 +26,15 @@ function parse<T extends string>(
   throw new Error(`Invalid ${name}: ${resolved}`);
 }
 
-export const parseStorageProvider = (value?: string): StorageProvider =>
-  parse(value, StorageProviders, "DATABASE_PROVIDER", StorageProviders.MEMORY);
+export const parseStorageProvider = (value?: string): StorageProvider => {
+  if (process.env.DATABASE_PROVIDER !== undefined) {
+    throw new Error(
+      "DATABASE_PROVIDER is no longer read; set PARMANA_STORAGE instead.",
+    );
+  }
+
+  return parse(value, StorageProviders, "PARMANA_STORAGE", StorageProviders.MEMORY);
+};
 
 export const parseHashAlgorithm = (value?: string): HashAlgorithm =>
   parse(value, HashAlgorithms, "HASH_PROVIDER", HashAlgorithms.SHA256);

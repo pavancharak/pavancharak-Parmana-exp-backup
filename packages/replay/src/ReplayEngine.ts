@@ -55,26 +55,9 @@ const replayedDecision = {
   evaluatedAt: recordedDecision.evaluatedAt,
 };
 
-    //
-    // Temporary debug output
-    //
-    console.log("\n================ REPLAY DEBUG ================");
-    console.log("Recorded Outcome :", recordedDecision.outcome);
-    console.log("Replayed Outcome :", replayedDecision.outcome);
-    console.log("Recorded Policy  :", recordedDecision.policy);
-    console.log("Replay Policy    :", policy);
-    console.log("Signals          :", signals);
-    console.log(
-  "Policy Decision  :",
-  policyDecision,
-);
-
     const matches =
       recordedDecision.outcome ===
       replayedDecision.outcome;
-
-    console.log("Matches          :", matches);
-    console.log("=============================================\n");
 
     return {
       recordedDecision,

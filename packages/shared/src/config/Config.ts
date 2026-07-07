@@ -233,7 +233,7 @@ export function loadConfig():
     storage: Object.freeze({
       provider:
         parseStorageProvider(
-          process.env.DATABASE_PROVIDER,
+          process.env.PARMANA_STORAGE,
         ),
 
       ...optionalProperty(

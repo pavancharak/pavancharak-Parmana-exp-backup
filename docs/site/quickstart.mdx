@@ -14,7 +14,7 @@ The committed `.env` defaults to Supabase-backed storage. To run fully locally w
 external dependency, override storage to `memory`:
 
 ```bash
-DATABASE_PROVIDER=memory PARMANA_STORAGE=memory \
+PARMANA_STORAGE=memory \
   PARMANA_POLICY_DIR=/absolute/path/to/policies \
   node_modules/.bin/tsx packages/api/src/server.ts
 ```

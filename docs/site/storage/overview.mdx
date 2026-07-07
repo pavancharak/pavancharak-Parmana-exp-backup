@@ -24,7 +24,7 @@ closed rather than silently falling back).
 
 | Provider | Status | Notes |
 |---|---|---|
-| `memory` | [AVAILABLE] | In-process, non-persistent. Used throughout this site's live examples (`DATABASE_PROVIDER=memory PARMANA_STORAGE=memory`) so they have no external dependency. |
+| `memory` | [AVAILABLE] | In-process, non-persistent. Used throughout this site's live examples (`PARMANA_STORAGE=memory`) so they have no external dependency. |
 | `supabase` | [AVAILABLE] (source), not independently re-verified in this audit | `SupabaseStorageProvider`, `SupabaseBusinessTransactionRepository`, `SupabaseExecutionTrustRecordRepository`. This repo's committed `.env` defaults to this. |
 | `postgres` | Declared, not implemented | Throws at startup. |
 | `sqlite` | Declared, not implemented | Throws at startup. |
@@ -39,9 +39,10 @@ closed rather than silently falling back).
 ## Configuration
 
 ```bash
-DATABASE_PROVIDER=memory   # or supabase
 PARMANA_STORAGE=memory     # or supabase
 ```
 
-Both env vars are read; this repo's routes and examples set both to the same value. 8
-tests, `packages/storage/test/`.
+`PARMANA_STORAGE` is the only variable read. An older `DATABASE_PROVIDER` variable existed
+briefly as a second, disconnected path to the same setting and is now retired: if it's
+present in the environment, config loading fails at startup naming `PARMANA_STORAGE` as the
+replacement, rather than silently ignoring it. 8 tests, `packages/storage/test/`.
