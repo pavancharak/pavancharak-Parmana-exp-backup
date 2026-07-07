@@ -9,6 +9,15 @@ the provability layer is done; what remains is the unavoidability layer.
 
 ## Tier 0 — Immediate (days; mostly your side)
 
+- [ ] **SECURITY GUARD — do not wire overrides**: `OverrideService`/`OverrideVerifier`
+      must NOT be connected to any API route in current form — legacy
+      SHA256-over-stringified-JSON, no canonical serialization, no nonce, no TTL,
+      no approver authorization. Safe today only because unreachable from any
+      route. Modernize to envelope discipline (canonical serialization, signed
+      approver, nonce, TTL) before any exposure. Design parameters (roles,
+      scopes, rate limits, un-overridable floors) to be set with first design
+      partner — see `packages/runtime/src/policy/OverrideVerifier.ts` and
+      `packages/runtime/src/services/override-service.ts`.
 - [ ] **Close Session 8**: resolve the duplicated-`executableContent`-extraction deviation
       (consolidate to the single shared derivation, or prove drift is impossible with a
       cited test); apply the full CLAIMS.md set — corrected §2.16 (with the "requests that
