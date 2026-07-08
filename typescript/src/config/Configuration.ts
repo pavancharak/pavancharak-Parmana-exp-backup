@@ -14,12 +14,16 @@
  * - verification behavior
  */
 
-import type { Credentials } from "./Credentials.js";
 import type { RetryPolicy } from "./RetryPolicy.js";
 import type { Transport } from "./Transport.js";
 
 /**
  * Immutable SDK configuration.
+ *
+ * No authentication is enforced by the Parmana Runtime (see
+ * docs/CLAIMS.md, "API-layer authentication and authorization") — this
+ * configuration has no credentials field for that reason; do not build
+ * a client that assumes one.
  */
 export interface Configuration {
   /**
@@ -29,11 +33,6 @@ export interface Configuration {
    * https://runtime.example.com
    */
   readonly endpoint: string;
-
-  /**
-   * Authentication credentials.
-   */
-  readonly credentials?: Credentials;
 
   /**
    * Request timeout (milliseconds).

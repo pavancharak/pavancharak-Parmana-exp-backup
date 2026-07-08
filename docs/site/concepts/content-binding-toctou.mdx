@@ -143,6 +143,27 @@ A consuming service must construct its own `ExecutionGateway` (with a `Connector
 repo today to point either SDK at — this is tracked on the [Roadmap](/roadmap), not shipped
 as a default.
 
+## Connector SDK: the same content, unmodified, all the way to the connector
+
+`@parmana/connector-sdk`'s `SdkConnectorExecutor` sits downstream of every check above — it
+only ever runs after `ExecutionGateway.verify()` has already passed and the content is
+already deep-frozen (`ExecutionGateway.ts`'s `deepFreeze(executableContent)`). From there:
+
+- `SdkConnectorExecutor.execute(content, credential)` builds `ConnectorRequest` by copying
+  `businessTransactionId`, `action`, `target`, and `parameters` straight off the verified,
+  frozen `content` — never re-deriving or re-interpreting any of them.
+- The same `ConnectorRequest` object is what a `Connector` (`HttpConnector`, `MockConnector`,
+  or a future one) receives; nothing in between constructs a second copy.
+- `capability` is `content.action` itself, so "capability" cannot silently diverge from the
+  authorized `action` — there is only one field, not two that could disagree.
+
+Any mismatch between what was authorized and what a connector would execute is still
+caught upstream, in the unchanged `ExecutionGateway.verify()` hash comparison — this is a
+permanent architectural invariant, not something `connector-sdk` re-implements or could
+weaken. `connector-sdk` adds capability-declaration and version/health checks *in front of*
+a connector call (`SdkConnectorExecutor`, `CapabilityConnectorPolicy`), all of which fail
+closed (throw, never a partial or guessed success) before a connector is ever invoked.
+
 ## Related, and also worth knowing
 
 - **Nonce single-use is scoped to whichever `NonceStore` instance checks it.** Multiple

@@ -1,47 +1,15 @@
-Locked architectural decisions
-Decision is immutable
-
-Once produced by policy evaluation, a Decision never changes.
-
-A Decision has only two outcomes
-APPROVED
-REJECTED
-
-There are no intermediate decision states such as:
-
-PENDING
-REVIEW
-PROCESSING
-
-Those belong to the Business Transaction or Execution lifecycle, not the Decision itself.
-
-Override does not modify the Decision
-
-If a human override occurs:
-
-the original Decision remains unchanged;
-the Override is recorded as a separate trust artifact;
-both are preserved in the Execution Trust Record.
-Policy is recorded with the Decision
-
-The Decision records the exact Policy reference used during evaluation, ensuring deterministic replay and independent verification.
-
-Canonical Principle (Locked)
-
-A Decision is the immutable outcome of Policy evaluation.
-
-It records what the Policy decided, not what was ultimately executed. Human Overrides and Executions are separate trust artifacts that build upon the Decision without altering it.
-
-
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.parmana.ai/common/decision.schema.json",
   "title": "Decision",
-  "description": "Canonical Policy Decision produced by evaluating a Business Transaction.",
+  "description": "Immutable result of evaluating an Intent against a Policy. Decision does not create authority, grant authorization, or modify Intent — it only records the outcome of deterministic Policy evaluation.",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "required": [
     "decisionId",
+    "intentId",
+    "policy",
+    "signals",
     "outcome",
     "evaluatedAt"
   ],
@@ -50,9 +18,19 @@ It records what the Policy decided, not what was ultimately executed. Human Over
       "type": "string",
       "description": "Unique Decision identifier."
     },
+    "intentId": {
+      "type": "string",
+      "description": "Intent evaluated by this Decision."
+    },
+    "policy": {
+      "$ref": "./policy.schema.json"
+    },
+    "signals": {
+      "$ref": "./signals.schema.json"
+    },
     "outcome": {
       "type": "string",
-      "description": "Policy evaluation outcome.",
+      "description": "Policy evaluation outcome. There are no intermediate states — a Decision is always exactly one of these two values.",
       "enum": [
         "APPROVED",
         "REJECTED"
@@ -60,28 +38,34 @@ It records what the Policy decided, not what was ultimately executed. Human Over
     },
     "reason": {
       "type": "string",
-      "description": "Human-readable explanation of the decision."
+      "description": "Human-readable explanation, taken from the matching Policy rule's outcome.reason."
     },
     "evaluatedAt": {
       "type": "string",
       "format": "date-time",
       "description": "UTC timestamp when policy evaluation completed."
-    },
-    "policy": {
-      "$ref": "./policy.schema.json"
     }
   },
   "examples": [
     {
-      "decisionId": "DEC-000001",
-      "outcome": "APPROVED",
-      "reason": "Payment amount is within the approved policy threshold.",
-      "evaluatedAt": "2026-06-26T10:15:43Z",
+      "decisionId": "9d69dc0b-333a-4be3-b09f-358fece806f3",
+      "intentId": "ae5865f6-181b-409a-90ec-1b4b8b8414ba",
       "policy": {
-        "name": "payment-approval",
-        "version": "2.1.0",
-        "schemaVersion": "1.0"
-      }
+        "name": "vendor-payment",
+        "version": "2.0.0",
+        "schemaVersion": "1.0.0"
+      },
+      "signals": {
+        "vendorVerified": true,
+        "invoiceVerified": true,
+        "paymentApproved": true,
+        "sufficientFunds": true,
+        "paymentAmount": 4500,
+        "riskScore": 10
+      },
+      "outcome": "APPROVED",
+      "reason": "Vendor payment authorized. Vendor verification, invoice verification, payment approval, funding, and risk assessment requirements were satisfied.",
+      "evaluatedAt": "2026-07-07T16:38:59.326Z"
     }
   ]
 }

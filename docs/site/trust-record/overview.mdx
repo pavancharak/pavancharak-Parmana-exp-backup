@@ -68,6 +68,30 @@ lets a `trustRecordHash` mean anything.
 with it changes the recomputed `trustRecordHash` and fails verification (CLAIMS.md 2.11,
 `execution-authorization-wiring.test.ts` — "trust record references the authorization").
 
+## Connector evidence extends `evidence.attributes` — it does not add a new field
+
+`ExecutionEvidence.attributes` (`packages/shared/src/domain/execution-evidence.ts`) has
+always been an open `Record<string, unknown>` bag, and `ExecutionEvidenceBuilder` has
+always forwarded `ExecutionResult.metadata` into it verbatim — neither changed for this
+milestone. `@parmana/connector-sdk`'s `SdkConnectorExecutor` populates
+`ExecutionResult.metadata.connector` with a `ConnectorEvidence` object (connector ID,
+version, capability, sanitized endpoint, redacted request/response summaries, a
+`connectorEvidenceHash` computed by the existing `TrustRecordHasher` — no alternative
+hash), so it lands at `execution.evidence.attributes.connector` through this same,
+unmodified path.
+
+**Why old Trust Records, replay, and verification are unaffected:** a Trust Record's
+`trustRecordHash` is computed once, at creation, over that record's own serialized content
+(`TrustRecordHasher.hash`, canonical key-sorted JSON). A record created before
+`connector-sdk` existed was serialized — and hashed — without any `connector` key inside
+`evidence.attributes`; that stored content and hash are never recomputed or migrated. A
+record created after populates `evidence.attributes.connector` and simply hashes *more*
+content, self-consistently, the same way any other optional field always has. Replay and
+verification each re-hash a record against its own stored hash, not against a fixed schema
+version, so both operate identically on old and new records. See
+`packages/connector-sdk/tests/unit/gateway-integration.test.ts` (describe block "Execution
+Trust Record hash boundary (regression)") for the executable proof.
+
 ## Getting one back
 
 ```python

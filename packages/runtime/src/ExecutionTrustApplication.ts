@@ -13,6 +13,7 @@ import { Runtime } from "./Runtime.js";
 import { BusinessTransactionService } from "./services/business-transaction-service.js";
 import { ReceiptService } from "./services/receipt-service.js";
 import { VerificationService } from "./services/verification-service.js";
+import { VerificationFailedError } from "./errors/VerificationFailedError.js";
 
 /**
  * Execution Trust Application.
@@ -152,7 +153,7 @@ export class ExecutionTrustApplication {
       );
 
     if (!trustRecord) {
-      throw new Error(
+      throw new VerificationFailedError(
         "Execution Trust Record not found.",
       );
     }

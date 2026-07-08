@@ -22,6 +22,7 @@ pre-existing test fragility, not a functional bug (see [Troubleshooting](/troubl
 | `envelope-verifier` | Verifies a `SignedExecutionAuthorization`: signature, expiry, TTL, nonce | [AVAILABLE] | 15 | `EnvelopeVerifier`, CLAIMS.md 2.9/2.10 |
 | `execution-gateway` | Recomputes content hash, compares to `businessTransactionHash`, releases to a `Connector` | [AVAILABLE] as a library; **not wired into the running server** | 25 | `ExecutionGateway.ts:150-165`; see the Warning on [Architecture Overview](/architecture/overview) |
 | `execution-control` | Gateway-authenticated, session-scoped credential isolation for connectors | [PARTIAL] | 11 | `ExecutionControlService`, `InMemoryCredentialVault` — real scaffold, not the finished "AI never holds credentials" claim (see [Roadmap](/roadmap)) |
+| `connector-sdk` | Connector authoring contracts (capabilities, metadata, versioning, health) and reference implementations (`HttpConnector`, `MockConnector`), extending `execution-control`'s registry/vault/policy seams — never modifying them | [AVAILABLE] as a library | 45 | `packages/connector-sdk/src`; see [Integrations](/integrations/overview) |
 | `execution-system` | `ExecutionSystem` interface + the default (non-gateway) implementation the server actually uses | [AVAILABLE] | 1 | `packages/execution-system/src` |
 
 ## SDKs and app

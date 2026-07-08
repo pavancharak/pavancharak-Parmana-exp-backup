@@ -1,153 +1,56 @@
-Locked architectural decisions
-1. Verification validates the complete Execution Trust Record
-
-Verification is not selective.
-
-Every verification validates:
-
-Business Transaction
-Metadata
-Policy
-Signals
-Decision
-Override History
-Execution History
-Evidence
-Receipt
-2. Verification is read-only
-
-Verification never modifies:
-
-Business Transaction
-Decision
-Override
-Execution
-Receipt
-
-It only evaluates their integrity and consistency.
-
-3. Verification is append-only
-
-Each verification creates a new Verification artifact.
-
-Verification history becomes part of the Execution Trust Record and supports long-term auditability.
-
-4. Overall result
-
-verified represents the final outcome:
-
-true — every required trust artifact passed verification.
-false — one or more trust artifacts failed verification.
-
-The checks object provides detailed results for each trust artifact.
-
-5. Independent verification
-
-The Verification artifact records the outcome of a verification operation.
-
-Independent verifiers can reproduce the same result using:
-
-the Execution Trust Record,
-the Receipt,
-Parmana's public verification key,
-the recorded policy version,
-the recorded schema version.
-Canonical Principle (Locked)
-
-Verification is a deterministic, read-only validation of the complete Execution Trust Record.
-
-It produces an immutable Verification artifact that records the integrity and consistency of every trust artifact without modifying the underlying Business Transaction or its execution history.
-
-
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.parmana.ai/common/verification.schema.json",
   "title": "Verification",
-  "description": "Canonical Verification artifact for an Execution Trust Record.",
+  "description": "Immutable result of verifying an entire Execution Trust Record: recomputed hash matches the stored hash, signature verifies, and every APPROVED Execution carries a non-empty authorizationId. All checks always run and are reported together in message — a failure in one does not skip the others.",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "required": [
     "verificationId",
-    "verified",
+    "businessTransactionId",
+    "status",
     "verifiedAt",
-    "checks"
+    "trustRecordHash"
   ],
   "properties": {
     "verificationId": {
       "type": "string",
       "description": "Unique Verification identifier."
     },
-    "verified": {
-      "type": "boolean",
-      "description": "Overall verification result."
+    "businessTransactionId": {
+      "type": "string",
+      "description": "Business Transaction being verified."
+    },
+    "status": {
+      "type": "string",
+      "description": "Verification result.",
+      "enum": [
+        "VERIFIED",
+        "FAILED"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable verification summary — either the success message, or every failed check's message joined with \"; \"."
     },
     "verifiedAt": {
       "type": "string",
       "format": "date-time",
       "description": "UTC timestamp when verification completed."
     },
-    "checks": {
-      "type": "object",
-      "description": "Verification results for individual trust artifacts.",
-      "additionalProperties": false,
-      "required": [
-        "businessTransaction",
-        "metadata",
-        "policy",
-        "signals",
-        "decision",
-        "override",
-        "execution",
-        "evidence",
-        "receipt"
-      ],
-      "properties": {
-        "businessTransaction": {
-          "type": "boolean"
-        },
-        "metadata": {
-          "type": "boolean"
-        },
-        "policy": {
-          "type": "boolean"
-        },
-        "signals": {
-          "type": "boolean"
-        },
-        "decision": {
-          "type": "boolean"
-        },
-        "override": {
-          "type": "boolean"
-        },
-        "execution": {
-          "type": "boolean"
-        },
-        "evidence": {
-          "type": "boolean"
-        },
-        "receipt": {
-          "type": "boolean"
-        }
-      }
+    "trustRecordHash": {
+      "type": "string",
+      "description": "Hash of the verified Execution Trust Record, proving exactly which record was verified."
     }
   },
   "examples": [
     {
-      "verificationId": "VER-000001",
-      "verified": true,
-      "verifiedAt": "2026-06-26T12:15:00Z",
-      "checks": {
-        "businessTransaction": true,
-        "metadata": true,
-        "policy": true,
-        "signals": true,
-        "decision": true,
-        "override": true,
-        "execution": true,
-        "evidence": true,
-        "receipt": true
-      }
+      "verificationId": "0ad69d3f-7fd0-4507-ab38-e386146757ae",
+      "businessTransactionId": "eed2a972-1bf5-4166-8472-761f76fbf1b2",
+      "status": "VERIFIED",
+      "message": "Execution Trust Record verified successfully.",
+      "verifiedAt": "2026-07-07T16:38:59.344Z",
+      "trustRecordHash": "989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25"
     }
   ]
 }

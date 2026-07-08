@@ -12,7 +12,8 @@
     { "path": "./packages/envelope-verifier" },
     { "path": "./packages/execution-system" },
     { "path": "./packages/execution-control" },
-    { "path": "./packages/execution-gateway" }
+    { "path": "./packages/execution-gateway" },
+    { "path": "./packages/connector-sdk" }
   ],
   "compilerOptions": {
     "target": "ES2022",

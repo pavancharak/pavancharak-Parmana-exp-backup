@@ -1,0 +1,32 @@
+{
+  "name": "@parmana/connector-sdk",
+  "version": "0.1.0",
+  "description": "Connector authoring contracts and reference implementations for Parmana Execution Governance connectors",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@parmana/crypto": "0.1.0",
+    "@parmana/execution-control": "0.1.0",
+    "@parmana/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "@parmana/policy": "0.1.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.9"
+  },
+  "engines": { "node": ">=22" },
+  "license": "Apache-2.0"
+}

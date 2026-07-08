@@ -88,6 +88,30 @@ the provability layer is done; what remains is the unavoidability layer.
       ascending: true })` on all four queries plus a documented stable tiebreak (secondary
       sort on the ID column) matched to write-time insertion order; add a 2-element
       round-trip test.
+- [ ] **TS client SDK parity + tests**: missing endpoints vs Python's near-parity — GET /,
+      GET /version, POST /transactions, GET /receipt/latest/:id, POST /verify (the TS SDK's
+      only Verification method today, renamed to `getLatestVerification` in the API
+      hardening micro-session, maps to GET /verification/:id — there is no TS equivalent of
+      Python's fresh-verify `.verify()` / POST /verify at all). Also: all 9
+      `typescript/test/*.test.ts` files are empty stubs (0 bytes each) — `vitest run`
+      reports passes trivially. Decide parity scope with the first integrating partner
+      before building either.
+- [ ] **Version-number convention**: three disconnected version numbers exist today —
+      root `package.json` says `0.1.0`, the latest git tag is `v1.0.0`, and the `/version`
+      endpoint (`packages/api/src/routes/version.ts`) hardcodes `0.4.0`, read from none of
+      the others. Micro-decision: pick one source of truth (likely `package.json`, read at
+      build or boot time) and derive the other two from it instead of hand-maintaining
+      three numbers independently.
+- [ ] **Dead code — orphaned signal validation**: `SignalValidationError`
+      (`packages/policy/src/errors/SignalValidationError.ts`) is imported and
+      instanceof-checked in `packages/api/src/middleware/error-handler.ts` but nothing in
+      the live execution path ever throws it — `packages/policy/src/SignalValidator.ts`
+      (the only class that throws it) has no callers anywhere in the codebase. Separately,
+      `packages/runtime/src/policy/SignalValidator.ts` is a second, unrelated
+      implementation (throws plain `Error`, not `SignalValidationError`) that is also
+      never imported by anything. Confirmed by grep during the API hardening
+      micro-session (2026-07-08); a follow-up micro-edit should remove both dead classes
+      after re-confirming no caller was added since.
 
 ---
 

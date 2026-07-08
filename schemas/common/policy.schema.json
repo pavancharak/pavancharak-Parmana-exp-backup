@@ -1,25 +1,10 @@
-Locked architectural decisions
-
-This schema reflects the Policy Resolution Model you've locked:
-
-The client explicitly specifies:
-name
-version
-schemaVersion
-Parmana does not automatically discover or select a policy.
-Parmana resolves the policy by matching the supplied name, version, and schemaVersion against the Policy Store.
-If no matching policy exists, the request fails with POLICY_NOT_FOUND.
-If the policy exists but the declared schemaVersion is incompatible, the request fails before policy evaluation (for example, with an INVALID_SCHEMA or equivalent validation error, as defined by your Error Model).
-The resolved policy is recorded in the Execution Trust Record and is immutable for the lifetime of the Business Transaction.
-
-
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.parmana.ai/common/policy.schema.json",
-  "title": "Policy",
-  "description": "Canonical Policy reference used for policy resolution.",
+  "title": "Policy Reference",
+  "description": "Exact Policy to evaluate. The client explicitly supplies name, version, and schemaVersion — Parmana does not automatically discover or select a policy. If no matching policy file exists at policies/{name}/{version}/policy.json, the request fails with a 404 (policyId/policyVersion on POST /policies/validate) or a RUNTIME_ERROR (name/version elsewhere, from PolicyNotFoundError not otherwise mapped by the shared error handler in every route — see the error envelope note).",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "required": [
     "name",
     "version",
@@ -28,34 +13,31 @@ The resolved policy is recorded in the Execution Trust Record and is immutable f
   "properties": {
     "name": {
       "type": "string",
-      "description": "Unique policy name.",
-      "minLength": 1,
-      "maxLength": 255
+      "description": "Policy name. Required and non-empty — Parmana rejects an empty name with a 400.",
+      "minLength": 1
     },
     "version": {
       "type": "string",
-      "description": "Policy version.",
-      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Business policy version. Required and non-empty — Parmana rejects an empty version with a 400.",
+      "minLength": 1,
       "examples": [
-        "1.0.0",
-        "2.1.3"
+        "2.0.0",
+        "1.0.0"
       ]
     },
     "schemaVersion": {
       "type": "string",
       "description": "Signals schema version expected by the policy.",
-      "pattern": "^\\d+\\.\\d+$",
       "examples": [
-        "1.0",
-        "2.0"
+        "1.0.0"
       ]
     }
   },
   "examples": [
     {
-      "name": "payment-approval",
-      "version": "2.1.0",
-      "schemaVersion": "1.0"
+      "name": "vendor-payment",
+      "version": "2.0.0",
+      "schemaVersion": "1.0.0"
     }
   ]
 }

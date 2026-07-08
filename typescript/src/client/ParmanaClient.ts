@@ -212,10 +212,10 @@ export class ParmanaClient {
   /**
    * Returns the latest Verification.
    */
-  public verify(
+  public getLatestVerification(
     businessTransactionId: string,
   ): Promise<Verification> {
-    return this.verificationApi.verify(
+    return this.verificationApi.getLatest(
       businessTransactionId,
     );
   }

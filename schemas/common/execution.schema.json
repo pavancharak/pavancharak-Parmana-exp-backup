@@ -1,78 +1,29 @@
-Locked architectural decisions
-1. Execution is independent of the Decision
-
-The Decision determines whether execution is authorized.
-
-The Execution records what actually happened.
-
-2. Execution lifecycle is authoritative
-
-Execution state is represented only by:
-
-PROCESSING
-COMPLETED
-FAILED
-
-There is no separate outcome field.
-
-3. Multiple Executions are supported
-
-A Business Transaction may have:
-
-zero Executions
-one Execution
-multiple Executions
-
-Each Execution has its own:
-
-executionId
-lifecycle
-evidence
-timestamps
-4. Evidence belongs to the Execution
-
-Evidence is generated during execution and is permanently associated with that specific Execution.
-
-Examples include:
-
-external transaction reference
-API response
-execution logs
-downstream acknowledgment
-execution hash
-5. Execution is immutable
-
-Once an Execution reaches a terminal state:
-
-COMPLETED
-FAILED
-
-it cannot be modified.
-
-Any subsequent attempt is recorded as a new Execution, preserving the append-only history defined by the Execution Trust Model.
-
-Canonical Principle (Locked)
-
-Execution records what happened after authorization.
-
-It is an immutable trust artifact that captures execution state, timestamps, and evidence without altering the original Decision or Business Transaction.
-
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.parmana.ai/common/execution.schema.json",
   "title": "Execution",
-  "description": "Canonical Execution artifact for a Business Transaction.",
+  "description": "Immutable trust artifact recording what actually happened while processing a Business Transaction. Every Execution records exactly one Decision produced by deterministic Policy evaluation.",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "required": [
     "executionId",
+    "businessTransactionId",
+    "decision",
     "status",
+    "mode",
     "startedAt"
   ],
   "properties": {
     "executionId": {
       "type": "string",
       "description": "Unique Execution identifier."
+    },
+    "businessTransactionId": {
+      "type": "string",
+      "description": "Business Transaction to which this Execution belongs."
+    },
+    "decision": {
+      "$ref": "./decision.schema.json"
     },
     "status": {
       "type": "string",
@@ -99,33 +50,62 @@ It is an immutable trust artifact that captures execution state, timestamps, and
     "completedAt": {
       "type": "string",
       "format": "date-time",
-      "description": "UTC timestamp when execution completed."
+      "description": "UTC timestamp when execution completed. Present only for terminal executions."
     },
     "evidence": {
       "type": "object",
-      "description": "Execution evidence captured during execution.",
+      "description": "Immutable execution evidence: businessTransactionId, action, target, parameters, success, executedAt, and an optional attributes bag for execution-system-specific evidence (for example Connector SDK evidence, when a Connector executed this Execution).",
       "additionalProperties": true
     },
     "metadata": {
       "type": "object",
-      "description": "Execution-specific metadata.",
+      "description": "Execution-specific metadata. Currently populated with authorizationId when the Execution is APPROVED.",
       "additionalProperties": true
     }
   },
   "examples": [
     {
-      "executionId": "EXEC-000001",
+      "executionId": "2be38c15-f93c-4621-9a1c-7570c130dea0",
+      "businessTransactionId": "eed2a972-1bf5-4166-8472-761f76fbf1b2",
+      "decision": {
+        "decisionId": "9d69dc0b-333a-4be3-b09f-358fece806f3",
+        "intentId": "ae5865f6-181b-409a-90ec-1b4b8b8414ba",
+        "policy": {
+          "name": "vendor-payment",
+          "version": "2.0.0",
+          "schemaVersion": "1.0.0"
+        },
+        "signals": {
+          "vendorVerified": true,
+          "invoiceVerified": true,
+          "paymentApproved": true,
+          "sufficientFunds": true,
+          "paymentAmount": 4500,
+          "riskScore": 10
+        },
+        "outcome": "APPROVED",
+        "reason": "Vendor payment authorized. Vendor verification, invoice verification, payment approval, funding, and risk assessment requirements were satisfied.",
+        "evaluatedAt": "2026-07-07T16:38:59.326Z"
+      },
       "status": "COMPLETED",
       "mode": "SYNC",
-      "startedAt": "2026-06-26T10:30:00Z",
-      "completedAt": "2026-06-26T10:30:02Z",
-      "evidence": {
-        "targetSystem": "Payment Gateway",
-        "referenceId": "PG-987654321"
-      },
+      "startedAt": "2026-07-07T16:38:59.328Z",
       "metadata": {
-        "executor": "payment-service"
-      }
+        "authorizationId": "1dc2d137-fde2-4d9c-b298-79e9f8a0d03e"
+      },
+      "evidence": {
+        "businessTransactionId": "eed2a972-1bf5-4166-8472-761f76fbf1b2",
+        "action": "VendorPayment",
+        "target": "vendor/V-100",
+        "parameters": {
+          "amount": 4500,
+          "currency": "USD"
+        },
+        "success": true,
+        "executedAt": "2026-07-07T16:38:59.328Z",
+        "attributes": {}
+      },
+      "completedAt": "2026-07-07T16:38:59.329Z"
     }
   ]
 }

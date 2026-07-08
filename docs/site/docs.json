@@ -94,7 +94,9 @@
           {
             "group": "Integrations",
             "pages": [
-              "integrations/overview"
+              "integrations/overview",
+              "integrations/connector-development-guide",
+              "integrations/credentials"
             ]
           },
           {

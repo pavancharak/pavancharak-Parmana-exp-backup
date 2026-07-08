@@ -60,6 +60,28 @@ finished "AI systems never possess Parmana's execution credentials" claim. See
 [Roadmap](/roadmap) for exactly what's left (KMS-backed, cross-system, real-cloud-provider
 credential minting).
 
+## Connector SDK — [AVAILABLE] as a library
+
+`@parmana/connector-sdk` (45 tests) extends this same `execution-control` seam with
+connector-authoring ergonomics — it does not add a fourth dispatch path to
+`ExecutionGateway`, and it does not modify `ExecutionControlService`,
+`InMemoryConnectorRegistry`, or `InMemorySecureConnector`. Concretely, it supplies:
+
+- `SdkConnectorExecutor` — an `execution-control` `ConnectorExecutor` implementation that
+  adapts the SDK's `Connector` contract, rejects a version mismatch or an `"unavailable"`
+  connector before invoking it, and rejects any credential that wasn't produced by a
+  `CredentialProvider` (see [Credential Architecture](/integrations/credentials)).
+- `ConnectorSdkRegistry` — implements `execution-control`'s `ConnectorRegistry` interface
+  by composing `InMemoryConnectorRegistry` internally, adding metadata/version/health.
+- `HttpConnector` / `MockConnector` — see [Integrations](/integrations/overview).
+
+Every connector execution attaches `ConnectorEvidence` (connector ID, version, capability,
+sanitized endpoint, redacted request/response summaries, a hash from the existing
+`TrustRecordHasher`) at `ExecutionResult.metadata.connector` — reaching the Execution Trust
+Record through the same, unmodified `ExecutionEvidence.attributes` path every other
+execution-system implementation already uses. See
+[Execution Trust Record](/trust-record/overview).
+
 ## Failure reporting
 
 `ExecutionGateway.execute()` throws on any failed check, naming every failing check and —

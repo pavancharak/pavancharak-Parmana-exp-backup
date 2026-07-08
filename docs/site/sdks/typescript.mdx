@@ -38,11 +38,13 @@ $ wc -l typescript/test/*.test.ts
 
 ## Problem 2 — a full error taxonomy exists and is never thrown
 
-`typescript/src/errors/` declares `AuthenticationError`, `AuthorizationError`,
-`ExecutionRejectedError`, `ValidationError`, `InternalServerError`, `VerificationError`,
-`ReplayError`, `NetworkError`, `TimeoutError`, `ConfigurationError` — a complete,
-well-named taxonomy. Checked directly: **none of `AuthenticationError`,
-`AuthorizationError`, `ExecutionRejectedError`, `ValidationError`, or
+`typescript/src/errors/` declares `ExecutionRejectedError`, `ValidationError`,
+`InternalServerError`, `VerificationError`, `ReplayError`, `NetworkError`,
+`TimeoutError`, `ConfigurationError` — a well-named taxonomy.
+(`AuthenticationError` and `AuthorizationError` were removed in a later
+session: the Runtime enforces no authentication or authorization, so a
+client-side taxonomy implying it does was misleading — see docs/CLAIMS.md.)
+Checked directly: **none of `ExecutionRejectedError`, `ValidationError`, or
 `InternalServerError` is ever constructed anywhere in the SDK source.**
 
 The reason: `HttpTransport.send()` returns `{ status, headers, body }` for **any** HTTP

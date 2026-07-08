@@ -240,7 +240,7 @@ The Runtime:
 
 const verification =
 
-&#x20;   await client.verify(
+&#x20;   await client.getLatestVerification(
 
 &#x20;       trustRecord,
 
@@ -416,10 +416,6 @@ Common errors include:
 
 \- ValidationError
 
-\- AuthenticationError
-
-\- AuthorizationError
-
 \- ExecutionRejectedError
 
 \- VerificationError
@@ -461,6 +457,10 @@ The SDK configuration controls communication with the Parmana Runtime.
 
 
 It does not control policy evaluation or runtime behavior.
+
+
+
+No route in the Parmana API enforces authentication or authorization today; every request is accepted from any caller who can reach the port (see docs/CLAIMS.md, "API-layer authentication and authorization"). The SDK configuration has no credentials field for that reason — do not build a client that assumes one.
 
 
 

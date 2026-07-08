@@ -19,9 +19,11 @@ export class VerificationApi {
 
   /**
    * Returns the latest Verification for a
-   * Business Transaction.
+   * Business Transaction, without performing a
+   * fresh verification. Maps to GET
+   * /verification/:id.
    */
-  public async verify(
+  public async getLatest(
     businessTransactionId: string,
   ): Promise<Verification> {
     const response =

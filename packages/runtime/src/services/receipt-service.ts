@@ -7,6 +7,7 @@ import {
 } from "@parmana/shared";
 
 import { ReceiptGenerationError } from "../errors/ReceiptGenerationError.js";
+import { VerificationFailedError } from "../errors/VerificationFailedError.js";
 
 import { ReceiptCrypto } from "@parmana/crypto";
 
@@ -55,7 +56,7 @@ try {
 
 
     if (!trustRecord) {
-      throw new ReceiptGenerationError(
+      throw new VerificationFailedError(
         "Execution Trust Record not found.",
       );
     }

@@ -38,14 +38,6 @@ export type {
 } from "./config/Configuration.js";
 
 export type {
-  Credentials,
-} from "./config/Credentials.js";
-
-export {
-  AuthenticationScheme,
-} from "./config/Credentials.js";
-
-export type {
   RetryPolicy,
 } from "./config/RetryPolicy.js";
 
@@ -80,8 +72,6 @@ export * from "./models/index.js";
 // @parmana/shared via models/index.ts.
 // -----------------------------------------------------------------------------
 
-export * from "./errors/AuthenticationError.js";
-export * from "./errors/AuthorizationError.js";
 export * from "./errors/ConfigurationError.js";
 export * from "./errors/ExecutionRejectedError.js";
 export * from "./errors/InternalServerError.js";

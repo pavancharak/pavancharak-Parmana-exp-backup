@@ -90,5 +90,19 @@ describe.skipIf(!supabaseConfigured)("Replay Integration", () => {
     },
     30000,
   );
+
+  it("fails with 404 for an unknown Business Transaction", async () => {
+    const response = await request(app)
+      .post("/replay")
+      .send({
+        businessTransactionId: crypto.randomUUID(),
+      });
+
+    expect(response.status).toBe(404);
+
+    expect(response.body.error).toBe(
+      "Execution Trust Record not found.",
+    );
+  });
 });
 

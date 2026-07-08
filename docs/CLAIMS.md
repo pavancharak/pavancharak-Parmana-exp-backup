@@ -576,6 +576,30 @@ Evidence
 
 
 
+\## 3.3 Connector SDK Foundation (Scoped)
+
+
+
+@parmana/connector-sdk defines a Connector authoring contract (Connector, ConnectorRequest, ConnectorResponse, ConnectorExecutionContext, ConnectorCapability, ConnectorMetadata, ConnectorVersion, ConnectorHealth, ConnectorFactory) and extends execution-control's ConnectorRegistry, CredentialVault, and ConnectorPolicy seams without modifying them. This claim covers only the foundation: two reference connectors (HttpConnector, MockConnector), a credential-provider seam (StaticCredentialProvider, EnvironmentCredentialProvider), and deterministic connector evidence attached to the existing Execution Trust Record via the existing, unmodified ExecutionEvidence.attributes path and the existing TrustRecordHasher. It does not claim any enterprise-specific connector, any cloud secret-manager integration, or any change to Phase 1's Runtime, Policy Engine, Execution Gateway, Replay, Receipt Generation, Verification, or REST API — all of which remain exactly as evidenced elsewhere in this document.
+
+
+
+Evidence
+
+
+
+\* packages/connector-sdk/src (Connector, ConnectorRegistry, CredentialProvider, SdkConnectorExecutor, HttpConnector, MockConnector, CapabilityConnectorPolicy)
+
+\* packages/connector-sdk/tests/unit (45 tests: registry, credential-provider leak checks, HttpConnector incl. timeout/fail-closed, MockConnector, evidence hashing/redaction, end-to-end Gateway integration, Execution Trust Record hash-boundary regression)
+
+\* policies/connector-capability/1.0.0/policy.json (reference policy: ALLOW crm:read, BLOCK crm:delete, threshold-gated payments:refund, default BLOCK — no approval-workflow outcome)
+
+
+
+\---
+
+
+
 \# 4. Future Claims (Pending Evidence)
 
 
@@ -583,6 +607,26 @@ Evidence
 The following claims are planned but are intentionally withheld until supported by implementation, testing, audit, and documented proof.
 
 
+
+\* \[FUTURE\] Stripe connector — no implementation exists; would implement @parmana/connector-sdk's Connector interface.
+
+\* \[FUTURE\] GitHub connector — no implementation exists.
+
+\* \[FUTURE\] Salesforce connector — no implementation exists.
+
+\* \[FUTURE\] SAP connector — no implementation exists.
+
+\* \[FUTURE\] ServiceNow connector — no implementation exists.
+
+\* \[FUTURE\] Workday connector — no implementation exists.
+
+\* \[FUTURE\] Slack connector — no implementation exists.
+
+\* \[FUTURE\] Jira connector — no implementation exists.
+
+\* \[FUTURE\] Database connector — no implementation exists.
+
+\* \[FUTURE\] Cloud credential providers — HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, and Google Secret Manager CredentialProvider implementations. Only the CredentialProvider interface seam exists today (StaticCredentialProvider, EnvironmentCredentialProvider); no cloud SDK dependency has been added.
 
 \* Every production Runtime enforces the canonical trust pipeline.
 

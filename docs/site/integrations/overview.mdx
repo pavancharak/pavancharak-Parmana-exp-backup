@@ -1,24 +1,71 @@
 ---
 title: "Integrations"
-description: "[ROADMAP] for everything except one reference HTTP connector."
+description: "The Connector SDK foundation is real; no enterprise-specific connector is built on it yet."
 ---
 
-<Warning>**[ROADMAP]**, except the one item marked [AVAILABLE] below. One honest page, not seventeen fabricated guides.</Warning>
+<Info>**[AVAILABLE] as a library.** `packages/connector-sdk`, 45 tests. Extends
+`packages/execution-control` (unchanged) — see [Execution Gateway](/authorization/execution-gateway)
+for how a Connector is reached.</Info>
 
-## What exists
+## What exists: the Connector SDK foundation
 
-**`HttpConnector`** (`packages/execution-gateway/src/HttpConnector.ts`) — [AVAILABLE]. A
-reference `Connector` implementation: forwards Gateway-verified content and its
-authorization to `${baseUrl}/execute` via POST, with the same wire body
-`@parmana/execution-system`'s prior `HttpExecutionSystem` used, so existing receiving
-sides need no changes. This is generic HTTP forwarding, not an integration with any named
-third-party product.
+`@parmana/connector-sdk` is the contract every future connector implements, plus two
+reference implementations. It does not itself integrate with any named enterprise system.
 
-## What doesn't exist
+```typescript
+export interface Connector {
+  readonly connectorId: string;
+  readonly capabilities: ConnectorCapabilities;
+  execute(request: ConnectorRequest, context: ConnectorExecutionContext): Promise<ConnectorResponse>;
+}
+```
 
-No connector or integration guide for OpenAI, Anthropic, SAP, Salesforce, ServiceNow,
-Workday, or any other named platform exists in this repository. If your use case needs one,
-you would build a `Connector` implementing the interface in
-`packages/execution-gateway/src/Connector.ts` and wire it into an
-[Execution Gateway](/authorization/execution-gateway) — that part is real and documented;
-a pre-built connector for your target system is not.
+- **`ConnectorCapability`** — a namespaced verb (`crm:read`, `payments:refund`,
+  `http:post`). By convention, `ExecutableContent.action` *is* the capability string —
+  this is exactly what `execution-control`'s `DefaultConnectorPolicy` already checks
+  (`connector.capabilities.includes(request.executableContent.action)`, unchanged).
+- **`ConnectorMetadata` / `ConnectorVersion` / `ConnectorHealth`** — descriptive metadata a
+  connector author attaches at registration time. Version mismatches and `"unavailable"`
+  health both fail closed in `SdkConnectorExecutor`, before the connector is ever invoked.
+- **`ConnectorFactory`** — the construction contract future connectors implement. No
+  concrete factory ships in this milestone.
+- **`HttpConnector`** ([AVAILABLE], `packages/connector-sdk/src/HttpConnector.ts`) —
+  capability-aware HTTP forwarding: declared capabilities, per-request timeout via
+  `AbortController`, Bearer-token credential injection from an already-resolved
+  `CredentialHandle`, deterministic sanitized evidence. Fails closed on timeout or any
+  non-2xx response. This is a different, newer connector from
+  `packages/execution-gateway/src/HttpConnector.ts` (below) — that one is untouched and
+  still serves the Gateway's separate "direct connector" mode.
+- **`MockConnector`** ([AVAILABLE]) — scripted responses and failure injection, for
+  hermetic tests of anything built on top of this SDK.
+
+## How a Connector is reached
+
+`connector-sdk` never bypasses `execution-control`'s existing seams — it implements them:
+
+```
+ExecutionGateway (unchanged)
+  → executionControl.service: ExecutionControlService (execution-control, unchanged)
+     → registry.get(connectorId): SecureConnector (InMemoryConnectorRegistry, unchanged)
+        → InMemorySecureConnector.execute() (unchanged: policy check, one-time session, credential vault)
+           → SdkConnectorExecutor (connector-sdk, new: adapts Connector into ConnectorExecutor)
+              → Connector.execute(...) → HttpConnector | MockConnector
+```
+
+`ConnectorSdkRegistry` (`packages/connector-sdk/src/ConnectorRegistry.ts`) extends
+`execution-control`'s `ConnectorRegistry` by composing an `InMemoryConnectorRegistry`
+internally — it implements the same `get()` contract, so it's a drop-in wherever a plain
+`ConnectorRegistry` is expected, while adding metadata/version/health/credential-provider
+registration.
+
+See the [Connector Development Guide](/integrations/connector-development-guide) to build
+one, and [Credential Architecture](/integrations/credentials) for how credentials reach a
+connector without ever passing through the Runtime or the AI caller.
+
+## What still doesn't exist
+
+No connector for OpenAI, Anthropic, SAP, Salesforce, ServiceNow, Workday, Slack, Jira,
+GitHub, or any database driver exists in this repository — all `[FUTURE]`, see CLAIMS.md.
+Building one means implementing `Connector` from `@parmana/connector-sdk` and registering
+it with a `ConnectorSdkRegistry`; the SDK contract is real, a pre-built connector for your
+target system is not.
