@@ -10,7 +10,6 @@ import {
 } from "@parmana/shared";
 
 import type { SignatureProvider } from "../SignatureProvider.js";
-
 import { assertKeyType } from "./assertKeyType.js";
 
 const NODE_KEY_TYPE = "ml-dsa-65";
@@ -19,14 +18,14 @@ const NODE_KEY_TYPE = "ml-dsa-65";
  * Dilithium3 (ML-DSA-65) Signature Provider.
  *
  * Stateless implementation of ML-DSA-65 signing via
- * node:crypto's native support (Node >=24, OpenSSL
- * >=3.5). Key management is delegated to a KeyProvider,
- * exactly like Ed25519SignatureProvider — this provider
- * never generates or holds key material itself.
+ * node:crypto's native support (Node >=24, OpenSSL >=3.5).
+ *
+ * Key management is delegated to a KeyProvider exactly like
+ * Ed25519SignatureProvider.
  *
  * ML-DSA-65 signatures are randomized: signing the same
- * message twice with the same key produces two different
- * (but both valid) signatures, unlike Ed25519.
+ * message twice with the same key produces different
+ * (but valid) signatures.
  */
 export class Dilithium3SignatureProvider
   implements SignatureProvider
@@ -42,7 +41,11 @@ export class Dilithium3SignatureProvider
     data: Uint8Array,
     privateKey: KeyObject,
   ): Promise<string> {
-    assertKeyType(privateKey, NODE_KEY_TYPE, "sign");
+    assertKeyType(
+      privateKey,
+      NODE_KEY_TYPE,
+      "sign",
+    );
 
     const signature = sign(
       null,
@@ -58,7 +61,11 @@ export class Dilithium3SignatureProvider
     signature: string,
     publicKey: KeyObject,
   ): Promise<boolean> {
-    assertKeyType(publicKey, NODE_KEY_TYPE, "verify");
+    assertKeyType(
+      publicKey,
+      NODE_KEY_TYPE,
+      "verify",
+    );
 
     return verify(
       null,

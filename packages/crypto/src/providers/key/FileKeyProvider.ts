@@ -3,12 +3,15 @@ import {
   createPublicKey,
   type KeyObject,
 } from "node:crypto";
-import { loadConfig } from "@parmana/shared";
+
 import {
   existsSync,
   readFileSync,
 } from "node:fs";
+
 import { join } from "node:path";
+
+import { loadConfig } from "@parmana/shared";
 
 import type {
   KeyMetadata,
@@ -32,23 +35,28 @@ import type {
  * cloud key vault implementations without changing
  * the crypto layer.
  */
-export class FileKeyProvider implements KeyProvider {
-  private readonly config = loadConfig();
+export class FileKeyProvider
+  implements KeyProvider
+{
+  private readonly config =
+    loadConfig();
 
   private readonly keyDirectory =
-    this.config.keys.keyDirectory ?? "./keys";
-/**
- * Root directory containing Parmana keys.
- */
-private getKeyDirectory(): string {
-  if (!existsSync(this.keyDirectory)) {
-    throw new Error(
-      `Key directory does not exist: ${this.keyDirectory}`,
-    );
-  }
+    this.config.keys.keyDirectory ??
+    "./keys";
 
-  return this.keyDirectory;
-}
+  /**
+   * Root directory containing Parmana keys.
+   */
+  private getKeyDirectory(): string {
+    if (!existsSync(this.keyDirectory)) {
+      throw new Error(
+        `Key directory does not exist: ${this.keyDirectory}`,
+      );
+    }
+
+    return this.keyDirectory;
+  }
 
   /**
    * Returns true if the key exists.
@@ -56,7 +64,9 @@ private getKeyDirectory(): string {
   async hasKey(
     keyId: string,
   ): Promise<boolean> {
-    return existsSync(this.privateKeyPath(keyId));
+    return existsSync(
+      this.privateKeyPath(keyId),
+    );
   }
 
   /**
@@ -75,11 +85,11 @@ private getKeyDirectory(): string {
     }
 
     return {
-  keyId,
-  algorithm:
-    this.config.crypto
-      .primarySignatureProvider,
-};
+      keyId,
+      algorithm:
+        this.config.crypto
+          .primarySignatureProvider,
+    };
   }
 
   /**
@@ -88,10 +98,8 @@ private getKeyDirectory(): string {
   async getPrivateKey(
     keyId: string,
   ): Promise<KeyObject> {
-
-    const path = this.privateKeyPath(keyId);
-console.log("KEY_DIRECTORY =", this.keyDirectory);
-console.log("PRIVATE_KEY_PATH =", path);
+    const path =
+      this.privateKeyPath(keyId);
 
     if (!existsSync(path)) {
       throw new Error(
@@ -110,7 +118,8 @@ console.log("PRIVATE_KEY_PATH =", path);
   async getPublicKey(
     keyId: string,
   ): Promise<KeyObject> {
-    const path = this.publicKeyPath(keyId);
+    const path =
+      this.publicKeyPath(keyId);
 
     if (!existsSync(path)) {
       throw new Error(
@@ -130,9 +139,9 @@ console.log("PRIVATE_KEY_PATH =", path);
     keyId: string,
   ): string {
     return join(
-  this.getKeyDirectory(),
-  `${keyId}.private.pem`,
-);
+      this.getKeyDirectory(),
+      `${keyId}.private.pem`,
+    );
   }
 
   /**
@@ -142,8 +151,8 @@ console.log("PRIVATE_KEY_PATH =", path);
     keyId: string,
   ): string {
     return join(
-  this.getKeyDirectory(),
-  `${keyId}.public.pem`,
-);
+      this.getKeyDirectory(),
+      `${keyId}.public.pem`,
+    );
   }
 }

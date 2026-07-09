@@ -10,7 +10,6 @@ import {
 } from "@parmana/shared";
 
 import type { SignatureProvider } from "../SignatureProvider.js";
-
 import { assertKeyType } from "./assertKeyType.js";
 
 const NODE_KEY_TYPE = "ed25519";
@@ -36,7 +35,11 @@ export class Ed25519SignatureProvider
     data: Uint8Array,
     privateKey: KeyObject,
   ): Promise<string> {
-    assertKeyType(privateKey, NODE_KEY_TYPE, "sign");
+    assertKeyType(
+      privateKey,
+      NODE_KEY_TYPE,
+      "sign",
+    );
 
     const signature = sign(
       null,
@@ -52,7 +55,11 @@ export class Ed25519SignatureProvider
     signature: string,
     publicKey: KeyObject,
   ): Promise<boolean> {
-    assertKeyType(publicKey, NODE_KEY_TYPE, "verify");
+    assertKeyType(
+      publicKey,
+      NODE_KEY_TYPE,
+      "verify",
+    );
 
     return verify(
       null,
