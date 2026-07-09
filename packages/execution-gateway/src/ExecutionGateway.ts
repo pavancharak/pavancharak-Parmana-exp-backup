@@ -20,7 +20,7 @@ import {
 import type { Connector } from "./Connector.js";
 import { deepFreeze } from "./deepFreeze.js";
 import type { GatewayVerificationResult } from "./GatewayVerificationResult.js";
-import type { ExecutionChannel, GatewayIdentityProvider } from "./execution-control/types.js";
+import type { ExecutionChannel, GatewayIdentityProvider } from "./connector-runtime/types.js";
 
 export interface ExecutionControlOptions {
   /** New package-level control service. */

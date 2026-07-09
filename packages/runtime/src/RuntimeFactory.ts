@@ -5,9 +5,8 @@ import {
   ExecutionTrustRecordRepository,
 } from "@parmana/shared";
 
-import {
-  DefaultExecutionSystem,
-  type ExecutionSystem,
+import type {
+  ExecutionSystem,
 } from "@parmana/execution-system";
 
 import { ExecutionTrustApplication } from "./ExecutionTrustApplication.js";
@@ -35,12 +34,11 @@ import { VerificationService } from "./services/verification-service.js";
  */
 export class RuntimeFactory {
   public static create(
-    transactions: BusinessTransactionRepository,
-    trustRecords: ExecutionTrustRecordRepository,
-    policyRepository: PolicyRepository,
-    executionSystem: ExecutionSystem =
-      new DefaultExecutionSystem(),
-  ): ExecutionTrustApplication {
+  transactions: BusinessTransactionRepository,
+  trustRecords: ExecutionTrustRecordRepository,
+  policyRepository: PolicyRepository,
+  executionSystem: ExecutionSystem,
+): ExecutionTrustApplication {
     //
     // Application Services
     //

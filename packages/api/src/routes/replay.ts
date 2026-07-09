@@ -5,9 +5,12 @@ import type {
   Response,
 } from "express";
 
-import { application } from "../application.js";
+import type { ExecutionTrustApplication } from "@parmana/runtime";
 
-const router = Router();
+export function createReplayRouter(
+  application: ExecutionTrustApplication,
+): Router {
+  const router = Router();
 
 /**
  * POST /replay
@@ -50,4 +53,5 @@ router.post(
   },
 );
 
-export default router;
+return router;
+}

@@ -5,10 +5,13 @@ import type {
   Response,
 } from "express";
 
-import { application } from "../application.js";
+import type { ExecutionTrustApplication } from "@parmana/runtime";
 import { BusinessTransactionMapper } from "../mappers/BusinessTransactionMapper.js";
 
-const router = Router();
+export function createTransactionsRouter(
+  application: ExecutionTrustApplication,
+): Router {
+  const router = Router();
 
 /**
  * Returns true when the value is a UUID.
@@ -143,4 +146,5 @@ router.post(
   },
 );
 
-export default router;
+return router;
+}

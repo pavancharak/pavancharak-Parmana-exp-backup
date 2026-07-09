@@ -5,9 +5,12 @@ import type {
   Response,
 } from "express";
 
-import { application } from "../application.js";
+import type { ExecutionTrustApplication } from "@parmana/runtime";
 
-const router = Router();
+export function createReceiptRouter(
+  application: ExecutionTrustApplication,
+): Router {
+  const router = Router();
 
 /**
  * Returns true when the Business Transaction ID
@@ -81,4 +84,5 @@ router.post(
   },
 );
 
-export default router;
+return router;
+}

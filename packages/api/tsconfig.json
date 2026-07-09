@@ -25,13 +25,14 @@
     "**/*.spec.ts"
   ],
 
-  "references": [
-    { "path": "../shared" },
-    { "path": "../storage" },
-    { "path": "../runtime" },
-    { "path": "../policy" },
-    { "path": "../receipt" },
-    { "path": "../replay" },
-    { "path": "../execution-system" }
-  ]
+"references": [
+  { "path": "../shared" },
+  { "path": "../storage" },
+  { "path": "../runtime" },
+  { "path": "../policy" },
+  { "path": "../receipt" },
+  { "path": "../replay" },
+  { "path": "../execution-system" },
+  { "path": "../envelope-verifier" }
+]
 }

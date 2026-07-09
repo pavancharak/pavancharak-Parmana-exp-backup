@@ -5,9 +5,12 @@ import type {
   Response,
 } from "express";
 
-import { application } from "../application.js";
+import type { ExecutionTrustApplication } from "@parmana/runtime";
 
-const router = Router();
+export function createVerifyGetRouter(
+  application: ExecutionTrustApplication,
+): Router {
+  const router = Router();
 
 /**
  * GET /verify/:id
@@ -55,4 +58,5 @@ router.get(
   },
 );
 
-export default router;
+return router;
+}

@@ -38,7 +38,7 @@ export const policyRepository =
   );
 
 export function createApplication(
-  executionSystem?: ExecutionSystem,
+  executionSystem: ExecutionSystem,
 ) {
   return RuntimeFactory.create(
     businessTransactionRepository,
@@ -48,6 +48,3 @@ export function createApplication(
   );
 }
 
-// SINGLE INSTANCE ONLY (NO DUPLICATES)
-export const application =
-  createApplication();
