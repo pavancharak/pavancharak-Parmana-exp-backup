@@ -1,4 +1,7 @@
-import type { KeyObject } from "node:crypto";
+import {
+  createHash,
+  type KeyObject,
+} from "node:crypto";
 
 import { CanonicalSerializer } from "./CanonicalSerializer.js";
 
@@ -30,10 +33,35 @@ export class SignatureVerifier {
     const bytes =
       this.serializer.serialize(artifact);
 
-    return this.crypto.signature.verify(
-      bytes,
-      signature,
-      publicKey,
+    console.log(
+      "VERIFY BYTES SHA256 =",
+      createHash("sha256")
+        .update(bytes)
+        .digest("hex"),
     );
+
+    console.log(
+      "VERIFY PAYLOAD =",
+      JSON.stringify(artifact),
+    );
+
+    console.log(
+      "VERIFY SIGNATURE =",
+      signature,
+    );
+
+    const verified =
+      await this.crypto.signature.verify(
+        bytes,
+        signature,
+        publicKey,
+      );
+
+    console.log(
+      "VERIFY RESULT =",
+      verified,
+    );
+
+    return verified;
   }
 }

@@ -32,14 +32,21 @@ export function createBusinessTransaction(): BusinessTransaction {
       authorizedAt: new Date(),
     },
 
-    intent: {
-      intentId,
-      authorizationId,
-      action: "TEST",
-      resource: "BusinessTransaction",
-      issuedAt: new Date(),
-    },
+intent: {
+  intentId,
+  authorizationId,
 
+  action: "payments:execute",
+
+  target: "vendor://payments",
+
+  parameters: Object.freeze({
+    paymentId: "payment-001",
+    amount: 1000,
+  }),
+
+  createdAt: new Date(),
+},
 policy: TEST_POLICY,
 signals: {
   vendorVerified: true,
@@ -59,3 +66,4 @@ signals: {
     createdAt: new Date(),
   };
 }
+

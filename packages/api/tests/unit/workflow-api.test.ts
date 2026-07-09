@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import request from "supertest";
 import { TEST_POLICY } from "../fixtures/policies.js";
-import app from "../../src/app.js";
+import app from "../test-app.js";
 
 describe("Execution Trust Workflow", () => {
   it("executes the complete workflow", async () => {
@@ -49,5 +49,6 @@ policy: TEST_POLICY,
     expect(execute.status).toBeDefined();
   });
 });
+
 
 

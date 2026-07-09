@@ -1,7 +1,7 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 
-import app from "../../src/app.js";
+import app from "../test-app.js";
 import { createBusinessTransaction } from "../fixtures/business-transaction.js";
 
 describe("Execution Trust Lifecycle", () => {
@@ -74,4 +74,5 @@ describe("Execution Trust Lifecycle", () => {
     30000,
   );
 });
+
 

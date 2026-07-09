@@ -75,10 +75,11 @@ private getKeyDirectory(): string {
     }
 
     return {
-      keyId,
-      algorithm:
-        this.config.crypto.signatureProvider,
-    };
+  keyId,
+  algorithm:
+    this.config.crypto
+      .primarySignatureProvider,
+};
   }
 
   /**
@@ -87,7 +88,10 @@ private getKeyDirectory(): string {
   async getPrivateKey(
     keyId: string,
   ): Promise<KeyObject> {
+
     const path = this.privateKeyPath(keyId);
+console.log("KEY_DIRECTORY =", this.keyDirectory);
+console.log("PRIVATE_KEY_PATH =", path);
 
     if (!existsSync(path)) {
       throw new Error(

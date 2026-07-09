@@ -4,6 +4,7 @@ import { ExecutionBuilder } from "./ExecutionBuilder.js";
 import { ExecutionGate } from "./ExecutionGate.js";
 import { RuntimeAuthorizationSigner } from "./RuntimeAuthorizationSigner.js";
 
+
 import {
   BusinessTransaction,
   BusinessTransactionStatus,
@@ -144,6 +145,7 @@ const authorization =
     },
     this.authorizationTtlSeconds,
   );
+
 
 const execution =
   this.executionBuilder.build(

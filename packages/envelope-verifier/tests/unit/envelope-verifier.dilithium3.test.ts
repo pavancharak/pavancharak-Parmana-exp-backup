@@ -31,7 +31,7 @@ import { MemoryNonceStore } from "../../src/MemoryNonceStore.js";
  * proving cross-instance behavior *within* a single file — see
  * packages/crypto/test/dilithium3-cross-instance.test.ts).
  */
-process.env.SIGNATURE_PROVIDER = "dilithium3";
+process.env.PRIMARY_SIGNATURE_PROVIDER = "dilithium3";
 
 const crypto = CryptoBootstrap.create();
 

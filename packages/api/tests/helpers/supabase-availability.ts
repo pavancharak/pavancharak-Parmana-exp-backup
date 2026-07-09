@@ -15,3 +15,4 @@ export function hasSupabaseConfig(): boolean {
         process.env.SUPABASE_ANON_KEY),
   );
 }
+

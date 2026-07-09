@@ -55,9 +55,16 @@ const pipeline = new RuntimePipeline([]);
 
         authorization: {} as any,
 
-        intent: {
-          intentId: "intent-1",
-        } as any,
+      intent: {
+  intentId: "intent-1",
+  authorizationId: "authorization-1",
+  action: "payments:execute",
+  target: "vendor://payments",
+  parameters: {
+    amount: 100,
+  },
+  createdAt: new Date(),
+},
 
 policy: {
   name: "vendor-payment",

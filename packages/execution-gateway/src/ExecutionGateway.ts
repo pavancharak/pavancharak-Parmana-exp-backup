@@ -20,7 +20,7 @@ import {
 import type { Connector } from "./Connector.js";
 import { deepFreeze } from "./deepFreeze.js";
 import type { GatewayVerificationResult } from "./GatewayVerificationResult.js";
-import type { ExecutionChannel, GatewayIdentityProvider } from "./execution-control/types.js";
+import type { ExecutionChannel, GatewayIdentityProvider } from "./connector-runtime/types.js";
 
 export interface ExecutionControlOptions {
   /** New package-level control service. */
@@ -143,6 +143,7 @@ export class ExecutionGateway implements ExecutionSystem {
         request.authorization,
         now,
       );
+console.log("Gateway checks:", checks);
 
     let businessTransactionHashMatches = false;
     let hashMismatch: GatewayVerificationResult["hashMismatch"];
@@ -153,6 +154,10 @@ export class ExecutionGateway implements ExecutionSystem {
 
       const expectedHash =
         request.authorization.payload.businessTransactionHash;
+console.log("Gateway hashes:", {
+  expected: expectedHash,
+  actual: actualHash,
+});
 
       businessTransactionHashMatches = actualHash === expectedHash;
 
@@ -208,8 +213,11 @@ export class ExecutionGateway implements ExecutionSystem {
       await this.verify(request);
 
     if (!result.valid) {
-      throw new Error(this.describeFailure(result));
-    }
+  console.dir(result, { depth: null });
+  console.dir(request.authorization, { depth: null });
+
+  throw new Error(this.describeFailure(result));
+}
 
     const transaction = deepFreeze(executableContent);
 

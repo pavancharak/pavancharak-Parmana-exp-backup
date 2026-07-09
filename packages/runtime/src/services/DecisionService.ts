@@ -1,14 +1,27 @@
 import crypto from "crypto";
-import { PolicyEngine } from "@parmana/policy";
-import { DecisionOutcome } from "@parmana/shared";
-import type { JsonValue } from "@parmana/shared";
+
+import {
+  PolicyEngine,
+} from "@parmana/policy";
+
+import type {
+  Policy,
+} from "@parmana/policy";
+
+import {
+  DecisionOutcome,
+} from "@parmana/shared";
+
+import type {
+  JsonValue,
+} from "@parmana/shared";
 
 export class DecisionService {
   private readonly engine = new PolicyEngine();
 
   async create(input: {
     intentId: string;
-    policy: any;
+  policy: Policy;
     signals: Record<string, JsonValue>;
     outcome?: DecisionOutcome;
   }) {

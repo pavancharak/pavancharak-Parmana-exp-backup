@@ -5,9 +5,12 @@ import type {
   Response,
 } from "express";
 
-import { application } from "../application.js";
+import type { ExecutionTrustApplication } from "@parmana/runtime";
 
-const router = Router();
+export function createTrustRecordsRouter(
+  application: ExecutionTrustApplication,
+): Router {
+  const router = Router();
 
 /**
  * GET /trust-records/:id
@@ -44,4 +47,5 @@ router.get(
   },
 );
 
-export default router;
+return router;
+}

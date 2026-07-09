@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import request from "supertest";
 
-import app from "../../src/app.js";
+import app from "../test-app.js";
 
 describe("GET /trust-records/:id", () => {
   it("returns 404 when the Execution Trust Record does not exist", async () => {
@@ -12,5 +12,6 @@ describe("GET /trust-records/:id", () => {
     expect(response.body.error).toBe("Execution Trust Record not found.");
   });
 });
+
 
 

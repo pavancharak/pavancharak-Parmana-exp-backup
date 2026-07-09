@@ -8,34 +8,54 @@ import { afterAll } from "vitest";
 /**
  * Global hermetic key material.
  *
- * Runs before every test file, in every package, from a bare
- * clone with no env vars set. Generates a fresh Ed25519 keypair
- * into a per-file temp directory and points PARMANA_KEY_DIR at
- * it, so no test depends on the repo-root keys/ directory (which
- * is gitignored and absent on a fresh clone — see Session 3).
- *
- * Individual test files that need specific key material (for
- * example packages/crypto/test/dilithium3-cross-instance.test.ts,
- * which needs ml-dsa-65 keys) still set PARMANA_KEY_DIR themselves
- * in their own beforeEach/afterEach; this only establishes the
- * hermetic default.
+ * Every test file gets its own temporary Ed25519 keypair.
+ * Both the Runtime signer and the Execution Gateway verifier
+ * are configured to use this same keypair.
  */
-const keyDir = mkdtempSync(join(tmpdir(), "parmana-vitest-keys-"));
+const keyDir = mkdtempSync(
+  join(tmpdir(), "parmana-vitest-keys-"),
+);
 
-const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+const { privateKey, publicKey } =
+  generateKeyPairSync("ed25519");
 
 writeFileSync(
   join(keyDir, "default.private.pem"),
-  privateKey.export({ format: "pem", type: "pkcs8" }),
+  privateKey.export({
+    format: "pem",
+    type: "pkcs8",
+  }),
 );
 
 writeFileSync(
   join(keyDir, "default.public.pem"),
-  publicKey.export({ format: "pem", type: "spki" }),
+  publicKey.export({
+    format: "pem",
+    type: "spki",
+  }),
 );
 
+/**
+ * Runtime (FileKeyProvider)
+ */
 process.env.PARMANA_KEY_DIR = keyDir;
 
+/**
+ * Compatibility if loadConfig() uses KEY_DIRECTORY.
+ */
+process.env.KEY_DIRECTORY = keyDir;
+
+/**
+ * Execution Gateway
+ */
+process.env.PUBLIC_KEY_PATH = join(
+  keyDir,
+  "default.public.pem",
+);
+
 afterAll(() => {
-  rmSync(keyDir, { recursive: true, force: true });
+  rmSync(keyDir, {
+    recursive: true,
+    force: true,
+  });
 });

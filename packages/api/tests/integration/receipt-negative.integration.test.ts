@@ -5,7 +5,7 @@ beforeAll(() => {
   process.env.PARMANA_STORAGE = "supabase";
 });
 
-import app from "../../src/app.js";
+import app from "../test-app.js";
 import { executionTrustRecordRepository } from "../../src/repositories.js";
 import { createBusinessTransaction } from "../fixtures/business-transaction.js";
 import { hasSupabaseConfig } from "../helpers/supabase-availability.js";
@@ -62,6 +62,7 @@ describe.skipIf(!supabaseConfigured)("Receipt Negative Integration", () => {
 
     expect(verify.body.status).toBe("FAILED");
 
+
     const receipt = await request(app).post("/receipt").send({
       businessTransactionId: transaction.businessTransactionId,
     });
@@ -87,5 +88,6 @@ describe.skipIf(!supabaseConfigured)("Receipt Negative Integration", () => {
     expect(response.status).toBe(400);
   });
 });
+
 
 

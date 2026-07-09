@@ -31,7 +31,7 @@ import { ExecutionGateway } from "../../src/index.js";
  * caches its provider per module registry, and Vitest isolates
  * each test file into its own registry by default).
  */
-process.env.SIGNATURE_PROVIDER = "dilithium3";
+process.env.PRIMARY_SIGNATURE_PROVIDER = "dilithium3";
 
 const crypto = CryptoBootstrap.create();
 const contentHasher = new ExecutableContentHasher(crypto);

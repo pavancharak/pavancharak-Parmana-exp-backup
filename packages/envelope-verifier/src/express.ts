@@ -4,6 +4,8 @@ import type { SignedExecutionAuthorization } from "@parmana/shared";
 
 import type { EnvelopeVerifier } from "./EnvelopeVerifier.js";
 
+/* eslint-disable @typescript-eslint/no-namespace */
+
 /**
  * Minimal local type augmentation.
  *
@@ -18,6 +20,8 @@ declare global {
     }
   }
 }
+
+/* eslint-enable @typescript-eslint/no-namespace */
 
 interface AuthorizationRequestBody {
   readonly authorization?: SignedExecutionAuthorization;

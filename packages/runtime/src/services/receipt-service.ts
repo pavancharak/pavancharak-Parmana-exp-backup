@@ -40,19 +40,10 @@ export class ReceiptService {
 //
 
 
-let trustRecord;
-
-try {
-  trustRecord =
-    await this.trustRecords.findByTransactionId(
-      businessTransactionId,
-    );
-
-
-} catch (error) {
-
-  throw error;
-}
+const trustRecord =
+  await this.trustRecords.findByTransactionId(
+    businessTransactionId,
+  );
 
 
     if (!trustRecord) {

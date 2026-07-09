@@ -5,7 +5,6 @@ import type { CryptoProvider } from "./providers/CryptoProvider.js";
 import { CryptoBuilder } from "./CryptoBuilder.js";
 
 import { HashRegistry } from "./providers/HashRegistry.js";
-
 import { SignatureRegistry } from "./providers/SignatureRegistry.js";
 
 // Built-in Providers
@@ -34,34 +33,41 @@ import { Dilithium3SignatureProvider } from "./providers/signature/Dilithium3Sig
  * should reference concrete cryptographic algorithms.
  */
 export class CryptoBootstrap {
-  private static provider: CryptoProvider | undefined;
+  private static provider:
+    | CryptoProvider
+    | undefined;
 
-  static create(): CryptoProvider {
+  public static create(): CryptoProvider {
     if (this.provider) {
       return this.provider;
     }
 
-    const config = loadConfig();
+    const config =
+      loadConfig();
 
-    const hashRegistry = new HashRegistry();
+    const hashRegistry =
+      new HashRegistry();
 
-    const signatureRegistry = new SignatureRegistry();
+    const signatureRegistry =
+      new SignatureRegistry();
 
     //
-    // Register built-in hash providers
+    // Register built-in hash providers.
     //
-    hashRegistry.register(new SHA256HashProvider());
+    hashRegistry.register(
+      new SHA256HashProvider(),
+    );
 
+    //
+    // Register built-in signature providers.
+    //
+    signatureRegistry.register(
+      new Ed25519SignatureProvider(),
+    );
 
-// Register built-in signature providers
-//
-signatureRegistry.register(
-  new Ed25519SignatureProvider(),
-);
-
-signatureRegistry.register(
-  new Dilithium3SignatureProvider(),
-);
+    signatureRegistry.register(
+      new Dilithium3SignatureProvider(),
+    );
 
     //
     // Future extension point:
@@ -70,13 +76,23 @@ signatureRegistry.register(
     // PluginLoader.load(signatureRegistry);
     //
 
-    this.provider = new CryptoBuilder()
+    this.provider =
+      new CryptoBuilder()
 
-      .withHash(hashRegistry.get(config.crypto.hashProvider))
+        .withHash(
+          hashRegistry.get(
+            config.crypto.hashProvider,
+          ),
+        )
 
-      .withSignature(signatureRegistry.get(config.crypto.signatureProvider))
+        .withSignature(
+          signatureRegistry.get(
+            config.crypto
+              .primarySignatureProvider,
+          ),
+        )
 
-      .build();
+        .build();
 
     return this.provider;
   }

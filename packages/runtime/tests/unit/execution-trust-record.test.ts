@@ -1,6 +1,10 @@
+import crypto from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import {
+  Authority,
+  Authorization,
   BusinessTransaction,
   BusinessTransactionStatus,
   Decision,
@@ -9,6 +13,8 @@ import {
   ExecutionMode,
   ExecutionStatus,
   ExecutionTrustRecord,
+  Intent,
+  PolicyReference,
 } from "@parmana/shared";
 
 /**
@@ -26,40 +32,65 @@ describe("Runtime Engine", () => {
     //
     // Arrange
     //
+    const authority: Authority = {
+      authorityId: "authority-001",
+    };
+
+    const authorization: Authorization = {
+      authorizationId: "authorization-001",
+    };
+
+    const intent: Intent = {
+      intentId: "intent-001",
+      authorizationId: authorization.authorizationId,
+      action: "payments:execute",
+      target: "vendor://payments",
+      parameters: {},
+      createdAt: new Date(),
+    };
+
+    const policy: PolicyReference = {
+      name: "vendor-payment",
+      version: "1.0.0",
+      schemaVersion: "1.0.0",
+    };
+
     const transaction: BusinessTransaction = {
-  businessTransactionId: crypto.randomUUID(),
+      businessTransactionId: crypto.randomUUID(),
 
-  metadata: {} as any,
+      metadata: {},
 
-  authority: {} as any,
+      authority,
 
-  authorization: {} as any,
+      authorization,
 
-  intent: {
-    intentId: "intent-001",
-  } as any,
+      intent,
 
-  policy: {} as any,
+      policy,
 
-  signals: {},
+      signals: {},
 
-  decision: undefined as any,
+      status: BusinessTransactionStatus.RECEIVED,
 
-  status: BusinessTransactionStatus.RECEIVED,
-
-  createdAt: new Date(),
-};
+      createdAt: new Date(),
+    };
 
     //
     // Decision
     //
     const decision: Decision = {
       decisionId: crypto.randomUUID(),
-      intentId: "intent-001",
+
+      intentId: transaction.intent.intentId,
+
       policy: transaction.policy,
+
       signals: transaction.signals,
+
       outcome: DecisionOutcome.APPROVED,
+
       reason: "Approved",
+
       evaluatedAt: new Date(),
     };
 
@@ -68,11 +99,18 @@ describe("Runtime Engine", () => {
     //
     const execution: Execution = {
       executionId: crypto.randomUUID(),
-      businessTransactionId: transaction.businessTransactionId,
+
+      businessTransactionId:
+        transaction.businessTransactionId,
+
       decision,
+
       status: ExecutionStatus.COMPLETED,
+
       mode: ExecutionMode.SYNC,
+
       startedAt: new Date(),
+
       completedAt: new Date(),
     };
 
@@ -123,10 +161,13 @@ describe("Runtime Engine", () => {
 
     expect(
       trustRecord.businessTransactionId,
-    ).toBe(transaction.businessTransactionId);
+    ).toBe(
+      transaction.businessTransactionId,
+    );
 
     expect(
-      trustRecord.executions[0].decision.decisionId,
+      trustRecord.executions[0].decision
+        .decisionId,
     ).toBe(decision.decisionId);
   });
 });

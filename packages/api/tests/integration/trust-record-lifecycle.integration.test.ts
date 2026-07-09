@@ -6,7 +6,7 @@ beforeAll(() => {
   process.env.PARMANA_STORAGE = "supabase";
 });
 
-import app from "../../src/app.js";
+import app from "../test-app.js";
 import { hasSupabaseConfig } from "../helpers/supabase-availability.js";
 
 const supabaseConfigured = hasSupabaseConfig();
@@ -69,4 +69,5 @@ describe.skipIf(!supabaseConfigured)("Execution Trust Record Lifecycle", () => {
     );
   });
 });
+
 
