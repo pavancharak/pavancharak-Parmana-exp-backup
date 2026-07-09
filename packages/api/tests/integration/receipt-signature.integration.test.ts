@@ -8,7 +8,7 @@ import {
   SignatureVerifier,
 } from "@parmana/crypto";
 
-import app from "../../src/app.js";
+import app from "../test-app.js";
 import { hasSupabaseConfig } from "../helpers/supabase-availability.js";
 
 interface ReceiptResponse {
@@ -118,4 +118,5 @@ describe.skipIf(!supabaseConfigured)("Receipt Signature", () => {
     30000,
   );
 });
+
 

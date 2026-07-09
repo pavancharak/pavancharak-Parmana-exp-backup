@@ -23,7 +23,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 describe("Dilithium3 cross-instance signing (R6)", () => {
   let keyDir: string;
-  let previousSignatureProvider: string | undefined;
+  let previousPrimarySignatureProvider: string | undefined;
   let previousKeyDir: string | undefined;
 
   beforeEach(() => {
@@ -42,30 +42,33 @@ describe("Dilithium3 cross-instance signing (R6)", () => {
       publicKey.export({ format: "pem", type: "spki" }),
     );
 
-    previousSignatureProvider = process.env.SIGNATURE_PROVIDER;
+    previousPrimarySignatureProvider =
+  process.env.PRIMARY_SIGNATURE_PROVIDER;
     previousKeyDir = process.env.PARMANA_KEY_DIR;
 
-    process.env.SIGNATURE_PROVIDER = "dilithium3";
+    process.env.PRIMARY_SIGNATURE_PROVIDER =
+  "dilithium3";
     process.env.PARMANA_KEY_DIR = keyDir;
   });
 
   afterEach(() => {
-    if (previousSignatureProvider === undefined) {
-      delete process.env.SIGNATURE_PROVIDER;
-    } else {
-      process.env.SIGNATURE_PROVIDER = previousSignatureProvider;
-    }
+  if (previousPrimarySignatureProvider === undefined) {
+    delete process.env.PRIMARY_SIGNATURE_PROVIDER;
+  } else {
+    process.env.PRIMARY_SIGNATURE_PROVIDER =
+      previousPrimarySignatureProvider;
+  }
 
-    if (previousKeyDir === undefined) {
-      delete process.env.PARMANA_KEY_DIR;
-    } else {
-      process.env.PARMANA_KEY_DIR = previousKeyDir;
-    }
+  if (previousKeyDir === undefined) {
+    delete process.env.PARMANA_KEY_DIR;
+  } else {
+    process.env.PARMANA_KEY_DIR = previousKeyDir;
+  }
 
-    rmSync(keyDir, { recursive: true, force: true });
+  rmSync(keyDir, { recursive: true, force: true });
 
-    vi.resetModules();
-  });
+  vi.resetModules();
+});
 
   it("signs with one bootstrap instance and verifies with a second, sharing only the key directory", async () => {
     vi.resetModules();

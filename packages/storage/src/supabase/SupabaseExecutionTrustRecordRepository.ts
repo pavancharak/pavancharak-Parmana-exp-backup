@@ -164,24 +164,41 @@ if (receiptError) {
   transaction:
     record.transaction_json,
 
-  executions:
-    (executions ?? []).map(
-      (e) => e.execution_json as Execution,
-    ),
 
-  overrides:
-    (overrides ?? []).map(
-  (o: any) => o.override_json as Override,
-),
+executions:
+  (executions ?? []).map(
+    (
+      e: {
+        readonly execution_json: Execution;
+      },
+    ) => e.execution_json,
+  ),
 
-  verifications:
-    (verifications ?? []).map(
-      (v) => v.verification_json as Verification,
-    ),
+overrides:
+  (overrides ?? []).map(
+    (
+      o: {
+        readonly override_json: Override;
+      },
+    ) => o.override_json,
+  ),
 
-  receipts:
+verifications:
+  (verifications ?? []).map(
+    (
+      v: {
+        readonly verification_json: Verification;
+      },
+    ) => v.verification_json,
+  ),
+
+receipts:
   (receipts ?? []).map(
-    (r: any) => r.receipt_json as Receipt,
+    (
+      r: {
+        readonly receipt_json: Receipt;
+      },
+    ) => r.receipt_json,
   ),
 
 

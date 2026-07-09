@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  Authority,
+  Authorization,
   BusinessTransaction,
+  BusinessTransactionStatus,
   Decision,
   DecisionOutcome,
   Execution,
+  ExecutionMode,
+  ExecutionStatus,
   ExecutionTrustRecord,
-  BusinessTransactionStatus,
-  normalizePolicy,
+  Intent,
+    normalizePolicy,
+  PolicyReference,
 } from "@parmana/shared";
 
 import { PolicyEngine } from "@parmana/policy";
@@ -30,24 +36,41 @@ describe("Replay Engine", () => {
     //
     // Arrange
     //
+    const policy: PolicyReference = {
+      name: "default",
+      version: "1.0.0",
+      schemaVersion: "1.0.0",
+    };
+
+    const authority: Authority = {
+      authorityId: "authority-1",
+    };
+
+    const authorization: Authorization = {
+      authorizationId: "authorization-1",
+    };
+
+    const intent: Intent = {
+      intentId: "intent-1",
+      authorizationId: "authorization-1",
+      action: "payments:execute",
+      target: "vendor://payments",
+      parameters: {},
+      createdAt: new Date(),
+    };
+
     const transaction: BusinessTransaction = {
       businessTransactionId: "tx-1",
 
-      metadata: {} as any,
+      metadata: {},
 
-      authority: {} as any,
+      authority,
 
-      authorization: {} as any,
+      authorization,
 
-      intent: {
-        intentId: "intent-1",
-      } as any,
+      intent,
 
-      policy: {
-        name: "default",
-        version: "1.0.0",
-        rules: [],
-      } as any,
+      policy,
 
       signals: {},
 
@@ -67,8 +90,11 @@ describe("Replay Engine", () => {
 
     const recordedDecision: Decision = {
       decisionId: "dec-1",
+
       intentId: transaction.intent.intentId,
+
       policy: transaction.policy,
+
       signals: transaction.signals,
 
       outcome:
@@ -83,24 +109,41 @@ describe("Replay Engine", () => {
 
     const execution: Execution = {
       executionId: "exec-1",
-      businessTransactionId: transaction.businessTransactionId,
+
+      businessTransactionId:
+        transaction.businessTransactionId,
+
       decision: recordedDecision,
-      status: "COMPLETED" as any,
-      mode: "SYNC" as any,
+
+      status: ExecutionStatus.COMPLETED,
+
+      mode: ExecutionMode.SYNC,
+
       startedAt: new Date(),
+
       completedAt: new Date(),
     };
 
     const trustRecord: ExecutionTrustRecord = {
       trustRecordId: "tr-1",
-      businessTransactionId: transaction.businessTransactionId,
+
+      businessTransactionId:
+        transaction.businessTransactionId,
+
       transaction,
+
       overrides: [],
+
       executions: [execution],
+
       verifications: [],
+
       receipts: [],
+
       trustRecordHash: "hash",
+
       createdAt: new Date(),
+
       updatedAt: new Date(),
     };
 
@@ -118,15 +161,14 @@ describe("Replay Engine", () => {
     //
     // Assert
     //
-    expect(result.recordedDecision.decisionId).toBe(
-      recordedDecision.decisionId,
-    );
+    expect(
+      result.recordedDecision.decisionId,
+    ).toBe(recordedDecision.decisionId);
 
     expect(result.matches).toBe(true);
 
-    expect(result.replayedDecision.outcome).toBe(
-      recordedDecision.outcome,
-    );
+    expect(
+      result.replayedDecision.outcome,
+    ).toBe(recordedDecision.outcome);
   });
 });
-

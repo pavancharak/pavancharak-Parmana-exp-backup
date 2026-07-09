@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import request from "supertest";
 
-import app from "../../src/app.js";
+import app from "../test-app.js";
 
 describe("POST /execute", () => {
   it("returns a validation error for an invalid Business Transaction ID", async () => {
@@ -29,5 +29,6 @@ describe("POST /execute", () => {
     );
   });
 });
+
 
 

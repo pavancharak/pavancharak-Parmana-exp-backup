@@ -1,4 +1,4 @@
-import type { Policy } from "./types/Policy.js";
+
 
 export interface RegisteredPolicy {
   /**

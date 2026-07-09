@@ -1,0 +1,15 @@
+import { createApplication } from "../src/application.js";
+import { createApp } from "../src/app.js";
+import { createExecutionSystem } from "../src/bootstrap/createExecutionSystem.js";
+
+const executionSystem = createExecutionSystem();
+
+const application = createApplication(
+  executionSystem,
+);
+
+const app = createApp(
+  application,
+);
+
+export default app;

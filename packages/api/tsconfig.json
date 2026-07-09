@@ -27,12 +27,16 @@
 
 "references": [
   { "path": "../shared" },
+  { "path": "../crypto" },
   { "path": "../storage" },
-  { "path": "../runtime" },
   { "path": "../policy" },
-  { "path": "../receipt" },
+  { "path": "../runtime" },
   { "path": "../replay" },
+  { "path": "../receipt" },
   { "path": "../execution-system" },
-  { "path": "../envelope-verifier" }
+  { "path": "../envelope-verifier" },
+  { "path": "../execution-control" },
+  { "path": "../execution-gateway" },
+  { "path": "../connector-sdk" }
 ]
 }

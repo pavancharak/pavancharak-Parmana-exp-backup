@@ -383,8 +383,11 @@ async function main(): Promise<void> {
   //
   printHeading("RECEIVING SIDE: Scenario 4 - Missing authorization");
 
-  const { authorization: _omit, ...requestWithoutAuthorization } =
-    outgoingWireBody;
+  const requestWithoutAuthorization = {
+  ...outgoingWireBody,
+};
+
+delete requestWithoutAuthorization.authorization;
 
   const missing = await postToReceivingSide(
     requestWithoutAuthorization,

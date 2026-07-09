@@ -1,6 +1,6 @@
 import { DecisionOutcome, normalizePolicy } from "@parmana/shared";
 import { PolicyEngine } from "@parmana/policy";
-
+import type { Policy } from "@parmana/policy";
 import type { ReplayInput } from "./types/ReplayInput.js";
 import type { ReplayResult } from "./types/ReplayResult.js";
 import { toPolicySignals } from "./utils/to-policy-signals.js";
@@ -28,7 +28,9 @@ export class ReplayEngine {
     //
     const signals = toPolicySignals(input.transaction.signals);
 
-    const policy = normalizePolicy(input.policy ?? {});
+    const policy = normalizePolicy(
+  input.policy ?? {},
+) as Policy;
 
     //
     // Deterministic policy evaluation

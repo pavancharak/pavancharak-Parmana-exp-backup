@@ -142,17 +142,39 @@ export interface StorageConfig {
   readonly databaseUrl?: string;
 }
 
+
 /**
  * Cryptographic configuration.
  */
 export interface CryptoConfig {
+  /**
+   * Crypto operating mode.
+   */
+  readonly mode:
+    | "single"
+    | "hybrid"
+    | "pq";
+
+  /**
+   * Hash algorithm.
+   */
   readonly hashProvider:
     HashAlgorithm;
 
-  readonly signatureProvider:
+  /**
+   * Primary signature algorithm.
+   */
+  readonly primarySignatureProvider:
+    SignatureAlgorithm;
+
+  /**
+   * Secondary signature algorithm.
+   *
+   * Required only in hybrid mode.
+   */
+  readonly secondarySignatureProvider?:
     SignatureAlgorithm;
 }
-
 /**
  * Key management.
  */
@@ -161,15 +183,11 @@ export interface KeyConfig {
     KeyProvider;
 
   /**
-   * Root directory containing Parmana keys.
+   * Root directory containing all Parmana keys.
    */
-  readonly keyDirectory?: string;
-
-  readonly privateKeyPath?: string;
-
-  readonly publicKeyPath?: string;
+  readonly keyDirectory:
+    string;
 }
-
 /**
  * Execution authorization configuration.
  */
@@ -243,38 +261,44 @@ export function loadConfig():
     }),
 
     crypto: Object.freeze({
-      hashProvider:
-        parseHashAlgorithm(
-          process.env.HASH_PROVIDER,
-        ),
+  mode:
+    (process.env.CRYPTO_MODE as
+      | "single"
+      | "hybrid"
+      | "pq") ??
+    "single",
 
-      signatureProvider:
-        parseSignatureAlgorithm(
-          process.env.SIGNATURE_PROVIDER,
-        ),
-    }),
+  hashProvider:
+    parseHashAlgorithm(
+      process.env.HASH_PROVIDER,
+    ),
+
+  primarySignatureProvider:
+    parseSignatureAlgorithm(
+      process.env.PRIMARY_SIGNATURE_PROVIDER,
+    ),
+
+  ...optionalProperty(
+    "secondarySignatureProvider",
+    process.env
+      .SECONDARY_SIGNATURE_PROVIDER
+        ? parseSignatureAlgorithm(
+            process.env
+              .SECONDARY_SIGNATURE_PROVIDER,
+          )
+        : undefined,
+  ),
+}),
 
     keys: Object.freeze({
-      provider:
-        parseKeyProvider(
-          process.env.KEY_PROVIDER,
-        ),
+  provider:
+    parseKeyProvider(
+      process.env.KEY_PROVIDER,
+    ),
 
-      ...optionalProperty(
-        "keyDirectory",
-        process.env.PARMANA_KEY_DIR,
-      ),
-
-      ...optionalProperty(
-        "privateKeyPath",
-        process.env.PRIVATE_KEY_PATH,
-      ),
-
-      ...optionalProperty(
-        "publicKeyPath",
-        process.env.PUBLIC_KEY_PATH,
-      ),
-    }),
+  keyDirectory:
+    process.env.PARMANA_KEY_DIR!,
+}),
 
     authorization: Object.freeze({
       ttlSeconds: Number(

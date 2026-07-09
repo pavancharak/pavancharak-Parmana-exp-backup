@@ -5,7 +5,7 @@ beforeAll(() => {
   process.env.PARMANA_STORAGE = "supabase";
 });
 
-import app from "../../src/app.js";
+import app from "../test-app.js";
 import { executionTrustRecordRepository } from "../../src/repositories.js";
 import { createBusinessTransaction } from "../fixtures/business-transaction.js";
 import { hasSupabaseConfig } from "../helpers/supabase-availability.js";
@@ -105,5 +105,6 @@ describe.skipIf(!supabaseConfigured)("Verification Negative Integration", () => 
     expect(response.status).toBe(400);
   });
 });
+
 
 

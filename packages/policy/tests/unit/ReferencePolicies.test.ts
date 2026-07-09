@@ -73,10 +73,13 @@ describe("Reference Policy Library", () => {
       try {
         policy = JSON.parse(text) as Policy;
       } catch (error) {
-        throw new Error(
-          `Failed to parse JSON in ${relativePath}\n${error}`,
-        );
-      }
+  throw new Error(
+    `Failed to parse JSON in ${relativePath}`,
+    {
+      cause: error,
+    },
+  );
+}
 
       expect(() =>
         validator.validate(policy),

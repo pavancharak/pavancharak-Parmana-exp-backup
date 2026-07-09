@@ -8,7 +8,7 @@ export * from "./domain/index.js";
 export * from "./repositories/index.js";
 export * from "./config/index.js";
 export * from "./errors/index.js";
-
+export * from "./gateway/index.js";
 export * from "./types/Json.js";
 
 export type { ExecutionProof } from "./types/ExecutionProof.js";

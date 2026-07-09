@@ -15,6 +15,7 @@
  * across the signing/verification boundary (for example, status may
  * be defaulted after signing but before other artifacts are built).
  */
+
 export interface ExecutableContent {
   /**
    * Business Transaction identifier.
@@ -51,10 +52,21 @@ export function toExecutableContent(
     "businessTransactionId" | "action" | "target" | "parameters"
   >,
 ): ExecutableContent {
-  return {
+  if (
+    typeof input.target !== "string" ||
+    input.target.trim().length === 0
+  ) {
+    throw new Error(
+      "ExecutableContent.target must be a non-empty string.",
+    );
+  }
+
+  return Object.freeze({
     businessTransactionId: input.businessTransactionId,
     action: input.action,
     target: input.target,
-    parameters: input.parameters,
-  };
+    parameters: Object.freeze({
+      ...input.parameters,
+    }),
+  });
 }

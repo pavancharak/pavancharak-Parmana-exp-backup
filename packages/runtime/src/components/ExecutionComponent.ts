@@ -118,12 +118,11 @@ export class ExecutionComponent
       //
       // Mark execution failed.
       //
-      execution =
-        await this.executionService.fail(
-          execution,
-        );
+   await this.executionService.fail(
+  execution,
+);
 
-      throw error;
+throw error;
     }
 
     return {

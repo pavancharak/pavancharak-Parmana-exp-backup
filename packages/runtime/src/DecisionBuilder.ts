@@ -1,7 +1,9 @@
 import crypto from "node:crypto";
+
 import type {
   JsonValue,
 } from "@parmana/shared";
+
 import {
   BusinessTransaction,
   Decision,
@@ -19,7 +21,7 @@ import {
  * Responsibilities:
  * - Assign a Decision identifier.
  * - Map PolicyOutcome to DecisionOutcome.
- * - Preserve the evaluated PolicyReference.
+ * * - Preserve the evaluated PolicyReference.
  * - Capture runtime signals.
  *
  * This builder does NOT:
@@ -45,12 +47,12 @@ export class DecisionBuilder {
       policy:
         transaction.policy,
 
-     signals:
-  (transaction.signals ??
-    {}) as Record<
-      string,
-      JsonValue
-    >,
+      signals:
+        (transaction.signals ??
+          {}) as Record<
+          string,
+          JsonValue
+        >,
 
       outcome:
         this.toDecisionOutcome(
@@ -77,8 +79,8 @@ export class DecisionBuilder {
         return DecisionOutcome.APPROVED;
 
       case PolicyOutcome.REJECT:
-
       case PolicyOutcome.REQUIRE_OVERRIDE:
+        return DecisionOutcome.REJECTED;
 
       default:
         return DecisionOutcome.REJECTED;

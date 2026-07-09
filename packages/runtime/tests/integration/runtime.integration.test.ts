@@ -53,9 +53,16 @@ describe("Runtime Integration", () => {
             authorizationId: "authorization-001",
           },
 
-          intent: {
-            intentId: "intent-001",
-          },
+      intent: {
+  intentId: "intent-001",
+  authorizationId: "authorization-001",
+  action: "payments:execute",
+  target: "vendor://payments",
+  parameters: {
+    amount: 5000,
+  },
+  createdAt: new Date(),
+},
         } as any);
 
       expect(trustRecord).toBeDefined();

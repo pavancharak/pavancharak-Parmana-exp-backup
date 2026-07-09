@@ -49,7 +49,7 @@ const response = await fetch(endpoint, {
 
 const text = await response.text();
 
-let body: any;
+let body: unknown;
 
 try {
   body = JSON.parse(text);
