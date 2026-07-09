@@ -20,7 +20,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@noble/post-quantum": "^0.6.1",
     "@parmana/shared": "0.1.0",
     "dotenv": "^17.4.2"
   },

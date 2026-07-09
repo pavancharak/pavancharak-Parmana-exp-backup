@@ -60,6 +60,7 @@ describe.skipIf(!supabaseConfigured)("Receipt Negative Integration", () => {
 
     expect(verify.status).toBe(200);
 
+
     expect(verify.body.status).toBe("FAILED");
 
 

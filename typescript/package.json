@@ -43,7 +43,6 @@
   },
   "homepage": "https://parmana.ai",
   "dependencies": {
-    "@noble/post-quantum": "^0.6.1",
     "dotenv": "^17.4.2"
   },
   "devDependencies": {
