@@ -4,6 +4,11 @@
  * Canonical public API.
  */
 
+
+
+export { AuthorizationVerifier }
+  from "./AuthorizationVerifier.js";
+
 // -----------------------------------------------------------------------------
 // Serialization
 // -----------------------------------------------------------------------------

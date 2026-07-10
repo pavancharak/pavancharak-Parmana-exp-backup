@@ -20,6 +20,6 @@
     "paymentApproved": true,
     "sufficientFunds": true,
     "paymentAmount": 25000,
-    "riskScore": 12
+    "riskScore": 10
   }
 }

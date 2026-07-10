@@ -12,6 +12,7 @@ import {
 
 import { LoggingHook } from "./LoggingHook.js";
 import { MetricsHook } from "./MetricsHook.js";
+import { CustomRuntimeComponent } from "./CustomRuntimeComponent.js";
 
 import transaction from "./transaction.json" with {
   type: "json",
@@ -20,25 +21,26 @@ import transaction from "./transaction.json" with {
 async function main(): Promise<void> {
   console.log();
   console.log("==================================================");
-  console.log("Tutorial 18 - Runtime Hooks");
+  console.log("Tutorial 19 - Runtime Composition");
   console.log("==================================================");
   console.log();
 
   //
   // Trust Record Repository
   //
-
   const repository =
     new MemoryExecutionTrustRecordRepository();
 
   //
   // Runtime
   //
-
   const runtime =
     new RuntimeBuilder()
       .withPolicyRepository(
         new FilePolicyRepository("policies"),
+      )
+      .addStage(
+        new CustomRuntimeComponent(),
       )
       .addHook(
         new LoggingHook(),
@@ -51,7 +53,6 @@ async function main(): Promise<void> {
   //
   // Execute
   //
-
   const {
     trustRecord,
   } = await runtime.execute(
@@ -65,16 +66,40 @@ async function main(): Promise<void> {
   console.log();
 
   console.log(
-    `Trust Record ID : ${trustRecord.trustRecordId}`,
+    `Trust Record ID  : ${trustRecord.trustRecordId}`,
   );
 
   console.log(
-    `Trust Record Hash : ${trustRecord.trustRecordHash}`,
+    `Trust Record Hash: ${trustRecord.trustRecordHash}`,
   );
 
   console.log();
 
-  console.log("Tutorial completed successfully.");
+  console.log(
+    "Runtime successfully composed from:",
+  );
+
+  console.log(
+    "  ✓ Policy Repository",
+  );
+
+  console.log(
+    "  ✓ Runtime Component",
+  );
+
+  console.log(
+    "  ✓ Logging Hook",
+  );
+
+  console.log(
+    "  ✓ Metrics Hook",
+  );
+
+  console.log();
+
+  console.log(
+    "Tutorial completed successfully.",
+  );
 }
 
 main().catch((error) => {
