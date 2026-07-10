@@ -1,8 +1,8 @@
 {
-  "businessTransactionId": "txn-000001",
+  "businessTransactionId": "550e8400-e29b-41d4-a716-446655440000",
 
   "metadata": {
-    "businessTransactionId": "txn-000001",
+    "businessTransactionId": "550e8400-e29b-41d4-a716-446655440000",
     "correlationId": "corr-000001",
     "createdBy": "tutorial-09",
     "createdAt": "2026-01-01T00:00:00Z"
@@ -26,9 +26,19 @@
   "intent": {
     "intentId": "intent-001",
     "authorizationId": "authorization-001",
+
     "action": "vendor-payment",
-    "resource": "invoice-1001",
-    "issuedAt": "2026-01-01T00:00:00Z"
+
+    "target": "sap.payment.release",
+
+    "parameters": {
+      "invoiceId": "invoice-1001",
+      "vendorId": "vendor-1001",
+      "amount": 5000,
+      "currency": "USD"
+    },
+
+    "createdAt": "2026-01-01T00:00:00Z"
   },
 
   "policy": {

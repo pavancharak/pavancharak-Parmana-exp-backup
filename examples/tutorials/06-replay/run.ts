@@ -27,7 +27,7 @@ const transaction = JSON.parse(
   readFileSync(
     path.join(
       root,
-      "../03-runtime-execution/transaction.json",
+      "../../shared/vendor-payment-transaction.json",
     ),
     "utf8",
   ),

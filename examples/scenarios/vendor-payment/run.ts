@@ -10,6 +10,10 @@ import {
 } from "@parmana/runtime";
 
 import {
+  DefaultExecutionSystem,
+} from "@parmana/execution-system";
+
+import {
   MemoryBusinessTransactionRepository,
   MemoryExecutionTrustRecordRepository,
 } from "@parmana/storage";
@@ -24,7 +28,7 @@ const transaction = JSON.parse(
   readFileSync(
     path.join(
       root,
-      "../../tutorials/03-runtime-execution/transaction.json",
+      "../../shared/vendor-payment-transaction.json",
     ),
     "utf8",
   ),
@@ -44,11 +48,17 @@ const transactions =
 const trustRecords =
   new MemoryExecutionTrustRecordRepository();
 
+
+
+const executionSystem =
+  new DefaultExecutionSystem();
+
 const application =
   RuntimeFactory.create(
     transactions,
     trustRecords,
     policyRepository,
+      executionSystem,
   );
 
 // --------------------------------------------------
@@ -117,3 +127,7 @@ console.log();
 console.log("========================================");
 console.log(" SCENARIO COMPLETED SUCCESSFULLY");
 console.log("========================================");
+
+
+
+

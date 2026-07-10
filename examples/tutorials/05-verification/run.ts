@@ -10,6 +10,10 @@ import {
 } from "@parmana/runtime";
 
 import {
+  DefaultExecutionSystem,
+} from "@parmana/execution-system";
+
+import {
   MemoryBusinessTransactionRepository,
   MemoryExecutionTrustRecordRepository,
 } from "@parmana/storage";
@@ -24,7 +28,7 @@ const transaction = JSON.parse(
   readFileSync(
     path.join(
       root,
-      "../03-runtime-execution/transaction.json",
+      "../../shared/vendor-payment-transaction.json",
     ),
     "utf8",
   ),
@@ -44,19 +48,33 @@ const transactions =
 const trustRecords =
   new MemoryExecutionTrustRecordRepository();
 
+//
+// Default execution system used for tutorials.
+// In production, replace this with a real
+// ExecutionSystem implementation.
+//
+const executionSystem =
+  new DefaultExecutionSystem();
+
 const application =
   RuntimeFactory.create(
     transactions,
     trustRecords,
     policyRepository,
+    executionSystem,
   );
 
 //
-// application.execute() runs the live Execution
-// Trust pipeline end to end, including the live
-// VerificationService (hash + signature +
-// authorization-binding checks) — the same code
-// path used by POST /execute and POST /verify.
+// application.execute() runs the complete
+// Execution Trust pipeline, including:
+//
+// - Trust chain validation
+// - Policy evaluation
+// - Decision creation
+// - Execution authorization
+// - Execution
+// - Trust Record generation
+// - Cryptographic signing
 //
 const trustRecord =
   await application.execute(
@@ -64,9 +82,8 @@ const trustRecord =
   );
 
 //
-// Verification already ran as part of execute().
-// Calling verify() again demonstrates the same
-// live path used by POST /verify.
+// Verification uses the same verification
+// pipeline exposed by the REST API.
 //
 const verification =
   await application.verify(

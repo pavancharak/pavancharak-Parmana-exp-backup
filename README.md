@@ -1,978 +1,774 @@
-\# Parmana
+# Parmana
 
+> **Proof of Human Authority in AI Systems**
 
+**Parmana** is an **Execution Governance** platform that ensures AI only performs the actions a company allows.
 
-> \*\*Human Authority for Enterprise AI\*\*
+As organizations deploy autonomous AI agents, the challenge is no longer generating intelligent responses—it's controlling what those agents are permitted to execute.
 
+Parmana sits between AI and enterprise systems, evaluating every requested action against organizational policy, verifying authorization, producing immutable evidence, and ensuring every execution can be independently verified.
 
+---
 
-Parmana is the \*\*Execution Authorization and Verification Infrastructure for Enterprise AI\*\*.
+# Why Parmana?
 
+Large language models can reason, plan, and invoke tools, but they cannot determine what an organization should allow them to do.
 
+Without execution governance, AI can:
 
-Modern AI systems can generate plans, make decisions, and execute actions autonomously. Parmana ensures that every high-impact action is authorized, policy-compliant, cryptographically verifiable, and fully auditable before execution.
+* Execute actions outside approved policy
+* Use credentials beyond its intended scope
+* Perform unintended operations after authorization
+* Produce decisions that cannot be independently verified
+* Leave organizations without defensible audit evidence
 
+Enterprises need more than intelligent AI.
 
+They need trustworthy execution.
 
-Parmana does not replace AI systems.
+---
 
+# Execution Governance
 
+Execution Governance is the layer between AI reasoning and business execution.
 
-\*\*It authorizes and verifies what they are allowed to execute.\*\*
+Instead of trusting an AI agent to decide what it may execute, Parmana ensures every execution is:
 
+* Authorized
+* Policy evaluated
+* Independently verifiable
+* Cryptographically protected
+* Fully auditable
+* Replayable
 
+Parmana does not replace AI.
 
-\---
+It governs execution.
 
+---
 
-
-\# Vision
-
-
-
-> \*\*The future isn't AI that simply answers questions. The future is AI that organizations trust to perform real work.\*\*
-
-
-
-Parmana enables organizations to safely deploy autonomous AI by providing verifiable execution trust.
-
-
-
-\---
-
-
-
-\# Core Principle
-
-
-
-\*\*AI can propose actions. Only Parmana can authorize execution.\*\*
-
-
-
-Every execution must be backed by a cryptographically signed Execution Authorization before work is performed.
-
-
-
-\---
-
-
-
-\# What Parmana Does
-
-
-
-Parmana provides an immutable execution trust layer between AI systems and enterprise execution systems.
-
-
-
-For every business transaction Parmana provides:
-
-
-
-\* Human Authority
-
-\* Policy Enforcement
-
-\* Decision Evaluation
-
-\* Signed Execution Authorization
-
-\* Envelope Verification
-
-\* Execution Verification
-
-\* Cryptographic Integrity
-
-\* Immutable Evidence
-
-\* Signed Receipts
-
-\* Deterministic Replay
-
-
-
-\---
-
-
-
-\# Execution Trust Lifecycle
-
-
+# How Parmana Works
 
 ```
-
+Human Authority
+        │
+        ▼
+Authorization
+        │
+        ▼
+Intent
+        │
+        ▼
 Business Transaction
-
-&#x20;       │
-
-&#x20;       ▼
-
+        │
+        ▼
 Policy Evaluation
-
-&#x20;       │
-
-&#x20;       ▼
-
+        │
+        ▼
 Decision
-
-&#x20;       │
-
-&#x20;       ▼
-
-Signed Execution Authorization
-
-&#x20;       │
-
-&#x20;       ▼
-
+        │
+        ▼
 Execution
-
-&#x20;       │
-
-&#x20;       ▼
-
-Execution Trust Record
-
-&#x20;       │
-
-&#x20;       ▼
-
+        │
+        ▼
 Verification
-
-&#x20;       │
-
-&#x20;       ▼
-
+        │
+        ▼
 Receipt
-
-&#x20;       │
-
-&#x20;       ▼
-
-Replay
-
+        │
+        ▼
+Execution Trust Record™
 ```
 
+Every business action produces immutable evidence that can be independently verified.
 
+---
 
-Every stage becomes part of the permanent Execution Trust Record.
+# Core Concepts
 
+## Authority
 
+The entity empowered to authorize execution.
 
-\---
+Examples:
 
+* User
+* Role
+* Service
+* Organization
 
+---
 
-\# Core Components
+## Authorization
 
+Proof that an Authority approved an intended action.
 
+Authorization answers:
 
-\## Runtime
+> Who allowed this execution?
 
+---
 
+## Intent
 
-Executes authorized Business Transactions.
+The immutable declaration of the requested business action.
 
+Intent answers:
 
+> What exactly was requested?
 
-\---
+---
 
+## Business Transaction
 
+The canonical input accepted by Parmana.
 
-\## Policy Engine
+It combines:
 
+* metadata
+* authority
+* authorization
+* intent
+* policy reference
+* runtime signals
 
+The Business Transaction is immutable.
 
-Evaluates business transactions against organizational policies.
+---
 
+## Policy
 
+Deterministic business rules evaluated against runtime signals.
 
-\---
+Policies:
 
+* are deterministic
+* have no side effects
+* never call external systems
+* never invoke AI
+* never mutate execution
 
+---
 
-\## Authority Framework
+## Decision
 
+The result of policy evaluation.
 
+Every Decision contains:
 
-Represents the human authority responsible for execution.
+* outcome
+* reason
+* evaluated policy
+* evaluated signals
+* timestamp
 
+---
 
+## Execution
 
-\---
+The immutable record of what was executed.
 
+Execution represents the actual business operation performed after authorization.
 
+---
 
-\## Execution Authorization
+## Verification
 
+Independent validation that the Execution Trust Record has not been modified.
 
+Verification ensures:
 
-Produces cryptographically signed Execution Authorization envelopes for approved decisions.
+* integrity
+* authenticity
+* consistency
 
+---
 
+## Receipt
 
-Every authorization includes:
+A cryptographically signed receipt proving execution.
 
+Receipts can be verified independently without trusting Parmana itself.
 
+---
 
-\* Authorization ID
+## Execution Trust Record™
 
-\* Decision ID
+The canonical evidence object produced by Parmana.
 
-\* Business Transaction ID
+An Execution Trust Record contains:
 
-\* Policy Reference
+* Business Transaction
+* Executions
+* Overrides
+* Verifications
+* Receipts
+* Trust Record Hash
+* Digital Signature
 
-\* Authorization Timestamp
+This is the permanent source of truth for every execution.
 
-\* Expiration
+---
 
-\* Nonce
+# Core Guarantees
 
-\* Digital Signature
+Parmana guarantees:
 
+* AI executes only authorized actions
+* Policy evaluation is deterministic
+* Execution evidence is immutable
+* Every execution is independently verifiable
+* Every receipt is cryptographically signed
+* Complete execution history is replayable
+* Every execution has a single canonical trust record
 
+---
 
-\---
+# Repository Structure
 
+```
+packages/
 
+├── api/
+├── connector-sdk/
+├── crypto/
+├── envelope-verifier/
+├── execution-control/
+├── execution-gateway/
+├── execution-system/
+├── policy/
+├── receipt/
+├── replay/
+├── runtime/
+├── shared/
+└── storage/
 
-\## Envelope Verification
+docs/
+examples/
+openapi/
+typescript/
+python/
+```
 
+---
 
+# Quick Start
 
-Verifies Execution Authorization before execution.
+Install dependencies:
 
+```bash
+npm install
+```
 
+Build the workspace:
 
-Verification includes:
+```bash
+npm run rebuild
+```
 
+Run the test suite:
 
+```bash
+npm test
+```
 
-\* Signature verification
+Run linting:
 
-\* Expiration validation
+```bash
+npm run lint
+```
 
-\* TTL validation
+Type check:
 
-\* Replay protection
+```bash
+npm run typecheck
+```
 
-\* Nonce verification
+---
 
+# Example
 
+```typescript
+const result = await runtime.execute(transaction);
 
-\---
+console.log(result.decision.outcome);
 
+console.log(result.trustRecord);
 
+console.log(result.receipt);
+```
 
-\## Verification Engine
+Every execution returns immutable evidence that can be verified independently.
 
+---
 
+# Design Principles
 
-Verifies cryptographic integrity of Execution Trust Records.
+Parmana follows a small set of non-negotiable engineering principles.
 
+## Human Authority
 
+AI never creates authority.
 
-\---
+Authority always originates from an authorized human or enterprise system.
 
+---
 
+## Determinism
 
-\## Receipt Engine
+The same inputs always produce the same decision.
 
+Policies are deterministic by design.
 
+---
 
-Produces signed immutable Execution Trust Receipts.
+## Immutable Evidence
 
+Execution evidence is append-only.
 
+Historical evidence is never modified.
 
-\---
+---
 
+## Independent Verification
 
+Evidence can be verified without trusting the executing system.
 
-\## Replay Engine
+---
 
+## Cryptographic Integrity
 
+Execution Trust Records and Receipts are protected using modern cryptographic primitives.
 
-Deterministically reconstructs and verifies previous executions.
+---
 
+## Replayability
 
+Historical executions can be replayed to prove identical policy outcomes.
 
-\---
+---
 
+# Documentation
 
+Documentation is organized into:
 
-\## Storage Layer
+* Architecture
+* Concepts
+* API
+* Storage
+* Verification
+* Trust Records
+* Tutorials
+* Examples
 
+See the `docs/` directory for detailed specifications.
 
+---
 
-Persists immutable execution evidence.
+# Roadmap
 
+Current foundation:
 
+* ✅ Execution Governance
+* ✅ Policy Engine
+* ✅ Runtime
+* ✅ Verification
+* ✅ Replay
+* ✅ Receipt Generation
+* ✅ Execution Trust Records
+* ✅ REST API
+* ✅ TypeScript SDK
+* ✅ Python SDK
 
-\---
+Next milestones:
 
+* Execution Gateway
+* Credential Isolation
+* Enterprise Connectors
+* Connector Enforcement
+* SAP Integration
+* Salesforce Integration
+* Stripe Integration
+* GitHub Integration
+* ServiceNow Integration
 
+---
 
-\# Execution Trust Record
+# Contributing
 
+Contributions are welcome.
 
+Please:
 
-The Execution Trust Record is Parmana's canonical evidence object.
+* discuss significant architectural changes before implementation
+* maintain deterministic behavior
+* preserve immutable evidence
+* include tests for all changes
+* update documentation alongside code
 
+---
 
+# License
+
+Licensed under the Apache License 2.0.
+
+---
+
+# Parmana
+
+**Execution Governance for AI.**
+
+**Execution Trust Infrastructure.**
+
+**Proof of Human Authority in AI Systems.**
+
+# Getting Started
+
+## Prerequisites
+
+Parmana requires:
+
+* Node.js 22 or later
+* npm 10 or later
+* Git
+
+Optional:
+
+* Docker
+* Supabase
+* PostgreSQL
+
+---
+
+## Clone
+
+```bash
+git clone https://github.com/pavancharak/parmana.git
+
+cd parmana
+```
+
+---
+
+## Install
+
+```bash
+npm install
+```
+
+---
+
+## Build
+
+```bash
+npm run rebuild
+```
+
+---
+
+## Test
+
+```bash
+npm test
+```
+
+---
+
+## Type Check
+
+```bash
+npm run typecheck
+```
+
+---
+
+## Lint
+
+```bash
+npm run lint
+```
+
+---
+
+# Repository Architecture
+
+```text
+packages/
+
+api/
+REST API
+
+runtime/
+Execution orchestration
+
+policy/
+Deterministic policy evaluation
+
+execution-control/
+Execution authorization control
+
+execution-gateway/
+Secure execution gateway
+
+envelope-verifier/
+Execution Permit verification
+
+crypto/
+Cryptographic services
+
+receipt/
+Receipt generation
+
+replay/
+Deterministic replay
+
+storage/
+Execution Trust Record persistence
+
+shared/
+Common domain model
+
+connector-sdk/
+SDK for enterprise connectors
+```
+
+Every package has a single responsibility.
+
+Dependencies flow inward toward the shared domain model.
+
+---
+
+# Execution Pipeline
+
+```text
+Business Transaction
+          │
+          ▼
+Runtime
+          │
+          ▼
+Policy Engine
+          │
+          ▼
+Decision
+          │
+          ▼
+Execution Control
+          │
+          ▼
+Execution Gateway
+          │
+          ▼
+Enterprise System
+          │
+          ▼
+Verification
+          │
+          ▼
+Receipt
+          │
+          ▼
+Execution Trust Record
+```
+
+Each stage produces evidence that becomes part of the immutable trust record.
+
+---
+
+# Execution Trust Record™
+
+Every execution produces one canonical Execution Trust Record.
 
 It contains:
 
+* Business Transaction
+* Decision
+* Execution history
+* Overrides
+* Verification history
+* Receipt history
+* Canonical hash
+* Digital signature
 
+The Trust Record is append-only.
 
-\* Business Transaction
+Historical evidence is never modified.
 
-\* Decision
+---
 
-\* Execution Authorization
+# Verification
 
-\* Execution
+Verification proves that the recorded execution is authentic and has not been altered.
 
-\* Overrides
+Verification includes:
 
-\* Verifications
+* structural validation
+* hash validation
+* signature validation
+* replay validation
 
-\* Receipts
+Verification can be performed independently of the Runtime.
 
-\* Trust Record Hash
+---
 
-\* Digital Signature
+# Replay
 
+Replay executes the original policy evaluation using the recorded inputs.
 
+Replay guarantees:
 
-Execution Trust Records are immutable, cryptographically verifiable, and independently auditable.
+* deterministic execution
+* identical policy evaluation
+* identical authorization outcome
 
+Replay does not re-execute business actions.
 
+It validates the recorded decision.
 
-\---
+---
 
+# Receipts
 
+Receipts are portable cryptographic evidence.
 
-\# Cryptography
+A Receipt proves:
 
+* the execution occurred
+* the execution was authorized
+* the Trust Record existed
+* the Trust Record passed verification
 
+Receipts can be verified without access to internal runtime state.
 
-Parmana uses deterministic cryptographic primitives to provide execution integrity.
+---
 
+# Security Principles
 
+Parmana is designed around zero implicit trust.
 
-Current implementation:
+Core principles:
 
+* Human authority is required.
+* AI never creates authority.
+* Policy evaluation is deterministic.
+* Evidence is immutable.
+* Verification is independent.
+* Execution is auditable.
+* Historical decisions are replayable.
 
+---
 
-\* Canonical Serialization
+# Supported Deployment
 
-\* SHA-256 Hashing
+Parmana is designed for enterprise deployment.
 
-\* Ed25519 Digital Signatures
+Typical architecture:
 
-\* Signed Execution Authorization
-
-\* Envelope Verification
-
-
-
-Supported signature algorithms:
-
-
-
-\* Ed25519
-
-\* Dilithium3 (Post-Quantum)
-
-
-
-Future support includes:
-
-
-
-\* Hardware Security Modules (HSM)
-
-\* Cloud Key Management Systems
-
-\* Enterprise Key Rotation
-
-
-
-\---
-
-
-
-\# REST API
-
-
-
-Current endpoints:
-
-
-
+```text
+AI Agent
+      │
+      ▼
+Parmana Runtime
+      │
+      ├── Policy Engine
+      ├── Execution Control
+      ├── Execution Gateway
+      ├── Verification
+      └── Receipt Generation
+               │
+               ▼
+Enterprise Systems
 ```
 
-POST /execute
+The Runtime governs execution while enterprise systems remain the systems of record.
 
+---
 
+# Current Capabilities
 
-POST /verify
+Implemented today:
 
+* Execution Governance
+* Execution Trust Infrastructure
+* Business Transaction model
+* Deterministic Policy Engine
+* Runtime
+* Execution Control
+* Execution Gateway
+* Envelope Verification
+* Replay
+* Receipt Generation
+* Execution Trust Records
+* REST API
+* TypeScript SDK
+* Python SDK
+* Storage abstraction
+* Cryptographic verification
 
+---
 
-POST /receipt
+# Roadmap
 
+The next phase focuses on enterprise integrations rather than new governance primitives.
 
+Planned capabilities:
 
-POST /replay
+* Credential Isolation
+* Connector Enforcement
+* Enterprise Identity Integration
+* SAP Connector
+* Salesforce Connector
+* Stripe Connector
+* GitHub Connector
+* ServiceNow Connector
+* Enterprise observability
+* Operations dashboard
 
-```
+---
 
+# Contributing
 
+We welcome contributions that strengthen the Execution Governance platform.
 
-\---
+Before contributing:
 
+* discuss architectural changes
+* preserve deterministic behavior
+* maintain immutable evidence
+* include automated tests
+* update documentation
 
+Architectural consistency is preferred over feature velocity.
 
-\# Example Workflow
+---
 
+# License
 
+Licensed under the Apache License 2.0.
 
-```
+---
 
-POST /execute
+# Vision
 
-&#x20;       │
+AI should not simply be intelligent.
 
-&#x20;       ▼
+AI should be accountable.
 
-Policy Evaluation
+Parmana provides the governance layer that ensures every AI execution is authorized, verifiable, and backed by immutable evidence.
 
-&#x20;       │
+As AI becomes capable of executing increasingly powerful actions across enterprise systems, organizations need more than access control—they need proof that every execution occurred within approved authority.
 
-&#x20;       ▼
+Parmana exists to provide that proof.
 
-Decision
+**Parmana**
 
-&#x20;       │
+**Execution Governance for AI**
 
-&#x20;       ▼
+**Execution Trust Infrastructure**
 
-Execution Authorization Generated
+**Proof of Human Authority in AI Systems**
 
-&#x20;       │
 
-&#x20;       ▼
-
-Execution Trust Record Created
-
-&#x20;       │
-
-&#x20;       ▼
-
-POST /verify
-
-&#x20;       │
-
-&#x20;       ▼
-
-Verification Stored
-
-&#x20;       │
-
-&#x20;       ▼
-
-POST /receipt
-
-&#x20;       │
-
-&#x20;       ▼
-
-Signed Receipt Generated
-
-&#x20;       │
-
-&#x20;       ▼
-
-POST /replay
-
-&#x20;       │
-
-&#x20;       ▼
-
-Execution Deterministically Verified
-
-```
-
-
-
-\---
-
-
-
-\# Architecture
-
-
-
-```
-
-&#x20;                API
-
-&#x20;                 │
-
-&#x20;                 ▼
-
-&#x20;   Execution Trust Application
-
-&#x20;                 │
-
-&#x20;                 ▼
-
-&#x20;             Runtime
-
-&#x20;                 │
-
-&#x20;                 ▼
-
-&#x20;        Policy Evaluation
-
-&#x20;                 │
-
-&#x20;                 ▼
-
-&#x20;              Decision
-
-&#x20;                 │
-
-&#x20;                 ▼
-
-&#x20;    Execution Authorization
-
-&#x20;                 │
-
-&#x20;                 ▼
-
-&#x20;        Execution System
-
-&#x20;                 │
-
-&#x20;                 ▼
-
-&#x20;     Execution Trust Record
-
-&#x20;                 │
-
-&#x20;                 ▼
-
-&#x20;Repository Layer / Storage Layer
-
-&#x20;                 │
-
-&#x20;                 ▼
-
-&#x20;         Cryptographic Layer
-
-```
-
-
-
-Parmana follows a strict separation of concerns where each layer has a single responsibility.
-
-
-
-\---
-
-
-
-\# Tutorials
-
-
-
-```
-
-01 Hello World
-
-
-
-02 Policy Evaluation
-
-
-
-03 Runtime Execution
-
-
-
-04 Policy Router
-
-
-
-05 Verification
-
-
-
-06 Replay
-
-
-
-07 Receipt Generation
-
-
-
-08 Human Approval
-
-
-
-09 REST API
-
-
-
-10 End-to-End
-
-
-
-11 Execution Authorization
-
-
-
-12 Envelope Verification
-
-
-
-13 Post-Quantum Signatures
-
-```
-
-
-
-Run all tutorials:
-
-
-
-```bash
-
-npm run examples
-
-```
-
-
-
-\---
-
-
-
-\# Current Capabilities
-
-
-
-\* ✅ Business Transaction execution
-
-\* ✅ Policy evaluation
-
-\* ✅ Decision generation
-
-\* ✅ Signed Execution Authorization
-
-\* ✅ Envelope Verification
-
-\* ✅ Execution Trust Record creation
-
-\* ✅ Immutable persistence
-
-\* ✅ Cryptographic hashing
-
-\* ✅ Ed25519 signatures
-
-\* ✅ Dilithium3 support
-
-\* ✅ Verification
-
-\* ✅ Receipt generation
-
-\* ✅ Deterministic replay
-
-\* ✅ REST API
-
-\* ✅ Integration testing
-
-
-
-\---
-
-
-
-\# Technology Stack
-
-
-
-\* TypeScript
-
-\* Node.js
-
-\* Express
-
-\* Vitest
-
-\* Supabase
-
-\* SHA-256
-
-\* Ed25519
-
-\* Dilithium3 (Post-Quantum)
-
-
-
-\---
-
-
-
-\# Repository Structure
-
-
-
-```
-
-packages/
-
-
-
-api/
-
-crypto/
-
-envelope-verifier/
-
-execution-system/
-
-policy/
-
-receipt/
-
-replay/
-
-runtime/
-
-shared/
-
-storage/
-
-verification/
-
-
-
-examples/
-
-docs/
-
-policies/
-
-scripts/
-
-```
-
-
-
-\---
-
-
-
-\# Development
-
-
-
-Install dependencies
-
-
-
-```bash
-
-npm install
-
-```
-
-
-
-Build
-
-
-
-```bash
-
-npm run build
-
-```
-
-
-
-Run all tests
-
-
-
-```bash
-
-npm test
-
-```
-
-
-
-Run the REST API
-
-
-
-```bash
-
-npm run dev
-
-```
-
-
-
-Run all examples
-
-
-
-```bash
-
-npm run examples
-
-```
-
-
-
-Run a specific tutorial
-
-
-
-```bash
-
-npx tsx examples/tutorials/11-execution-authorization/run.ts
-
-```
-
-
-
-\---
-
-
-
-\# Platform Status
-
-
-
-| Component               | Status     |
-
-| ----------------------- | ---------- |
-
-| Runtime                 | ✅ Complete |
-
-| Policy Engine           | ✅ Complete |
-
-| Execution Authorization | ✅ Complete |
-
-| Envelope Verification   | ✅ Complete |
-
-| Execution Trust Record  | ✅ Complete |
-
-| Verification             | 🟡 Partial — integrity, signature & authorization-binding checks live; authority/intent/evidence on roadmap (see docs/CLAIMS.md) |
-
-| Receipt Generation      | ✅ Complete |
-
-| Replay                  | ✅ Complete |
-
-| Cryptography            | ✅ Complete |
-
-| Storage                 | ✅ Complete |
-
-| REST API                | ✅ Complete — requires PARMANA_POLICY_DIR (see packages/api/README.md) |
-
-| Integration Tests       | 🟡 Hermetic core suite; Supabase-backed tests skip without credentials |
-
-| Tutorials               | ✅ Complete |
-
-
-
-\---
-
-
-
-\# Roadmap
-
-
-
-Next major capabilities include:
-
-
-
-\* Policy Management
-
-\* Authority Management
-
-\* Trust Record Query API
-
-\* Enterprise SDKs
-
-\* Monitoring \& Metrics
-
-\* Enterprise Authentication
-
-\* Hardware Security Modules
-
-\* Cloud Key Management
-
-\* Distributed Replay
-
-\* Production Hardening
-
-
-
-\---
-
-
-
-\# Philosophy
-
-
-
-Traditional AI systems ask:
-
-
-
-> \*\*Can the AI perform this action?\*\*
-
-
-
-Parmana asks:
-
-
-
-> \*\*Can this action be trusted?\*\*
-
-
-
-Parmana introduces an execution authorization layer between AI decision-making and enterprise execution, ensuring every high-impact action is authorized, verifiable, and replayable before it reaches production systems.
-
-
-
-Execution Trust is the missing infrastructure required for Enterprise AI.
-
-
-
-\---
-
-
-
-\# License
-
-
-
-Copyright © Parmana.
-
-
-
-All rights reserved.
-
-
-
+Credential Isolation — AI never receives enterprise credentials directly.
+Connector Enforcement — Enterprise systems accept requests only through Parmana-managed connectors.
+Enterprise Connectors — SAP, Salesforce, Stripe, GitHub, ServiceNow, etc., become protected entry points.
