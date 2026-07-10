@@ -129,8 +129,11 @@ const verificationResult = await this.client
   .eq(
     "business_transaction_id",
     businessTransactionId,
+  )
+  .order(
+    "verified_at",
+    { ascending: true },
   );
-
 const verifications = verificationResult.data;
 const verificationError = verificationResult.error;
 

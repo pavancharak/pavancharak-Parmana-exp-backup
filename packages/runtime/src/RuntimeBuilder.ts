@@ -26,6 +26,10 @@ import type {
   RuntimeComponent,
 } from "./RuntimeComponent.js";
 
+import type {
+  RuntimeHook,
+} from "./hooks/RuntimeHook.js";
+
 /**
  * Canonical Runtime Builder.
  *
@@ -34,18 +38,20 @@ import type {
 export class RuntimeBuilder {
   private readonly components: RuntimeComponent[] = [];
 
+  private readonly hooks: RuntimeHook[] = [];
+
   private policyRepository?: PolicyRepository;
 
   /**
    * Configure policy directory.
    */
   public withPolicyRepository(
-  repository: PolicyRepository,
-): this {
-  this.policyRepository = repository;
+    repository: PolicyRepository,
+  ): this {
+    this.policyRepository = repository;
 
-  return this;
-}
+    return this;
+  }
 
   /**
    * Add runtime stage.
@@ -79,6 +85,32 @@ export class RuntimeBuilder {
   }
 
   /**
+   * Add runtime hook.
+   */
+  public addHook(
+    hook: RuntimeHook,
+  ): this {
+    this.hooks.push(
+      hook,
+    );
+
+    return this;
+  }
+
+  /**
+   * Add multiple runtime hooks.
+   */
+  public addHooks(
+    ...hooks: RuntimeHook[]
+  ): this {
+    this.hooks.push(
+      ...hooks,
+    );
+
+    return this;
+  }
+
+  /**
    * Build immutable Runtime.
    */
   public build(
@@ -88,21 +120,23 @@ export class RuntimeBuilder {
     // Runtime pipeline
     //
     const pipeline =
-      new RuntimePipeline(this.components);
+      new RuntimePipeline(
+        this.components,
+      );
 
     //
     // Policy subsystem
     //
     if (!this.policyRepository) {
-  throw new Error(
-    "PolicyRepository is required.",
-  );
-}
+      throw new Error(
+        "PolicyRepository is required.",
+      );
+    }
 
-const router =
-  new PolicyRouter(
-    this.policyRepository,
-  );
+    const router =
+      new PolicyRouter(
+        this.policyRepository,
+      );
 
     const engine =
       new PolicyEngine();
@@ -119,24 +153,26 @@ const router =
     const authorizationSigner =
       new RuntimeAuthorizationSigner();
 
-    const { ttlSeconds: authorizationTtlSeconds } =
-      loadConfig().authorization;
+    const {
+      ttlSeconds: authorizationTtlSeconds,
+    } = loadConfig().authorization;
 
     //
     // Runtime engine
     //
     const runtimeEngine =
-  new RuntimeEngine(
-    pipeline,
-    router,
-    engine,
-    new DecisionBuilder(),
-    new ExecutionGate(),
-    new ExecutionBuilder(),
-    trustPipeline,
-    authorizationSigner,
-    authorizationTtlSeconds,
-  );
+      new RuntimeEngine(
+        pipeline,
+        router,
+        engine,
+        new DecisionBuilder(),
+        new ExecutionGate(),
+        new ExecutionBuilder(),
+        trustPipeline,
+        authorizationSigner,
+        authorizationTtlSeconds,
+        this.hooks,
+      );
 
     //
     // Runtime façade

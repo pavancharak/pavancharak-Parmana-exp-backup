@@ -22,6 +22,8 @@ export * from "./RuntimeEngine.js";
 export * from "./ExecutionTrustPipeline.js";
 export * from "./RuntimePipeline.js";
 export * from "./RuntimeComponent.js";
+export * from "./hooks/RuntimeHook.js";
+export * from "./hooks/RuntimeHookRunner.js";
 export * from "./context/RuntimeContext.js";
 
 // -----------------------------------------------------------------------------

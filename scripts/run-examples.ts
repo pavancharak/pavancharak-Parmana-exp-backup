@@ -27,7 +27,11 @@ const examples = [
     "examples/tutorials/11-execution-authorization/run.ts",
   "examples/tutorials/12-envelope-verification/run.ts",
   "examples/tutorials/13-post-quantum-signatures/run.ts",
-
+  "examples/tutorials/14-custom-policy/run.ts",
+  "examples/tutorials/15-custom-runtime-component/run.ts",
+  "examples/tutorials/16-runtime-pipeline/run.ts",
+  "examples/tutorials/17-multi-policy-routing/run.ts",
+  "examples/tutorials/18-runtime-hooks/run.ts",
   "examples/scenarios/vendor-payment/run.ts",
   "examples/scenarios/expense-approval/run.ts",
   "examples/scenarios/purchase-order/run.ts",
@@ -91,3 +95,6 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+
+
+
