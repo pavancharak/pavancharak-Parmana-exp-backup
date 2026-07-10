@@ -40,6 +40,8 @@ const examples = [
     "examples/tutorials/24-sdk-integration-patterns/run.ts",
    "examples/tutorials/25-execution-permit-generation/run.ts",
   "examples/tutorials/26-execution-authorization-verification/run.ts",
+  "examples/tutorials/27-authorization-expiration/run.ts",
+  "examples/tutorials/28-envelope-replay-detection/run.ts",
   "examples/scenarios/vendor-payment/run.ts",
   "examples/scenarios/expense-approval/run.ts",
   "examples/scenarios/purchase-order/run.ts",
