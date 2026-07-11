@@ -2,9 +2,16 @@ import type { CryptoProvider } from "@parmana/crypto";
 import {
   InMemoryConnectorRegistry,
   InMemorySecureConnector,
+  InMemorySessionCredentialVault,
+  RandomIdGenerator,
+  SessionCredentialSecureConnector,
+  SystemClock,
+  type Clock,
   type ConnectorIdentity,
   type ConnectorPolicy,
   type ConnectorRegistry,
+  type ExecutionAuditSink,
+  type IdGenerator,
   type SecureConnector,
 } from "@parmana/execution-control";
 
@@ -13,6 +20,8 @@ import { CredentialVaultAdapter } from "./CredentialVaultAdapter.js";
 import type { CredentialProvider } from "./CredentialProvider.js";
 import type { ConnectorMetadata, ConnectorVersion } from "./ConnectorMetadata.js";
 import { SdkConnectorExecutor } from "./SdkConnectorExecutor.js";
+
+const DEFAULT_SESSION_CREDENTIAL_LIFETIME_MS = 30_000;
 
 export interface ConnectorRegistrationOptions {
   readonly connector: Connector;
@@ -26,6 +35,25 @@ export interface ConnectorRegistrationOptions {
   /** See SdkConnectorExecutorOptions.expectedVersion. */
   readonly expectedVersion?: ConnectorVersion;
   readonly timeoutMs?: number;
+
+  /**
+   * Required unless legacyInsecure is true. Must be the SAME
+   * ExecutionAuditSink instance ExecutionControlService writes to — a
+   * private, per-registration sink would fragment the audit trail.
+   */
+  readonly audit?: ExecutionAuditSink;
+  readonly clock?: Clock;
+  readonly idGenerator?: IdGenerator;
+  readonly sessionCredentialLifetimeMs?: number;
+
+  /**
+   * Opts this one connector OUT of session-credential isolation, back to
+   * the raw, always-resolvable InMemoryCredentialVault path (no audit
+   * requirement, no per-execution session credential). For tests only —
+   * every production connector goes through the default, session-
+   * credential path.
+   */
+  readonly legacyInsecure?: boolean;
 }
 
 export interface ConnectorRegistryEntry {
@@ -64,14 +92,48 @@ export class ConnectorSdkRegistry implements ConnectorRegistry {
       ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
     });
 
-    const secureConnector = new InMemorySecureConnector({
-      identity: options.connectorIdentity,
-      capabilities: options.connector.capabilities.declared,
-      policy: options.policy,
-      gatewayAuthentication: options.gatewayAuthentication,
-      credentialVault: new CredentialVaultAdapter(options.credentialProvider),
-      executor,
-    });
+    const credentialVault = new CredentialVaultAdapter(options.credentialProvider);
+
+    let secureConnector: SecureConnector;
+
+    if (options.legacyInsecure === true) {
+      secureConnector = new InMemorySecureConnector({
+        identity: options.connectorIdentity,
+        capabilities: options.connector.capabilities.declared,
+        policy: options.policy,
+        gatewayAuthentication: options.gatewayAuthentication,
+        credentialVault,
+        executor,
+      });
+    } else {
+      if (options.audit === undefined) {
+        throw new Error(
+          `Connector "${connectorId}" registration requires an ExecutionAuditSink — the ` +
+          `same instance ExecutionControlService writes to, per the single-audit-trail ` +
+          `requirement — unless legacyInsecure: true is explicitly set.`,
+        );
+      }
+
+      const clock = options.clock ?? new SystemClock();
+
+      const sessionCredentials = new InMemorySessionCredentialVault({
+        credentials: credentialVault,
+        clock,
+        idGenerator: options.idGenerator ?? new RandomIdGenerator(),
+        lifetimeMs: options.sessionCredentialLifetimeMs ?? DEFAULT_SESSION_CREDENTIAL_LIFETIME_MS,
+      });
+
+      secureConnector = new SessionCredentialSecureConnector({
+        identity: options.connectorIdentity,
+        capabilities: options.connector.capabilities.declared,
+        policy: options.policy,
+        gatewayAuthentication: options.gatewayAuthentication,
+        sessionCredentials,
+        executor,
+        audit: options.audit,
+        clock,
+      });
+    }
 
     this.inner.register(secureConnector);
     this.entries.set(connectorId, {

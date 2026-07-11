@@ -57,6 +57,13 @@ function fixtureRegistration(connectorId: string) {
     policy,
     gatewayAuthentication,
     crypto,
+    //
+    // This suite tests registry mechanics (registration, duplicates,
+    // entry()/list()), not credential-isolation semantics — opting out
+    // of the session-credential path keeps it focused, per the explicit
+    // legacyInsecure escape hatch.
+    //
+    legacyInsecure: true,
   };
 }
 

@@ -36,6 +36,29 @@ writeFileSync(
 );
 
 /**
+ * Separate hermetic keypair for the Execution Gateway's attestation
+ * signing (createGatewayKeyPair.ts), distinct from the authorization
+ * keypair above — same trust-domain separation as production.
+ */
+const gatewayKeyPair = generateKeyPairSync("ed25519");
+
+writeFileSync(
+  join(keyDir, "gateway.private.pem"),
+  gatewayKeyPair.privateKey.export({
+    format: "pem",
+    type: "pkcs8",
+  }),
+);
+
+writeFileSync(
+  join(keyDir, "gateway.public.pem"),
+  gatewayKeyPair.publicKey.export({
+    format: "pem",
+    type: "spki",
+  }),
+);
+
+/**
  * Runtime (FileKeyProvider)
  */
 process.env.PARMANA_KEY_DIR = keyDir;

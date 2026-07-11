@@ -1,5 +1,9 @@
 import {
   ExecutionControlService,
+  GatewayAttestationSigner,
+  RandomIdGenerator,
+  SessionCredentialExecutionControl,
+  SystemClock,
   type ExecutionControl,
 } from "@parmana/execution-control";
 import {
@@ -7,13 +11,16 @@ import {
   gatewaySessionIssuanceAuthentication,
 } from "./createSessionStore.js";
 import { createGatewayIdentity } from "./createGatewayIdentity.js";
+import { createGatewayKeyPair } from "./createGatewayKeyPair.js";
 import { createConnectorAuthenticator } from "./createConnectorAuthenticator.js";
 import { createConnectorRegistry } from "./createConnectorRegistry.js";
 
 import { createExecutionAuditSink } from "./createExecutionAuditSink.js";
 
 /**
- * Constructs the production ExecutionControlService.
+ * Constructs the production ExecutionControlService, wrapped in
+ * SessionCredentialExecutionControl so no GatewaySession can be created
+ * without first passing a request-bound Gateway attestation check.
  */
 export function createExecutionControl(): ExecutionControl {
   const gatewayIdentity =
@@ -25,29 +32,57 @@ export function createExecutionControl(): ExecutionControl {
   const sessions =
     createSessionStore();
 
+  const audit =
+    createExecutionAuditSink();
+
+  //
+  // Static, registration-time attestation for each connector's own
+  // defense-in-depth check (see createConnectorRegistry.ts). Not
+  // request-bound — the request-bound check happens below, at
+  // SessionCredentialExecutionControl.
+  //
+  const { privateKey: gatewayPrivateKey } =
+    createGatewayKeyPair();
+
+  const attestationSigner =
+    new GatewayAttestationSigner(new SystemClock(), new RandomIdGenerator());
+
+  const registrationAttestation =
+    attestationSigner.sign(
+      gatewayIdentity.gatewayId,
+      "registration",
+      gatewayPrivateKey,
+    );
+
   const registry =
     createConnectorRegistry(
       authenticator,
       sessions,
+      audit,
+      registrationAttestation,
     );
 
-  const audit =
-    createExecutionAuditSink();
-
-  return new ExecutionControlService({
+  const inner = new ExecutionControlService({
     gatewayIdentity,
     authenticator,
     registry,
     sessions,
 
     //
-    // TODO:
-    // Replace with real gateway authentication
-    // material (certificate, JWT, mTLS, etc.).
+    // Governs GatewaySession issuance calls within this same process
+    // (ExecutionControlService <-> InMemoryGatewaySessionStore), a
+    // separate, narrower trust boundary from gatewayAuthentication
+    // above. Tracked in the notes list as a same-process-only check.
     //
     sessionIssuanceAuthentication:
   gatewaySessionIssuanceAuthentication,
 
     audit,
+  });
+
+  return new SessionCredentialExecutionControl({
+    gatewayIdentity,
+    authenticator,
+    inner,
   });
 }

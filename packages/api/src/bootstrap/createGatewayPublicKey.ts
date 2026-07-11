@@ -1,5 +1,4 @@
 import {
-  createHash,
   createPublicKey,
   type KeyObject,
 } from "node:crypto";
@@ -39,31 +38,9 @@ export function createGatewayPublicKey(): KeyObject {
     );
   }
 
-  console.log(
-    "PUBLIC_KEY_PATH =",
-    keyPath,
-  );
-
-  console.log(
-    "Exists =",
-    existsSync(keyPath),
-  );
-
   const pem = readFileSync(
     keyPath,
     "utf8",
-  );
-
-  console.log(
-    "Loaded gateway key from:",
-    keyPath,
-  );
-
-  console.log(
-    "Gateway public key SHA256:",
-    createHash("sha256")
-      .update(pem)
-      .digest("hex"),
   );
 
   return createPublicKey(pem);

@@ -1,9 +1,10 @@
 import {
-  InMemoryConnectorAuthenticator,
-  type ConnectorAuthenticator,
+  SignedTokenConnectorAuthenticator,
+  type RequestBoundConnectorAuthenticator,
 } from "@parmana/execution-control";
 
 import { createGatewayIdentity } from "./createGatewayIdentity.js";
+import { createGatewayKeyPair } from "./createGatewayKeyPair.js";
 
 /**
  * Creates the ConnectorAuthenticator used by
@@ -12,14 +13,19 @@ import { createGatewayIdentity } from "./createGatewayIdentity.js";
  * Trusted connector identities are configured here.
  * This file must not depend on the ConnectorRegistry,
  * otherwise a circular dependency is created.
+ *
+ * Verifies a real signed Gateway attestation (SignedTokenConnectorAuthenticator)
+ * instead of comparing an opaque shared value by reference.
  */
-export function createConnectorAuthenticator(): ConnectorAuthenticator {
+export function createConnectorAuthenticator(): RequestBoundConnectorAuthenticator {
   const gatewayIdentity =
     createGatewayIdentity();
 
-  return new InMemoryConnectorAuthenticator(
+  const { publicKey } = createGatewayKeyPair();
+
+  return new SignedTokenConnectorAuthenticator(
     gatewayIdentity,
-    undefined,
+    publicKey,
     [
       {
         connectorId: "vendor-payment",

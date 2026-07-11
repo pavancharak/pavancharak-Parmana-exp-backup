@@ -179,6 +179,19 @@ describe("execution control", () => {
     expect(() => f.registry.get("sap")).toThrow("Unknown connector");
   });
 
+  it("lists every registered connector", async () => {
+    const f = await fixture();
+    expect(f.registry.list()).toEqual([f.connector]);
+  });
+
+  it("unregisters a connector, after which get() and list() no longer see it", async () => {
+    const f = await fixture();
+    f.registry.unregister("stripe");
+    expect(() => f.registry.get("stripe")).toThrow("Unknown connector");
+    expect(f.registry.list()).toEqual([]);
+    expect(() => f.registry.unregister("stripe")).toThrow("Unknown connector");
+  });
+
   it("creates distinct one-time sessions for releases", async () => {
     const f = await fixture();
     const first = f.sessions.create(f.release, 30_000, f.sessionIssuanceAuthentication);

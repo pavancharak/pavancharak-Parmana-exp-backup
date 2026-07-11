@@ -88,6 +88,10 @@ export interface ExecutionAuditEvent {
   readonly authorizationId: string;
   readonly sessionId: string;
   readonly reason?: string;
+
+  /** Metadata only — never the credential's secret value. */
+  readonly credentialId?: string;
+  readonly gatewayId?: string;
 }
 
 export interface ExecutionAuditSink {

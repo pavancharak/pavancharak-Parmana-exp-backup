@@ -19,4 +19,13 @@ export class InMemoryConnectorRegistry implements ConnectorRegistry {
     if (connector === undefined) throw new Error(`Unknown connector: ${name}.`);
     return connector;
   }
+
+  unregister(name: string): void {
+    if (!this.connectors.has(name)) throw new Error(`Unknown connector: ${name}.`);
+    this.connectors.delete(name);
+  }
+
+  list(): readonly SecureConnector[] {
+    return [...this.connectors.values()];
+  }
 }

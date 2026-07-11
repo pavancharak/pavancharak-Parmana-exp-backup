@@ -27,6 +27,15 @@ export interface ExecutionControlOptions {
   readonly service?: ExecutionControl;
   readonly gatewayAuthentication?: unknown;
 
+  /**
+   * When present, called once per execute() call with the
+   * authorizationId of the request being released, to mint a fresh,
+   * request-bound gatewayAuthentication value instead of reusing the
+   * static gatewayAuthentication field above. Takes precedence over it
+   * when both are supplied.
+   */
+  readonly mintGatewayAuthentication?: (authorizationId: string) => unknown;
+
   /** @deprecated Embedded prototype retained for backward compatibility. */
   readonly channel?: ExecutionChannel;
   /** @deprecated Use gatewayAuthentication with service. */
@@ -215,6 +224,13 @@ export class ExecutionGateway implements ExecutionSystem {
 
     if (this.executionControl !== undefined) {
       if (this.executionControl.service !== undefined) {
+        const gatewayAuthentication =
+          this.executionControl.mintGatewayAuthentication !== undefined
+            ? this.executionControl.mintGatewayAuthentication(
+                request.authorization.payload.authorizationId,
+              )
+            : this.executionControl.gatewayAuthentication;
+
         return this.executionControl.service.execute({
           connectorName: this.executionControl.route(transaction),
           authorization: request.authorization,
@@ -225,7 +241,7 @@ export class ExecutionGateway implements ExecutionSystem {
             replayCheckPassed: true,
           },
           executionTimestamp: new Date().toISOString(),
-        }, this.executionControl.gatewayAuthentication);
+        }, gatewayAuthentication);
       }
       if (this.executionControl.channel === undefined ||
         this.executionControl.gatewayIdentity === undefined) {

@@ -82,12 +82,13 @@ async function fixture(options?: { ttlSeconds?: number; action?: string }) {
   const connector = new MockConnector({ connectorId: "crm", capabilities: connectorCapabilities(["crm:read"]) });
   const metadata = fixtureMetadata("crm");
 
+  const audit = new MemoryExecutionAuditSink();
+
   const registry = new ConnectorSdkRegistry();
   registry.register({
-    connector, metadata, connectorIdentity, credentialProvider, policy, gatewayAuthentication, crypto,
+    connector, metadata, connectorIdentity, credentialProvider, policy, gatewayAuthentication, crypto, audit,
   });
 
-  const audit = new MemoryExecutionAuditSink();
   const service = new ExecutionControlService({
     gatewayIdentity, authenticator, registry, sessions, audit, sessionIssuanceAuthentication,
   });
