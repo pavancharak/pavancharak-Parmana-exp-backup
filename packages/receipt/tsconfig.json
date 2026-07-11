@@ -21,5 +21,12 @@
     "node_modules",
     "tests",
     "test"
+  ],
+
+  "references": [
+    { "path": "../shared" },
+    { "path": "../crypto" },
+    { "path": "../execution-control" },
+    { "path": "../execution-system" }
   ]
 }

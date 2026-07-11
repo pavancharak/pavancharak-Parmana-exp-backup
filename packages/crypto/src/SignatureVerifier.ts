@@ -33,22 +33,8 @@ export class SignatureVerifier {
     const bytes =
       this.serializer.serialize(artifact);
 
-    console.log(
-      "VERIFY BYTES SHA256 =",
-      createHash("sha256")
-        .update(bytes)
-        .digest("hex"),
-    );
 
-    console.log(
-      "VERIFY PAYLOAD =",
-      JSON.stringify(artifact),
-    );
 
-    console.log(
-      "VERIFY SIGNATURE =",
-      signature,
-    );
 
     const verified =
       await this.crypto.signature.verify(
@@ -57,10 +43,6 @@ export class SignatureVerifier {
         publicKey,
       );
 
-    console.log(
-      "VERIFY RESULT =",
-      verified,
-    );
 
     return verified;
   }

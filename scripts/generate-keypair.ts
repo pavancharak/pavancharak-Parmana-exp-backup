@@ -1,0 +1,105 @@
+import "dotenv/config";
+
+import {
+  generateKeyPairSync,
+} from "node:crypto";
+
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+} from "node:fs";
+
+import { join } from "node:path";
+
+const args = process.argv.slice(2);
+
+function argument(name: string): string {
+  const index = args.indexOf(name);
+
+  if (index === -1 || index + 1 >= args.length) {
+    throw new Error(`Missing argument: ${name}`);
+  }
+
+  return args[index + 1];
+}
+
+const algorithm =
+  argument("--algorithm");
+
+const keyId =
+  argument("--key-id");
+
+const keyDirectory =
+  process.env.PARMANA_KEY_DIR ??
+  "./keys";
+
+if (!existsSync(keyDirectory)) {
+  mkdirSync(keyDirectory, {
+    recursive: true,
+  });
+}
+
+const nodeAlgorithm =
+  algorithm === "ed25519"
+    ? "ed25519"
+    : algorithm === "dilithium3"
+      ? "ml-dsa-65"
+      : undefined;
+
+if (!nodeAlgorithm) {
+  throw new Error(
+    `Unsupported algorithm: ${algorithm}`,
+  );
+}
+
+const {
+  publicKey,
+  privateKey,
+} = generateKeyPairSync(
+  nodeAlgorithm,
+);
+
+const privatePem =
+  privateKey.export({
+    format: "pem",
+    type: "pkcs8",
+  }) as string;
+
+const publicPem =
+  publicKey.export({
+    format: "pem",
+    type: "spki",
+  }) as string;
+
+const privatePath =
+  join(
+    keyDirectory,
+    `${keyId}.private.pem`,
+  );
+
+const publicPath =
+  join(
+    keyDirectory,
+    `${keyId}.public.pem`,
+  );
+
+writeFileSync(
+  privatePath,
+  privatePem,
+);
+
+writeFileSync(
+  publicPath,
+  publicPem,
+);
+
+console.log();
+console.log("Key pair generated");
+console.log("--------------------------------");
+console.log("Algorithm :", algorithm);
+console.log("Key ID    :", keyId);
+console.log("Directory :", keyDirectory);
+console.log("Private   :", privatePath);
+console.log("Public    :", publicPath);
+console.log();

@@ -1,5 +1,6 @@
 import { loadConfig } from "@parmana/shared";
-
+import type { SignatureAlgorithm } from "@parmana/shared";
+import type { HybridCryptoProvider } from "./models/HybridCryptoProvider.js";
 import type { CryptoProvider } from "./providers/CryptoProvider.js";
 
 import { CryptoBuilder } from "./CryptoBuilder.js";
@@ -17,31 +18,23 @@ import { Dilithium3SignatureProvider } from "./providers/signature/Dilithium3Sig
  * Crypto Bootstrap.
  *
  * Composition root for the Parmana crypto subsystem.
- *
- * Responsibilities:
- *
- * - Load configuration
- * - Register built-in providers
- * - Register future plugins
- * - Build the CryptoProvider
- *
- * The configured CryptoProvider is cached so that
- * cryptographic providers (especially the signature
- * provider) are reused for the lifetime of the process.
- *
- * This is the ONLY place in the crypto package that
- * should reference concrete cryptographic algorithms.
  */
 export class CryptoBootstrap {
   private static provider:
     | CryptoProvider
     | undefined;
 
-  public static create(): CryptoProvider {
-    if (this.provider) {
-      return this.provider;
-    }
+  private static hybrid:
+    | HybridCryptoProvider
+    | undefined;
 
+  /**
+   * Builds a CryptoProvider for a specific
+   * signature algorithm.
+   */
+private static buildProvider(
+  signatureAlgorithm: SignatureAlgorithm,
+): CryptoProvider {
     const config =
       loadConfig();
 
@@ -69,31 +62,76 @@ export class CryptoBootstrap {
       new Dilithium3SignatureProvider(),
     );
 
-    //
-    // Future extension point:
-    //
-    // PluginLoader.load(hashRegistry);
-    // PluginLoader.load(signatureRegistry);
-    //
+    return new CryptoBuilder()
+
+      .withHash(
+        hashRegistry.get(
+          config.crypto.hashProvider,
+        ),
+      )
+
+      .withSignature(
+        signatureRegistry.get(
+          signatureAlgorithm,
+        ),
+      )
+
+      .build();
+  }
+
+  /**
+   * Creates the configured CryptoProvider.
+   */
+  public static create(): CryptoProvider {
+    if (this.provider) {
+      return this.provider;
+    }
+
+    const config =
+      loadConfig();
 
     this.provider =
-      new CryptoBuilder()
-
-        .withHash(
-          hashRegistry.get(
-            config.crypto.hashProvider,
-          ),
-        )
-
-        .withSignature(
-          signatureRegistry.get(
-            config.crypto
-              .primarySignatureProvider,
-          ),
-        )
-
-        .build();
+      this.buildProvider(
+        config.crypto
+          .primarySignatureProvider,
+      );
 
     return this.provider;
+  }
+
+  /**
+   * Creates both configured providers.
+   *
+   * Used for hybrid migration scenarios.
+   */
+  public static createHybrid(): HybridCryptoProvider {
+    if (this.hybrid) {
+      return this.hybrid;
+    }
+
+    const config =
+      loadConfig();
+
+    if (
+      !config.crypto.secondarySignatureProvider
+    ) {
+      throw new Error(
+        "Secondary signature provider is not configured.",
+      );
+    }
+
+    this.hybrid = {
+      primary: this.buildProvider(
+        config.crypto
+          .primarySignatureProvider,
+      ),
+
+      secondary: this.buildProvider(
+        config.crypto
+          .secondarySignatureProvider,
+      ),
+    };
+
+    return this.hybrid;
   }
 }

@@ -24,17 +24,7 @@ export class ArtifactSigner {
     const bytes =
       this.serializer.serialize(artifact);
 
-    console.log(
-      "SIGN BYTES SHA256 =",
-      createHash("sha256")
-        .update(bytes)
-        .digest("hex"),
-    );
 
-    console.log(
-      "SIGN PAYLOAD =",
-      JSON.stringify(artifact),
-    );
 
     const signature =
       await this.crypto.signature.sign(
@@ -42,10 +32,6 @@ export class ArtifactSigner {
         privateKey,
       );
 
-    console.log(
-      "SIGN SIGNATURE =",
-      signature,
-    );
 
     return signature;
   }
