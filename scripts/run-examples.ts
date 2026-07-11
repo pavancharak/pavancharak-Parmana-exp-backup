@@ -64,12 +64,14 @@ const examples = [
   "examples/tutorials/48-deterministic-hashing/run.ts",
   "examples/tutorials/49-detached-signatures/run.ts",
   "examples/tutorials/50-ed25519/run.ts",
-    "examples/tutorials/51-dilithium3/run.ts",
-  "examples/tutorials/52-hybrid-execution-trust/run.ts",
+
+
   "examples/tutorials/53-execution-permit/run.ts",
     "examples/tutorials/54-execution-receipt/run.ts",
   "examples/tutorials/55-execution-receipt-verification/run.ts",
  "examples/tutorials/56-complete-execution-flow/run.ts",
+    "examples/tutorials/51-dilithium3/run.ts",
+  "examples/tutorials/52-hybrid-execution-trust/run.ts",
   "examples/scenarios/vendor-payment/run.ts",
   "examples/scenarios/expense-approval/run.ts",
   "examples/scenarios/purchase-order/run.ts",
