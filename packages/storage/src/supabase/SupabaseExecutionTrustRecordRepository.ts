@@ -94,8 +94,15 @@ const executionResult = await this.client
   .eq(
     "business_transaction_id",
     businessTransactionId,
+  )
+  .order(
+    "created_at",
+    { ascending: true },
+  )
+  .order(
+    "seq",
+    { ascending: true },
   );
-
 
 
 
@@ -113,6 +120,14 @@ const overrideResult = await this.client
   .eq(
     "business_transaction_id",
     businessTransactionId,
+  )
+  .order(
+    "created_at",
+    { ascending: true },
+  )
+  .order(
+    "seq",
+    { ascending: true },
   );
 
 const overrides = overrideResult.data;
@@ -133,6 +148,10 @@ const verificationResult = await this.client
   .order(
     "verified_at",
     { ascending: true },
+  )
+  .order(
+    "seq",
+    { ascending: true },
   );
 const verifications = verificationResult.data;
 const verificationError = verificationResult.error;
@@ -148,6 +167,14 @@ const receiptResult = await this.client
   .eq(
     "business_transaction_id",
     businessTransactionId,
+  )
+  .order(
+    "issued_at",
+    { ascending: true },
+  )
+  .order(
+    "seq",
+    { ascending: true },
   );
 
 const receipts = receiptResult.data;

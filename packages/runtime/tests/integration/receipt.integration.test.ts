@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   BusinessTransaction,
   ExecutionTrustRecord,
+  ExecutionTrustRecordRepository,
   Receipt,
+  VerificationStatus,
 } from "@parmana/shared";
 
 import { ReceiptService } from "../../src/services/receipt-service.js";
@@ -32,7 +34,7 @@ describe("Receipt Service", () => {
           verificationId: "v-1",
           businessTransactionId:
             transaction.businessTransactionId,
-          status: "VERIFIED" as any,
+          status: VerificationStatus.VERIFIED,
           message: "ok",
           verifiedAt: new Date(),
           trustRecordHash: "hash",
@@ -44,10 +46,16 @@ describe("Receipt Service", () => {
       updatedAt: new Date(),
     };
 
+    //
+    // Partial repository double: ReceiptService.generate()
+    // only calls findByTransactionId and appendReceipt, so
+    // the other ExecutionTrustRecordRepository methods are
+    // intentionally omitted here.
+    //
     const receiptService = new ReceiptService({
       findByTransactionId: async () => trustRecord,
       appendReceipt: async () => {},
-    } as any);
+    } as unknown as ExecutionTrustRecordRepository);
 
     //
     // Act
@@ -89,10 +97,13 @@ describe("Receipt Service", () => {
       updatedAt: new Date(),
     };
 
+    //
+    // Partial repository double — see rationale above.
+    //
     const receiptService = new ReceiptService({
       findByTransactionId: async () => trustRecord,
       appendReceipt: async () => {},
-    } as any);
+    } as unknown as ExecutionTrustRecordRepository);
 
     //
     // Act + Assert

@@ -1,5 +1,4 @@
 import {
-  CryptoBootstrap,
   FileKeyProvider,
 } from "@parmana/crypto";
 

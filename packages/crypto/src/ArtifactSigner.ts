@@ -1,5 +1,4 @@
 import {
-  createHash,
   type KeyObject,
 } from "node:crypto";
 

@@ -508,9 +508,11 @@ Evidence
 
 \* VerificationService (packages/runtime/src/services/verification-service.ts)
 
-\* packages/runtime/test/verification-service.test.ts — all 6 cases
+\* packages/runtime/tests/unit/verification-service.test.ts — all 6 cases
 
-\* packages/api/test/verification-negative.integration.test.ts — "reports FAILED when the persisted record is tampered after execution"
+\* packages/runtime/tests/unit/verification-negative.test.ts — always-running, in-memory: fails on a mutated transaction payload field, a mutated signature value, and a mutated executions hash-chain-array element
+
+\* packages/api/tests/integration/verification-negative.integration.test.ts — "reports FAILED when the persisted record is tampered after execution" (additional citation; Supabase-gated, does not run without live credentials)
 
 
 

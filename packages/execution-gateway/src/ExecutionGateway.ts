@@ -143,7 +143,6 @@ export class ExecutionGateway implements ExecutionSystem {
         request.authorization,
         now,
       );
-console.log("Gateway checks:", checks);
 
     let businessTransactionHashMatches = false;
     let hashMismatch: GatewayVerificationResult["hashMismatch"];
@@ -154,10 +153,6 @@ console.log("Gateway checks:", checks);
 
       const expectedHash =
         request.authorization.payload.businessTransactionHash;
-console.log("Gateway hashes:", {
-  expected: expectedHash,
-  actual: actualHash,
-});
 
       businessTransactionHashMatches = actualHash === expectedHash;
 
@@ -213,11 +208,8 @@ console.log("Gateway hashes:", {
       await this.verify(request);
 
     if (!result.valid) {
-  console.dir(result, { depth: null });
-  console.dir(request.authorization, { depth: null });
-
-  throw new Error(this.describeFailure(result));
-}
+      throw new Error(this.describeFailure(result));
+    }
 
     const transaction = deepFreeze(executableContent);
 

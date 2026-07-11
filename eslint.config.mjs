@@ -37,7 +37,7 @@ export default [
   ...tseslint.configs.recommended,
 
   {
-    files: ["packages/**/*.ts"],
+    files: ["packages/**/*.ts", "examples/**/*.ts"],
 
     languageOptions: {
       parserOptions: {

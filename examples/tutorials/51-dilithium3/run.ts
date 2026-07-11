@@ -1,7 +1,6 @@
 import {
   ArtifactSigner,
   CryptoBootstrap,
-  DEFAULT_KEY_ID,
   FileKeyProvider,
   SignatureVerifier,
 } from "@parmana/crypto";

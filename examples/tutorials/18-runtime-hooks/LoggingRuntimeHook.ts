@@ -74,7 +74,7 @@ export class LoggingRuntimeHook {
   }
 
   public async afterVerification(
-    context: RuntimeContext,
+    _context: RuntimeContext,
   ): Promise<void> {
     console.log();
 

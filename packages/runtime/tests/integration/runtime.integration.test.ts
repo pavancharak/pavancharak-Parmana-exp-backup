@@ -1,6 +1,8 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+import type { BusinessTransaction } from "@parmana/shared";
+
 import { FilePolicyRepository } from "@parmana/policy";
 import { MemoryExecutionTrustRecordRepository } from "@parmana/storage";
 
@@ -63,7 +65,7 @@ describe("Runtime Integration", () => {
   },
   createdAt: new Date(),
 },
-        } as any);
+        } as BusinessTransaction);
 
       expect(trustRecord).toBeDefined();
 

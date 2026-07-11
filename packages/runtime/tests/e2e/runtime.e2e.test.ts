@@ -5,8 +5,11 @@ import { ExecutionGate } from "../../src/ExecutionGate.js";
 import { describe, expect, it } from "vitest";
 
 import {
+  Authority,
+  Authorization,
   BusinessTransaction,
   BusinessTransactionStatus,
+  TransactionMetadata,
 } from "@parmana/shared";
 
 import {
@@ -47,13 +50,18 @@ const pipeline = new RuntimePipeline([]);
       const transaction: BusinessTransaction = {
         businessTransactionId: "tx-1",
 
+        //
+        // executionMode is not a TransactionMetadata field;
+        // this fixture is deliberately loose and never read
+        // by the code under test, hence the unknown cast.
+        //
         metadata: {
           executionMode: "SYNC",
-        } as any,
+        } as unknown as TransactionMetadata,
 
-        authority: {} as any,
+        authority: {} as Authority,
 
-        authorization: {} as any,
+        authorization: {} as Authorization,
 
       intent: {
   intentId: "intent-1",
