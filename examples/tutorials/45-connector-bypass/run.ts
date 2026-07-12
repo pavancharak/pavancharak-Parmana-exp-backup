@@ -97,7 +97,7 @@ async function main(): Promise<void> {
     );
 
     console.log(
-      "Connectors cannot bypass Execution Governance.",
+      "Connectors cannot bypass pre-execution authorization.",
     );
   }
 

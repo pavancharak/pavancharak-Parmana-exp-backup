@@ -20,7 +20,7 @@ import { RuntimeAuthorizationSigner } from "./RuntimeAuthorizationSigner.js";
 import { Runtime } from "./Runtime.js";
 import { RuntimeEngine } from "./RuntimeEngine.js";
 import { RuntimePipeline } from "./RuntimePipeline.js";
-import { ExecutionTrustPipeline } from "./ExecutionTrustPipeline.js";
+import { BusinessTrustPipeline } from "./BusinessTrustPipeline.js";
 
 import type {
   RuntimeComponent,
@@ -145,7 +145,7 @@ export class RuntimeBuilder {
     // Trust subsystem
     //
     const trustPipeline =
-      new ExecutionTrustPipeline();
+      new BusinessTrustPipeline();
 
     //
     // Authorization subsystem

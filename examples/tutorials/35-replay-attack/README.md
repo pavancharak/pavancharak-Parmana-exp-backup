@@ -304,7 +304,7 @@ Examples include:
 
 
 
-Replay protection is only one layer of Execution Governance.
+Replay protection is only one layer of execution trust.
 
 
 

@@ -2,7 +2,7 @@
 
 > **Proof of Human Authority in AI Systems**
 
-**Parmana** is an **Execution Governance** platform that ensures AI only performs the actions a company allows.
+**Parmana** is the authorization layer for AI execution, ensuring AI only performs the actions a company allows.
 
 As organizations deploy autonomous AI agents, the challenge is no longer generating intelligent responses—it's controlling what those agents are permitted to execute.
 
@@ -14,7 +14,7 @@ Parmana sits between AI and enterprise systems, evaluating every requested actio
 
 Large language models can reason, plan, and invoke tools, but they cannot determine what an organization should allow them to do.
 
-Without execution governance, AI can:
+Without pre-execution authorization, AI can:
 
 * Execute actions outside approved policy
 * Use credentials beyond its intended scope
@@ -28,9 +28,9 @@ They need trustworthy execution.
 
 ---
 
-# Execution Governance
+# The Authorization Layer for AI Execution
 
-Execution Governance is the layer between AI reasoning and business execution.
+Execution trust is the layer between AI reasoning and business execution.
 
 Instead of trusting an AI agent to decide what it may execute, Parmana ensures every execution is:
 
@@ -43,7 +43,7 @@ Instead of trusting an AI agent to decide what it may execute, Parmana ensures e
 
 Parmana does not replace AI.
 
-It governs execution.
+It authorizes execution.
 
 ---
 
@@ -369,7 +369,7 @@ See the `docs/` directory for detailed specifications.
 
 Current foundation:
 
-* ✅ Execution Governance
+* ✅ Pre-Execution Authorization
 * ✅ Policy Engine
 * ✅ Runtime
 * ✅ Verification
@@ -416,7 +416,7 @@ Licensed under the Apache License 2.0.
 
 # Parmana
 
-**Execution Governance for AI.**
+**The Authorization Layer for AI Execution.**
 
 **Execution Trust Infrastructure.**
 
@@ -688,7 +688,7 @@ The Runtime governs execution while enterprise systems remain the systems of rec
 
 Implemented today:
 
-* Execution Governance
+* Pre-execution authorization
 * Execution Trust Infrastructure
 * Business Transaction model
 * Deterministic Policy Engine
@@ -728,7 +728,7 @@ Planned capabilities:
 
 # Contributing
 
-We welcome contributions that strengthen the Execution Governance platform.
+We welcome contributions that strengthen Parmana's authorization layer for AI execution.
 
 Before contributing:
 
@@ -762,7 +762,7 @@ Parmana exists to provide that proof.
 
 **Parmana**
 
-**Execution Governance for AI**
+**The Authorization Layer for AI Execution**
 
 **Execution Trust Infrastructure**
 

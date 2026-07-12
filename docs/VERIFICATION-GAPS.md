@@ -319,3 +319,17 @@ grep -rn "\.skip(\|\.skipIf(\|\.todo(" packages/*/tests packages/*/test --includ
 
 Every finding above traces to a specific `file:line` cited inline; none are inferred from
 summaries or file names alone.
+
+---
+
+## Deferred: legacy documentation tree, out of scope for the terminology sweep
+
+`docs/00-introduction`, `docs/rfcs`, `GOVERNANCE.md`, `docs/01-concepts` through
+`docs/03-api`, `docs/adr`, and `typescript/docs/06_autonomous_vehicle.md` through
+`typescript/docs/09_multi_agent.md` predate the Mintlify site (`docs/site`) and still use
+older terminology, including "Execution Governance" as a brand or category term now claimed
+by an unrelated academic framework (Ku, 2026, EG Reference Specification). These files were
+left untouched during the terminology sweep that updated `docs/site`, `README.md`,
+`packages/connector-sdk/package.json`, and the affected tutorial READMEs. Whether this
+legacy tree gets swept for the same terminology or archived outright is a separate decision,
+not made here.

@@ -10,7 +10,7 @@ In this tutorial, you'll create an \*\*Execution Permit™\*\*, the cryptographi
 
 
 
-Unlike the previous tutorials, which focused on cryptographic primitives, this tutorial introduces the first core artifact of Parmana's \*\*Execution Governance\*\* model.
+Unlike the previous tutorials, which focused on cryptographic primitives, this tutorial introduces the first core artifact of Parmana's \*\*execution trust\*\* model.
 
 
 

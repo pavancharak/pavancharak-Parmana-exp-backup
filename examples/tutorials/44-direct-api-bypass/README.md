@@ -304,7 +304,7 @@ No Execution
 
 
 
-This is the most fundamental invariant of Execution Governance.
+This is the most fundamental invariant of pre-execution authorization.
 
 
 

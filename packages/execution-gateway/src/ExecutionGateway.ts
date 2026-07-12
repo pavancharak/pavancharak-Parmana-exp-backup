@@ -231,9 +231,8 @@ export class ExecutionGateway implements ExecutionSystem {
               )
             : this.executionControl.gatewayAuthentication;
 
-        return this.executionControl.service.execute({
-          connectorName: this.executionControl.route(transaction),
-          authorization: request.authorization,
+  return this.executionControl.service.execute({
+  authorization: request.authorization,
           executableContent: transaction,
           verifiedTransaction: {
             authorizationVerified: true,

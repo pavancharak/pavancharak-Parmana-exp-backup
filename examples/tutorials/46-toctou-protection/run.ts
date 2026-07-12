@@ -147,7 +147,7 @@ async function main(): Promise<void> {
   console.log();
 
   console.log(
-    "Execution Governance Summary",
+    "Execution Authorization Summary",
   );
 
   console.log(

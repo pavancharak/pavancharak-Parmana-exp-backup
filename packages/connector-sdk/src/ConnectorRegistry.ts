@@ -147,7 +147,26 @@ export class ConnectorSdkRegistry implements ConnectorRegistry {
   get(name: string): SecureConnector {
     return this.inner.get(name);
   }
+resolveCapability(
+  capability: string,
+): SecureConnector {
 
+  for (const entry of this.entries.values()) {
+
+    if (
+      entry.secureConnector.capabilities.includes(
+        capability,
+      )
+    ) {
+      return entry.secureConnector;
+    }
+
+  }
+
+  throw new Error(
+    `No connector registered for capability '${capability}'.`,
+  );
+}
   entry(name: string): ConnectorRegistryEntry {
     const entry = this.entries.get(name);
     if (entry === undefined) throw new Error(`Unknown connector: ${name}.`);

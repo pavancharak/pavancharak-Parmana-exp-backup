@@ -22,7 +22,7 @@ import type {
 } from "./context/RuntimeContext.js";
 
 import { RuntimePipeline } from "./RuntimePipeline.js";
-import { ExecutionTrustPipeline } from "./ExecutionTrustPipeline.js";
+import { BusinessTrustPipeline } from "./BusinessTrustPipeline.js";
 
 import {
   RuntimeHookRunner,
@@ -53,7 +53,7 @@ export class RuntimeEngine {
     private readonly decisionBuilder: DecisionBuilder,
     private readonly executionGate: ExecutionGate,
     private readonly executionBuilder: ExecutionBuilder,
-    private readonly trustPipeline: ExecutionTrustPipeline,
+    private readonly trustPipeline: BusinessTrustPipeline,
     private readonly authorizationSigner: RuntimeAuthorizationSigner,
     private readonly authorizationTtlSeconds: number,
     private readonly hooks: RuntimeHook[] = [],
@@ -71,7 +71,7 @@ export class RuntimeEngine {
     }
 
     if (!trustPipeline) {
-      throw new Error("ExecutionTrustPipeline is required.");
+      throw new Error("BusinessTrustPipeline is required.");
     }
 
     if (!authorizationSigner) {
@@ -84,86 +84,87 @@ export class RuntimeEngine {
       );
   }
 
-public async execute(
-  transaction: BusinessTransaction,
-): Promise<{
-  transaction: BusinessTransaction;
-  context: RuntimeContext;
-  trustRecord: ExecutionTrustRecord;
-}> {
+  public async execute(
+    transaction: BusinessTransaction,
+  ): Promise<{
+    transaction: BusinessTransaction;
+    context: RuntimeContext;
+    trustRecord: ExecutionTrustRecord;
+  }> {
 
-  //
-  // Runtime signals
-  //
+    //
+    // Runtime signals
+    //
 
-  const signals =
-    (transaction.signals ?? {}) as Record<
-      string,
-      JsonValue
-    >;
+    const signals =
+      (transaction.signals ?? {}) as Record<
+        string,
+        JsonValue
+      >;
 
-  //
-  // Policy loading
-  //
+    //
+    // Policy loading
+    //
 
-  await this.hookRunner.beforePolicyLoad(
-    transaction,
-  );
-
-  const policy =
-    await this.policyRouter.load(
-      transaction.policy.name,
-      transaction.policy.version,
+    await this.hookRunner.beforePolicyLoad(
+      transaction,
     );
 
-  await this.hookRunner.afterPolicyLoad(
-    transaction,
-    policy,
-  );
+    const policy =
+      await this.policyRouter.load(
+        transaction.policy.name,
+        transaction.policy.version,
+      );
 
-  //
-  // Policy evaluation
-  //
-
-  await this.hookRunner.beforePolicyEvaluation(
-    transaction,
-    policy,
-  );
-
-  const policyDecision =
-    this.policyEngine.evaluate(
+    await this.hookRunner.afterPolicyLoad(
+      transaction,
       policy,
-      signals,
     );
 
-  await this.hookRunner.afterPolicyEvaluation(
-    transaction,
-    policy,
-    policyDecision,
-  );
+    //
+    // Policy evaluation
+    //
 
-  //
-  // Decision
-  //
+    await this.hookRunner.beforePolicyEvaluation(
+      transaction,
+      policy,
+    );
 
-  await this.hookRunner.beforeDecision(
-    transaction,
-    policyDecision,
-  );
+    const policyDecision =
+      this.policyEngine.evaluate(
+        policy,
+        signals,
+      );
 
-  const decision =
-    this.decisionBuilder.build(
+    await this.hookRunner.afterPolicyEvaluation(
+      transaction,
+      policy,
+      policyDecision,
+    );
+
+    //
+    // Decision
+    //
+
+    await this.hookRunner.beforeDecision(
       transaction,
       policyDecision,
     );
 
-  //
-  // Enforce
-  //
+    const decision =
+      this.decisionBuilder.build(
+        transaction,
+        policyDecision,
+      );
 
-  this.executionGate.enforce(
-    decision,
-  );
+    //
+    // Enforce
+    //
+
+    this.executionGate.enforce(
+      decision,
+    );
+
     const executableContent: ExecutableContent =
       toExecutableContent({
         businessTransactionId:
@@ -173,119 +174,118 @@ public async execute(
         parameters: transaction.intent.parameters,
       });
 
-   //
-// Authorization
-//
+    //
+    // Authorization
+    //
 
-await this.hookRunner.beforeAuthorization(
-  transaction,
-  policyDecision,
-);
+    await this.hookRunner.beforeAuthorization(
+      transaction,
+      policyDecision,
+    );
 
-const authorization =
-  await this.authorizationSigner.sign(
-    {
-      decisionId:
-        decision.decisionId,
-      businessTransactionId:
-        transaction.businessTransactionId,
-      policyName:
-        transaction.policy.name,
-      policyVersion:
-        transaction.policy.version,
-      executableContent,
-    },
-    this.authorizationTtlSeconds,
-  );
+    const authorization =
+      await this.authorizationSigner.sign(
+        {
+          decisionId:
+            decision.decisionId,
+          businessTransactionId:
+            transaction.businessTransactionId,
+          policyName:
+            transaction.policy.name,
+          policyVersion:
+            transaction.policy.version,
+          executableContent,
+        },
+        this.authorizationTtlSeconds,
+      );
 
-await this.hookRunner.afterAuthorization(
-  transaction,
-  policyDecision,
-  authorization,
-);
+    await this.hookRunner.afterAuthorization(
+      transaction,
+      policyDecision,
+      authorization,
+    );
 
-//
-// Execution
-//
+    //
+    // Execution
+    //
 
-const execution =
-  this.executionBuilder.build(
-    transaction,
-    decision,
-  );
+    const execution =
+      this.executionBuilder.build(
+        transaction,
+        decision,
+      );
 
-//
-// Runtime Context
-//
+    //
+    // Runtime Context
+    //
 
-const context: RuntimeContext = {
-  transaction: {
-    ...transaction,
-    status:
-      transaction.status ??
-      BusinessTransactionStatus.RECEIVED,
-  },
-  decision,
-  authorization,
-  execution,
-};
+    const context: RuntimeContext = {
+      transaction: {
+        ...transaction,
+        status:
+          transaction.status ??
+          BusinessTransactionStatus.RECEIVED,
+      },
+      decision,
+      authorization,
+      execution,
+    };
 
-await this.hookRunner.afterDecision(
-  context,
-);
-
-await this.hookRunner.beforeExecution(
-  context,
-);
-
-try {
-  //
-  // Runtime Pipeline
-  //
-
-  const processedContext =
-    await this.pipeline.execute(
+    await this.hookRunner.afterDecision(
       context,
     );
 
-  await this.hookRunner.afterExecution(
-    processedContext,
-  );
-
-  await this.hookRunner.beforeTrustRecord(
-    processedContext,
-  );
-
-  //
-  // Trust Pipeline
-  //
-
-  const trustRecord =
-    await this.trustPipeline.execute(
-      processedContext,
+    await this.hookRunner.beforeExecution(
+      context,
     );
 
-  await this.hookRunner.afterTrustRecord(
-    processedContext,
-    trustRecord,
-  );
+    try {
+      //
+      // Runtime Pipeline
+      //
 
-  return {
-    transaction:
-      processedContext.transaction,
-    context:
-      processedContext,
-    trustRecord,
-  };
-} catch (error) {
-  await this.hookRunner.onRuntimeError(
-    context,
-    error as Error,
-  );
+      const processedContext =
+        await this.pipeline.execute(
+          context,
+        );
 
-  throw error;
-}
- 
+      await this.hookRunner.afterExecution(
+        processedContext,
+      );
+
+      await this.hookRunner.beforeTrustRecord(
+        processedContext,
+      );
+
+      //
+      // Business Trust Pipeline
+      //
+
+      const trustRecord =
+        await this.trustPipeline.execute(
+          processedContext,
+        );
+
+      await this.hookRunner.afterTrustRecord(
+        processedContext,
+        trustRecord,
+      );
+
+      return {
+        transaction:
+          processedContext.transaction,
+        context:
+          processedContext,
+        trustRecord,
+      };
+    } catch (error) {
+      await this.hookRunner.onRuntimeError(
+        context,
+        error as Error,
+      );
+
+      throw error;
+    }
   }
 
   /**

@@ -14,7 +14,7 @@ Rather than exposing the Runtime throughout the application, Parmana should be e
 
 
 
-This approach keeps application code independent of Runtime implementation details while centralizing execution governance.
+This approach keeps application code independent of Runtime implementation details while centralizing pre-execution authorization.
 
 
 

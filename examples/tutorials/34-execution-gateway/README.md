@@ -446,7 +446,7 @@ Enterprise Execution
 
 
 
-\## Canonical Execution Governance Model
+\## Canonical Execution Authorization Model
 
 
 
@@ -574,5 +574,5 @@ You have completed the full Parmana tutorial series covering:
 
 
 
-Together, these tutorials demonstrate Parmana's Execution Governance model from policy evaluation through trusted enterprise execution.
+Together, these tutorials demonstrate Parmana's execution trust model from policy evaluation through trusted enterprise execution.
 

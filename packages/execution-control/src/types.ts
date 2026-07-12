@@ -63,6 +63,10 @@ export interface SecureConnector {
 
 export interface ConnectorRegistry {
   get(name: string): SecureConnector;
+
+  resolveCapability(
+    capability: string,
+  ): SecureConnector;
 }
 
 export interface ConnectorAuthenticator {
@@ -99,13 +103,11 @@ export interface ExecutionAuditSink {
 }
 
 export interface ExecutionRelease {
-  readonly connectorName: string;
   readonly authorization: SignedExecutionAuthorization;
   readonly executableContent: Readonly<ExecutableContent>;
   readonly verifiedTransaction: VerifiedTransaction;
   readonly executionTimestamp: string;
 }
-
 export interface ExecutionControl {
   execute(release: ExecutionRelease, gatewayAuthentication: unknown): Promise<ExecutionResult>;
 }

@@ -242,7 +242,7 @@ Reason:
 
 
 
-Connectors cannot bypass Execution Governance.
+Connectors cannot bypass pre-execution authorization.
 
 
 
@@ -370,5 +370,5 @@ In this tutorial you learned:
 
 \- The Execution Gateway independently verifies every request.
 
-\- A compromised connector cannot bypass Execution Governance.
+\- A compromised connector cannot bypass pre-execution authorization.
 

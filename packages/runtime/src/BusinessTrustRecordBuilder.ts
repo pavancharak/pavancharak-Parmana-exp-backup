@@ -19,7 +19,7 @@ type TrustRecordDraft = Omit<
 /**
  * Builds the canonical Execution Trust Record.
  */
-export class ExecutionTrustRecordBuilder {
+export class BusinessTrustRecordBuilder {
   private readonly crypto =
     new VerificationCrypto();
 

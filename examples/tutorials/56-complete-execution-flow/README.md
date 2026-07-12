@@ -6,7 +6,7 @@
 
 
 
-In this tutorial, you'll execute the complete \*\*Execution Governance\*\* lifecycle in Parmana.
+In this tutorial, you'll execute the complete \*\*pre-execution authorization\*\* lifecycle in Parmana.
 
 
 
@@ -274,7 +274,7 @@ You have now built and explored:
 
 \* Execution Receipt Verification™
 
-\* Complete Execution Governance workflow
+\* Complete execution authorization workflow
 
 
 

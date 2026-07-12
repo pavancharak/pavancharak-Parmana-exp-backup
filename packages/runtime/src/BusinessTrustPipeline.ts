@@ -2,7 +2,7 @@ import { ExecutionTrustRecord } from "@parmana/shared";
 
 import { RuntimeContext } from "./context/RuntimeContext.js";
 
-import { ExecutionTrustRecordBuilder } from "./ExecutionTrustRecordBuilder.js";
+import { BusinessTrustRecordBuilder } from "./BusinessTrustRecordBuilder.js";
 
 /**
  * Execution Trust Pipeline.
@@ -22,8 +22,8 @@ import { ExecutionTrustRecordBuilder } from "./ExecutionTrustRecordBuilder.js";
  * The pipeline itself contains no business rules.
  * It simply assembles the canonical trust artifact.
  */
-export class ExecutionTrustPipeline {
-  private readonly builder = new ExecutionTrustRecordBuilder();
+export class BusinessTrustPipeline {
+  private readonly builder = new BusinessTrustRecordBuilder();
 
   /**
    * Executes the canonical Execution Trust Pipeline.

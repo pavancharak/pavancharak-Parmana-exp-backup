@@ -218,7 +218,7 @@ Execution rejected before reaching the enterprise system.
 
 
 
-Execution Governance Summary
+Execution Authorization Summary
 
 \--------------------------------------------------
 
@@ -282,7 +282,7 @@ This verification occurs \*\*at execution time\*\*, not only at decision time.
 
 
 
-\## Complete Execution Governance Pipeline
+\## Complete Execution Authorization Pipeline
 
 
 
@@ -428,7 +428,7 @@ npm run examples
 
 
 
-You have completed the Execution Governance tutorial series.
+You have completed the execution authorization tutorial series.
 
 
 

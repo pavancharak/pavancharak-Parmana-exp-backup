@@ -1,7 +1,7 @@
 {
   "name": "@parmana/connector-sdk",
   "version": "0.1.0",
-  "description": "Connector authoring contracts and reference implementations for Parmana Execution Governance connectors",
+  "description": "Connector authoring contracts and reference implementations for Parmana, the authorization layer for AI execution",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

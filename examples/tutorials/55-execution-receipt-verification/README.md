@@ -238,7 +238,7 @@ Continue with \*\*Tutorial 56 – Complete Execution Flow™\*\*, where you'll b
 
 
 
-This final tutorial demonstrates the complete end-to-end Execution Governance workflow in a single example.
+This final tutorial demonstrates the complete end-to-end execution authorization workflow in a single example.
 
 
 
