@@ -7,13 +7,13 @@ import {
 } from "@parmana/crypto";
 
 import type {
-  ExecutionTrustRecord,
-} from "./models/ExecutionTrustRecord.js";
+  ExecutionTrustAttestation,
+} from "./models/ExecutionTrustAttestation.js";
 
 /**
- * Builds immutable Execution Trust Records.
+ * Builds immutable Execution Trust Attestations.
  */
-export class ExecutionTrustRecordBuilder {
+export class ExecutionTrustAttestationBuilder {
   constructor(
     private readonly crypto: HybridCryptoProvider,
   ) {}
@@ -27,7 +27,7 @@ export class ExecutionTrustRecordBuilder {
     gatewayId: string,
     policyVersion: string,
     timestamp: string,
-  ): Promise<ExecutionTrustRecord> {
+  ): Promise<ExecutionTrustAttestation> {
     const artifactHash =
       await new TrustRecordHasher(
         this.crypto.primary,

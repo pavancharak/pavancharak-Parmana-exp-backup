@@ -6,7 +6,7 @@ import type {
  * Cryptographic proof that an execution
  * was authorized.
  */
-export interface ExecutionTrustRecord {
+export interface ExecutionTrustAttestation {
   /**
    * Hash of the canonical artifact.
    */

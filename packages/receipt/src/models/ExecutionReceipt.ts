@@ -1,9 +1,8 @@
 import type {
   ExecutionPermit,
 } from "@parmana/execution-control";
-
-import type {
-  ExecutionTrustRecord,
+import {
+  ExecutionTrustAttestation,
 } from "@parmana/execution-system";
 
 /**
@@ -14,5 +13,5 @@ export interface ExecutionReceipt {
 
   readonly permit: ExecutionPermit;
 
-  readonly trustRecord: ExecutionTrustRecord;
+  readonly trustRecord: ExecutionTrustAttestation;
 }

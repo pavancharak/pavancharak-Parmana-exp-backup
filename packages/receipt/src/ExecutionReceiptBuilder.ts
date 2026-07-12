@@ -2,8 +2,8 @@ import type {
   ExecutionPermit,
 } from "@parmana/execution-control";
 
-import type {
-  ExecutionTrustRecord,
+import {
+  ExecutionTrustAttestation,
 } from "@parmana/execution-system";
 
 import type {
@@ -16,7 +16,7 @@ import type {
 export class ExecutionReceiptBuilder {
   build(
     permit: ExecutionPermit,
-    trustRecord: ExecutionTrustRecord,
+    trustRecord: ExecutionTrustAttestation,
   ): ExecutionReceipt {
     return Object.freeze({
       version: 1,
