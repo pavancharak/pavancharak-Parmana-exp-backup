@@ -1,0 +1,294 @@
+import request from "supertest";
+import { beforeEach, describe, expect, it } from "vitest";
+
+import { createApplication } from "../../src/application.js";
+import { createApp } from "../../src/app.js";
+
+import { hashApiKey } from "../../src/auth/hashApiKey.js";
+import { StaticKeyAuthenticator } from "../../src/auth/StaticKeyAuthenticator.js";
+import { InMemoryCallerAuditSink } from "../../src/auth/InMemoryCallerAuditSink.js";
+
+import { createBusinessTransaction } from "../fixtures/business-transaction.js";
+import { createInspectableExecutionSystem } from "../bootstrap/createInspectableExecutionSystem.js";
+
+/**
+ * HTTP-level proof of caller authentication: the layer in
+ * front of every route except /health, entirely separate
+ * from policy evaluation (SignedExecutionAuthorization) and
+ * gateway attestation, both of which run later and are
+ * proven unchanged by this file.
+ */
+describe("Caller authentication (HTTP boundary)", () => {
+  const CALLER_A_KEY = "caller-a-raw-key-for-tests-only";
+  const CALLER_B_KEY = "caller-b-raw-key-for-tests-only";
+
+  function buildApp() {
+    const { executionSystem, auditSink: executionAuditSink } =
+      createInspectableExecutionSystem();
+
+    const application = createApplication(executionSystem);
+
+    const authenticator = new StaticKeyAuthenticator([
+      { callerId: "caller-a", keyHash: hashApiKey(CALLER_A_KEY) },
+      { callerId: "caller-b", keyHash: hashApiKey(CALLER_B_KEY) },
+    ]);
+
+    const callerAuditSink = new InMemoryCallerAuditSink();
+
+    const app = createApp(application, {
+      callerAuth: { authenticator, auditSink: callerAuditSink },
+    });
+
+    return { app, executionAuditSink, callerAuditSink };
+  }
+
+  describe("valid credential", () => {
+    it("reaches the route handler and executes normally", async () => {
+      const { app } = buildApp();
+      const transaction = createBusinessTransaction();
+
+      const response = await request(app)
+        .post("/execute")
+        .set("Authorization", `Bearer ${CALLER_A_KEY}`)
+        .send(transaction);
+
+      expect(response.status).toBe(200);
+    });
+  });
+
+  describe("missing credential", () => {
+    it("is rejected 401 before any Business Transaction is constructed", async () => {
+      const { app, executionAuditSink } = buildApp();
+      const transaction = createBusinessTransaction();
+
+      const response = await request(app).post("/execute").send(transaction);
+
+      expect(response.status).toBe(401);
+
+      // Nothing reached the execution-control layer at all: the
+      // pre-existing execution audit trail (a different, deliberately
+      // separate sink from caller auth's own) recorded zero events.
+      expect(executionAuditSink.events).toHaveLength(0);
+    });
+
+    it("records a caller.rejected event with reason \"missing credential\"", async () => {
+      const { app, callerAuditSink } = buildApp();
+
+      await request(app).post("/execute").send(createBusinessTransaction());
+
+      expect(callerAuditSink.events).toHaveLength(1);
+      expect(callerAuditSink.events[0]).toMatchObject({
+        type: "caller.rejected",
+        reason: "missing credential",
+        route: "/execute",
+      });
+      expect(callerAuditSink.events[0].callerId).toBeUndefined();
+    });
+  });
+
+  describe("invalid credential", () => {
+    it("is rejected 401 with no downstream side effects", async () => {
+      const { app, executionAuditSink } = buildApp();
+
+      const response = await request(app)
+        .post("/execute")
+        .set("Authorization", "Bearer not-a-real-key")
+        .send(createBusinessTransaction());
+
+      expect(response.status).toBe(401);
+      expect(executionAuditSink.events).toHaveLength(0);
+    });
+
+    it("records a caller.rejected event with reason \"invalid credential\"", async () => {
+      const { app, callerAuditSink } = buildApp();
+
+      await request(app)
+        .post("/execute")
+        .set("Authorization", "Bearer not-a-real-key")
+        .send(createBusinessTransaction());
+
+      expect(callerAuditSink.events).toHaveLength(1);
+      expect(callerAuditSink.events[0]).toMatchObject({
+        type: "caller.rejected",
+        reason: "invalid credential",
+      });
+    });
+  });
+
+  describe("scoping and revocation", () => {
+    it("a key valid for one caller does not grant a different caller's identity", async () => {
+      const { app, callerAuditSink } = buildApp();
+
+      await request(app)
+        .post("/execute")
+        .set("Authorization", `Bearer ${CALLER_A_KEY}`)
+        .send(createBusinessTransaction());
+
+      const authenticatedEvent = callerAuditSink.events.find(
+        (event) => event.type === "caller.authenticated",
+      );
+
+      expect(authenticatedEvent?.callerId).toBe("caller-a");
+      expect(authenticatedEvent?.callerId).not.toBe("caller-b");
+    });
+
+    it("a revoked key is rejected once its entry is removed from configuration", async () => {
+      const oldKey = "orchestrator-old-key";
+      const newKey = "orchestrator-new-key";
+
+      const { executionSystem } = createInspectableExecutionSystem();
+      const application = createApplication(executionSystem);
+
+      // Rotation in progress: both keys active.
+      const duringRotation = new StaticKeyAuthenticator([
+        { callerId: "orchestrator-1", keyHash: hashApiKey(oldKey) },
+        { callerId: "orchestrator-1", keyHash: hashApiKey(newKey) },
+      ]);
+
+      const appDuringRotation = createApp(application, {
+        callerAuth: {
+          authenticator: duringRotation,
+          auditSink: new InMemoryCallerAuditSink(),
+        },
+      });
+
+      const stillWorks = await request(appDuringRotation)
+        .post("/execute")
+        .set("Authorization", `Bearer ${oldKey}`)
+        .send(createBusinessTransaction());
+
+      expect(stillWorks.status).toBe(200);
+
+      // Rotation complete: the old entry is removed (revoked), matching
+      // what a config reload after "add-new, migrate, revoke-old" does.
+      const afterRevocation = new StaticKeyAuthenticator([
+        { callerId: "orchestrator-1", keyHash: hashApiKey(newKey) },
+      ]);
+
+      const appAfterRevocation = createApp(application, {
+        callerAuth: {
+          authenticator: afterRevocation,
+          auditSink: new InMemoryCallerAuditSink(),
+        },
+      });
+
+      const revokedKeyRejected = await request(appAfterRevocation)
+        .post("/execute")
+        .set("Authorization", `Bearer ${oldKey}`)
+        .send(createBusinessTransaction());
+
+      expect(revokedKeyRejected.status).toBe(401);
+
+      const newKeyStillWorks = await request(appAfterRevocation)
+        .post("/execute")
+        .set("Authorization", `Bearer ${newKey}`)
+        .send(createBusinessTransaction());
+
+      expect(newKeyStillWorks.status).toBe(200);
+    });
+  });
+
+  describe("audit trail content", () => {
+    it("records caller identity and timestamp for every outcome, never the raw key", async () => {
+      const { app, callerAuditSink } = buildApp();
+
+      await request(app)
+        .post("/execute")
+        .set("Authorization", `Bearer ${CALLER_A_KEY}`)
+        .send(createBusinessTransaction());
+
+      await request(app).post("/execute").send(createBusinessTransaction());
+
+      expect(callerAuditSink.events).toHaveLength(2);
+
+      for (const event of callerAuditSink.events) {
+        expect(event.occurredAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      }
+
+      const serialized = JSON.stringify(callerAuditSink.events);
+      expect(serialized).not.toContain(CALLER_A_KEY);
+      expect(serialized).not.toContain(CALLER_B_KEY);
+    });
+  });
+
+  describe("composition with policy evaluation", () => {
+    it("a well-authenticated caller submitting a policy-rejected transaction is still rejected by policy", async () => {
+      const { app } = buildApp();
+
+      const rejectedTransaction = createBusinessTransaction();
+      // @ts-expect-error -- test fixture's signals are typed loosely enough
+      // upstream that this direct mutation is the simplest way to force the
+      // real policy engine (policies/vendor-payment/2.0.0/policy.json,
+      // rule "reject-insufficient-funds") to reject.
+      rejectedTransaction.signals.sufficientFunds = false;
+
+      const response = await request(app)
+        .post("/execute")
+        .set("Authorization", `Bearer ${CALLER_A_KEY}`)
+        .send(rejectedTransaction);
+
+      // Caller authentication passed (no 401); policy evaluation still
+      // independently rejected the transaction. Caller auth cannot
+      // substitute for, or override, policy evaluation.
+      expect(response.status).not.toBe(401);
+      expect(response.status).toBe(500);
+      expect(response.body.error).toContain("rejected");
+    });
+  });
+
+  describe("gateway attestation stays a separate, caller-independent layer", () => {
+    it("two different authenticated callers both execute successfully with no callerId leaking into execution evidence", async () => {
+      const { app, executionAuditSink } = buildApp();
+
+      const responseA = await request(app)
+        .post("/execute")
+        .set("Authorization", `Bearer ${CALLER_A_KEY}`)
+        .send(createBusinessTransaction());
+
+      const responseB = await request(app)
+        .post("/execute")
+        .set("Authorization", `Bearer ${CALLER_B_KEY}`)
+        .send(createBusinessTransaction());
+
+      expect(responseA.status).toBe(200);
+      expect(responseB.status).toBe(200);
+
+      // The execution audit trail (execution-control's own, pre-existing
+      // ExecutionAuditSink) has no callerId field in its event shape at
+      // all, and this proves it stays that way in practice: neither
+      // caller's identity appears anywhere in it.
+      const serialized = JSON.stringify(executionAuditSink.events);
+      expect(serialized).not.toContain("caller-a");
+      expect(serialized).not.toContain("caller-b");
+    });
+  });
+
+  describe("route inventory", () => {
+    it("GET /health requires no credential", async () => {
+      const { app } = buildApp();
+
+      const response = await request(app).get("/health");
+
+      expect(response.status).toBe(200);
+    });
+
+    it.each(["/", "/version", "/policies", "/transactions", "/trust-records", "/replay", "/receipt", "/receipt/latest", "/verify", "/verification"])(
+      "%s requires a credential",
+      async (route) => {
+        const { app } = buildApp();
+
+        const response = await request(app).get(route);
+
+        expect(response.status).toBe(401);
+      },
+    );
+
+    it("POST /execute requires a credential", async () => {
+      const { app } = buildApp();
+
+      const response = await request(app).post("/execute").send({});
+
+      expect(response.status).toBe(401);
+    });
+  });
+});

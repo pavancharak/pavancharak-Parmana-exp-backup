@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import { createExecutionSystem } from "./bootstrap/createExecutionSystem.js";
 import { createApplication } from "./application.js";
+import { createCallerAuthenticator } from "./bootstrap/createCallerAuthenticator.js";
 import { createApp } from "./app.js";
 
 const executionSystem =
@@ -12,9 +13,15 @@ const application =
     executionSystem,
   );
 
+const callerAuth =
+  createCallerAuthenticator();
+
 const app =
   createApp(
     application,
+    callerAuth.disabled
+      ? {}
+      : { callerAuth },
   );
 
 const PORT = 3000;

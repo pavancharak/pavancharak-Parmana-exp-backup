@@ -60,7 +60,19 @@ Both write into `PARMANA_KEY_DIR` (defaults to `./keys`). `default.*.pem` signs 
 never the same key, mixing them up is not just a style choice, `assertKeyType` fails closed
 if you sign with the wrong one for a configured provider.
 
-### 3. Set the full environment checklist
+### 3. Generate a caller API key for every system that will call this API
+
+```bash
+npm run generate:api-key -- --caller-id orchestrator-1
+```
+
+Prints a raw key once, and the hash to add to `PARMANA_API_KEYS`. The raw key is never
+written to disk by the script and cannot be recovered afterward, hand it to the calling
+system now. Repeat once per caller (your AI orchestration service, an internal dashboard,
+anything else that will call this API), and repeat again per caller whenever you rotate a
+key, see [Rotating a caller's key](#rotating-a-callers-key) below.
+
+### 4. Set the full environment checklist
 
 ```bash
 PARMANA_STORAGE=memory                        # or: supabase
@@ -70,9 +82,15 @@ PARMANA_GATEWAY_KEY_ID=gateway                 # optional, defaults to "gateway"
 VENDOR_PAYMENT_TOKEN=...                       # credential for the one wired connector
 PRIMARY_SIGNATURE_PROVIDER=ed25519             # or: dilithium3, needs Node >= 24
 HASH_PROVIDER=sha256
+PARMANA_API_KEYS=[{"callerId":"orchestrator-1","keyHash":"..."}]  # from step 3, one entry per key
 ```
 
-### 4. Run it
+`PARMANA_API_KEYS` is a JSON array. Multiple entries may share the same `callerId`, that is
+how rotation works, see below. The server refuses to start with this unset or empty, unless
+`PARMANA_AUTH_DISABLED=true` is set explicitly for local development, see
+[Caller authentication](#caller-authentication).
+
+### 5. Run it
 
 ```bash
 npm run dev
@@ -99,9 +117,62 @@ new key directory: generate a second gateway keypair under a different ID (for e
 The old `gateway.*.pem` files can stay in place until you're confident in the rotation, they
 simply won't be read.
 
+## Caller authentication
+
+Every route except `GET /health` requires a caller credential: a bearer key generated in
+step 3, sent as `Authorization: Bearer <key>`. Only a SHA-256 hash of each key is ever held
+by the server, comparisons run in constant time against that hash, and the raw key is never
+logged or written to disk anywhere in this codebase.
+
+**This is only safe over TLS.** A bearer key sent over plaintext HTTP is readable by anything
+that can observe the connection. Terminate TLS in front of this server (a reverse proxy, load
+balancer, or service mesh sidecar in your own infrastructure, since Parmana does not run a
+hosted service for you), and never expose the API on plaintext HTTP outside `localhost`. This
+is not a suggestion, it is the entire security value of the bearer-key scheme.
+
+Caller authentication is a distinct layer from everything else Parmana does. It runs first,
+before a Business Transaction is even constructed, and answers only "should this HTTP
+request be entertained at all." It is independent of, and cannot substitute for, [policy
+evaluation](/concepts/policies-and-the-decision) (a well-authenticated caller submitting a
+policy-rejected transaction is still rejected) or [gateway
+attestation](/concepts/gateway-attestation) (which proves the gateway itself released a
+specific execution, not who called the API). Keeping these layers separate is deliberate,
+see [How Parmana thinks](/how-parmana-thinks).
+
+### Rotating a caller's key
+
+No downtime, no restart required beyond a config reload:
+
+1. Generate a new key for the same `callerId`: `npm run generate:api-key -- --caller-id
+   orchestrator-1`.
+2. Add the new `{ callerId, keyHash }` entry to `PARMANA_API_KEYS` alongside the old one.
+   Both are active during migration.
+3. Hand the new raw key to the caller, confirm it works.
+4. Remove the old entry from `PARMANA_API_KEYS`. The old key is now revoked and stops
+   authenticating immediately on the next config reload.
+
+### Upgrading beyond static keys
+
+Caller authentication is implemented behind one interface, `CallerAuthenticator`
+(`packages/api/src/auth/CallerAuthenticator.ts`), with `StaticKeyAuthenticator` as the only
+implementation today. If your environment requires mutual TLS instead (common in banks that
+already run internal PKI for service-to-service traffic), that is a second class implementing
+the same interface, swapped in at one place
+(`packages/api/src/bootstrap/createCallerAuthenticator.ts`), not an architecture change: the
+middleware, the audit trail, and every route's behavior stay exactly as documented above.
+
+### Disabling authentication (local development only)
+
+```bash
+PARMANA_AUTH_DISABLED=true
+```
+
+Skips caller authentication entirely and logs a loud warning at startup every time. This
+exists for local development and running the tutorials, and must never be set in a real
+deployment, doing so removes the only authentication this API has.
+
 ## What this deployment does not give you
 
-- **No authentication.** Every route is open.
 - **No KMS/HSM.** Both private keys are files on disk, exactly the exposure that produced
   the incident noted on [Security](/security/overview). `KeyProviders` declares `aws-kms`,
   `azure-key-vault`, `gcp-kms`, and `hsm` as config values with zero implementing classes,
@@ -123,6 +194,12 @@ simply won't be read.
   environment, use `PARMANA_STORAGE` instead, see step 1.
 - **`Postgres storage provider not implemented.`** Expected, `postgres` and `sqlite` are
   declared but not built, use `memory` or `supabase`.
+- **`No caller authentication keys are configured`.** `PARMANA_API_KEYS` is unset or `[]`.
+  Generate a key (step 3) and add it, or set `PARMANA_AUTH_DISABLED=true` for local
+  development only.
+- **`401 authentication required` on every request.** Missing or malformed `Authorization`
+  header, confirm you're sending `Authorization: Bearer <key>` with the exact raw key from
+  step 3, not the hash.
 
 ## Next
 

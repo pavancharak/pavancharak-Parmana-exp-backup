@@ -11,6 +11,8 @@ import { KeyProviders, type KeyProvider } from "./KeyProviders.js";
 
 import { TrustProfiles, type TrustProfile } from "./TrustProfiles.js";
 
+import type { ApiKeyEntry } from "./ApiKeyEntry.js";
+
 function parse<T extends string>(
   value: string | undefined,
   values: Record<string, T>,
@@ -52,3 +54,62 @@ export const parseKeyProvider = (value?: string): KeyProvider =>
 
 export const parseTrustProfile = (value?: string): TrustProfile =>
   parse(value, TrustProfiles, "TRUST_PROFILE", TrustProfiles.V1);
+
+const API_KEY_HASH_PATTERN = /^[0-9a-f]{64}$/;
+
+/**
+ * Parses PARMANA_API_KEYS: a JSON array of
+ * { "callerId": string, "keyHash": string } entries.
+ *
+ * Returns an empty array when unset — callers of this
+ * function decide what an empty result means (the
+ * caller-authenticator bootstrap treats it as "refuse to
+ * start unless auth is explicitly disabled").
+ */
+export function parseApiKeys(value?: string): ApiKeyEntry[] {
+  if (value === undefined || value.trim() === "") {
+    return [];
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error(
+      "PARMANA_API_KEYS is not valid JSON. Expected an array of " +
+        '{ "callerId": string, "keyHash": string } entries.',
+    );
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error(
+      "PARMANA_API_KEYS must be a JSON array of " +
+        '{ "callerId": string, "keyHash": string } entries.',
+    );
+  }
+
+  return parsed.map((entry, index): ApiKeyEntry => {
+    const record = entry as Record<string, unknown>;
+
+    const validEntry =
+      typeof entry === "object" &&
+      entry !== null &&
+      typeof record.callerId === "string" &&
+      record.callerId !== "" &&
+      typeof record.keyHash === "string" &&
+      API_KEY_HASH_PATTERN.test(record.keyHash);
+
+    if (!validEntry) {
+      throw new Error(
+        `PARMANA_API_KEYS[${index}] is invalid. Each entry must be ` +
+          '{ "callerId": non-empty string, "keyHash": 64-character lowercase hex }.',
+      );
+    }
+
+    return {
+      callerId: record.callerId as string,
+      keyHash: record.keyHash as string,
+    };
+  });
+}

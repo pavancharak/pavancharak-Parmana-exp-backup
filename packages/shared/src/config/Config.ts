@@ -24,12 +24,15 @@ import type { KeyProvider } from "./KeyProviders.js";
 
 import type { TrustProfile } from "./TrustProfiles.js";
 
+import type { ApiKeyEntry } from "./ApiKeyEntry.js";
+
 import {
   parseStorageProvider,
   parseHashAlgorithm,
   parseSignatureAlgorithm,
   parseKeyProvider,
   parseTrustProfile,
+  parseApiKeys,
 } from "./ConfigValidation.js";
 
 /**
@@ -121,6 +124,9 @@ export interface Config {
 
   readonly api:
     ApiConfig;
+
+  readonly auth:
+    ApiAuthConfig;
 
   readonly logging:
     LoggingConfig;
@@ -227,6 +233,22 @@ export interface ApiConfig {
 }
 
 /**
+ * API caller authentication.
+ *
+ * Fail-closed by design: an empty `keys` array means the
+ * caller-authenticator bootstrap refuses to start the
+ * server unless `disabled` is explicitly true (local
+ * development and tutorials only).
+ */
+export interface ApiAuthConfig {
+  readonly keys:
+    readonly ApiKeyEntry[];
+
+  readonly disabled:
+    boolean;
+}
+
+/**
  * Logging configuration.
  */
 export interface LoggingConfig {
@@ -327,6 +349,17 @@ policy: Object.freeze({
       port: Number(
         process.env.PORT ?? 3000,
       ),
+    }),
+
+    auth: Object.freeze({
+      keys:
+        parseApiKeys(
+          process.env.PARMANA_API_KEYS,
+        ),
+
+      disabled:
+        process.env.PARMANA_AUTH_DISABLED ===
+        "true",
     }),
 
     logging: Object.freeze({

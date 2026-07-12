@@ -1,6 +1,7 @@
 import express from "express";
 
 import { errorHandler } from "./middleware/error-handler.js";
+import { createCallerAuthMiddleware } from "./middleware/caller-auth.js";
 
 import policyRoutes from "./routes/policies.js";
 import type { ExecutionTrustApplication } from "@parmana/runtime";
@@ -20,12 +21,50 @@ import { createVerifyRouter } from "./routes/verify.js";
 
 import versionRoutes from "./routes/version.js";
 
+import type { CallerAuthenticator } from "./auth/CallerAuthenticator.js";
+import type { CallerAuditSink } from "./auth/CallerAuditSink.js";
+
+export interface CreateAppOptions {
+  /**
+   * When provided, every route except /health requires a
+   * valid caller credential. When omitted, no caller-auth
+   * middleware is mounted at all, which is what every
+   * pre-existing test in this package relies on. Production
+   * (server.ts) always provides this.
+   */
+  readonly callerAuth?: {
+    readonly authenticator: CallerAuthenticator;
+    readonly auditSink: CallerAuditSink;
+  };
+}
+
 export function createApp(
   application: ExecutionTrustApplication,
+  options: CreateAppOptions = {},
 ) {
   const app = express();
 
 app.use(express.json());
+
+/**
+ * System
+ *
+ * /health is the one route exempt from caller
+ * authentication: liveness probes must be able to reach it
+ * with no credential. Everything below this line, including
+ * "/" and "/version", sits behind the middleware when it is
+ * provided.
+ */
+app.use("/health", healthRoutes);
+
+if (options.callerAuth) {
+  app.use(
+    createCallerAuthMiddleware(
+      options.callerAuth.authenticator,
+      options.callerAuth.auditSink,
+    ),
+  );
+}
 
 app.get("/", (_req, res) => {
   res.json({
@@ -34,10 +73,6 @@ app.get("/", (_req, res) => {
   });
 });
 
-/**
- * System
- */
-app.use("/health", healthRoutes);
 app.use("/version", versionRoutes);
 
 
