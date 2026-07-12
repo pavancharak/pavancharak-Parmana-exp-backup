@@ -120,7 +120,6 @@ async function fixture() {
   });
 
   const release: ExecutionRelease = {
-    connectorName: "sap",
     authorization,
     executableContent: content,
     verifiedTransaction: {
@@ -141,7 +140,7 @@ async function fixture() {
 
 function connectorRequest(
   f: Awaited<ReturnType<typeof fixture>>,
-  session = f.sessions.create(f.release, 30_000, f.sessionIssuanceAuthentication),
+  session = f.sessions.create(f.release, "sap", 30_000, f.sessionIssuanceAuthentication),
 ): GatewayExecutionRequest {
   return {
     authorization: f.authorization,
@@ -193,7 +192,7 @@ describe("SessionCredentialSecureConnector", () => {
   it("(b) rejects direct invocation with an expired session", async () => {
     const f = await fixture();
     const session = f.sessions.create(
-      f.release, 1, f.sessionIssuanceAuthentication, new Date(Date.now() - 10),
+      f.release, "sap", 1, f.sessionIssuanceAuthentication, new Date(Date.now() - 10),
     );
 
     await expect(f.connector.execute(connectorRequest(f, session))).rejects.toThrow("invalid");

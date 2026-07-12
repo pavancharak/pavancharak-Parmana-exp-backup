@@ -75,7 +75,6 @@ async function fixture() {
     sessionIssuanceAuthentication,
   });
   const release: ExecutionRelease = {
-    connectorName: "stripe",
     authorization,
     executableContent: content,
     verifiedTransaction: {
@@ -94,7 +93,7 @@ async function fixture() {
 
 function connectorRequest(
   f: Awaited<ReturnType<typeof fixture>>,
-  session = f.sessions.create(f.release, 30_000, f.sessionIssuanceAuthentication),
+  session = f.sessions.create(f.release, "stripe", 30_000, f.sessionIssuanceAuthentication),
 ): GatewayExecutionRequest {
   return {
     authorization: f.authorization,
@@ -125,7 +124,7 @@ describe("execution control", () => {
   it("rejects an expired session", async () => {
     const f = await fixture();
     const session = f.sessions.create(
-      f.release, 1, f.sessionIssuanceAuthentication, new Date(Date.now() - 10),
+      f.release, "stripe", 1, f.sessionIssuanceAuthentication, new Date(Date.now() - 10),
     );
     await expect(f.connector.execute(connectorRequest(f, session)))
       .rejects.toThrow("expired");
@@ -194,15 +193,15 @@ describe("execution control", () => {
 
   it("creates distinct one-time sessions for releases", async () => {
     const f = await fixture();
-    const first = f.sessions.create(f.release, 30_000, f.sessionIssuanceAuthentication);
-    const second = f.sessions.create(f.release, 30_000, f.sessionIssuanceAuthentication);
+    const first = f.sessions.create(f.release, "stripe", 30_000, f.sessionIssuanceAuthentication);
+    const second = f.sessions.create(f.release, "stripe", 30_000, f.sessionIssuanceAuthentication);
     expect(first.sessionId).not.toBe(second.sessionId);
     expect(first.authorizationId).toBe(f.authorization.payload.authorizationId);
   });
 
   it("rejects session creation by Runtime or AI callers", async () => {
     const f = await fixture();
-    expect(() => f.sessions.create(f.release, 30_000, {}))
+    expect(() => f.sessions.create(f.release, "stripe", 30_000, {}))
       .toThrow("unauthenticated caller");
   });
 });

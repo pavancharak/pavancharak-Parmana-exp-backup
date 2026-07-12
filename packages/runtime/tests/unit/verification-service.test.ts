@@ -14,7 +14,7 @@ import {
   type Verification,
 } from "@parmana/shared";
 
-import { ExecutionTrustRecordBuilder } from "../../src/ExecutionTrustRecordBuilder.js";
+import { BusinessTrustRecordBuilder } from "../../src/BusinessTrustRecordBuilder.js";
 import { VerificationService } from "../../src/services/verification-service.js";
 import type { RuntimeContext } from "../../src/context/RuntimeContext.js";
 
@@ -111,7 +111,7 @@ function createTransaction(
 
 /**
  * Builds a genuinely hashed and signed Execution Trust
- * Record via the real ExecutionTrustRecordBuilder — the
+ * Record via the real BusinessTrustRecordBuilder — the
  * same machinery the live runtime uses — so tests exercise
  * real canonicalization, hashing, and signing rather than
  * hand-rolled substitutes.
@@ -157,7 +157,7 @@ async function buildTrustRecord(options: {
     execution,
   };
 
-  return new ExecutionTrustRecordBuilder().build(context);
+  return new BusinessTrustRecordBuilder().build(context);
 }
 
 describe("VerificationService (live path)", () => {
@@ -279,7 +279,7 @@ describe("VerificationService (live path)", () => {
     // throws a RuntimeError as soon as decision.outcome is
     // REJECTED (packages/runtime/src/ExecutionGate.ts),
     // before RuntimeEngine builds the Execution artifact or
-    // ExecutionTrustRecordBuilder is ever invoked. This was
+    // BusinessTrustRecordBuilder is ever invoked. This was
     // also verified empirically in Session 4: the
     // "rejected transaction produces no authorization" test
     // in execution-authorization-wiring.test.ts shows

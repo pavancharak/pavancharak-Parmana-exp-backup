@@ -125,32 +125,17 @@ describe("connector-sdk gateway integration", () => {
     expect(connectorEvidence.connectorEvidenceHash.length).toBeGreaterThan(0);
   });
 
-  it("rejects execution when the routed connector is not registered", async () => {
-    const f = await fixture();
+  it("rejects execution when no connector declares the requested capability", async () => {
+    // Connector routing is capability-based (registry.resolveCapability(action)), not
+    // name-based; the deprecated `route` option is only consulted on the legacy
+    // `channel` execution path, never on `service`. An action nothing declares is
+    // rejected by resolveCapability itself, before any connector is invoked.
+    const f = await fixture({ action: "sap:post" });
 
-    // Reroute to an unregistered connector name via a fresh service sharing the same registry.
-    const gatewayIdentity: GatewayIdentity = {
-      gatewayId: "gateway-1", publicIdentity: "spiffe://parmana/gateway", authenticationMetadata: {},
-    };
-    const gatewayAuthentication = Object.freeze({ token: "gw-token" });
-    const rerouted = new ExecutionGateway({
-      publicKey: f.publicKey,
-      nonceStore: new MemoryNonceStore(),
-      executionControl: {
-        service: new ExecutionControlService({
-          gatewayIdentity,
-          authenticator: new InMemoryConnectorAuthenticator(gatewayIdentity, gatewayAuthentication, []),
-          registry: f.registry,
-          sessions: new InMemoryGatewaySessionStore(Object.freeze({ capability: "session-issuer" })),
-          audit: new MemoryExecutionAuditSink(),
-          sessionIssuanceAuthentication: Object.freeze({ capability: "session-issuer" }),
-        }),
-        gatewayAuthentication,
-        route: () => "sap",
-      },
-    });
-
-    await expect(rerouted.execute(f.request)).rejects.toThrow("Unknown connector: sap.");
+    await expect(f.gateway.execute(f.request)).rejects.toThrow(
+      "No connector registered for capability 'sap:post'.",
+    );
+    expect(f.connector.invocations).toHaveLength(0);
   });
 
   it("rejects a capability the connector did not declare, before invoking the connector", async () => {

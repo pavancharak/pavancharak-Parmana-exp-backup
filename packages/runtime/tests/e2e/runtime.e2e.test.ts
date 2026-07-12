@@ -20,7 +20,7 @@ import {
 
 import { RuntimeEngine } from "../../src/RuntimeEngine.js";
 import { RuntimePipeline } from "../../src/RuntimePipeline.js";
-import { ExecutionTrustPipeline } from "../../src/ExecutionTrustPipeline.js";
+import { BusinessTrustPipeline } from "../../src/BusinessTrustPipeline.js";
 import { RuntimeAuthorizationSigner } from "../../src/RuntimeAuthorizationSigner.js";
 
 /**
@@ -39,7 +39,7 @@ const pipeline = new RuntimePipeline([]);
   const policyEngine = new PolicyEngine();
 
   const trustPipeline =
-    new ExecutionTrustPipeline();
+    new BusinessTrustPipeline();
 
   const authorizationSigner =
     new RuntimeAuthorizationSigner();

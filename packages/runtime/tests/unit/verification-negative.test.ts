@@ -13,7 +13,7 @@ import {
   type ExecutionTrustRecordRepository,
 } from "@parmana/shared";
 
-import { ExecutionTrustRecordBuilder } from "../../src/ExecutionTrustRecordBuilder.js";
+import { BusinessTrustRecordBuilder } from "../../src/BusinessTrustRecordBuilder.js";
 import { VerificationService } from "../../src/services/verification-service.js";
 import type { RuntimeContext } from "../../src/context/RuntimeContext.js";
 
@@ -113,7 +113,7 @@ function createTransaction(
 
 /**
  * Builds a genuinely hashed and signed Execution Trust Record via the real
- * ExecutionTrustRecordBuilder, matching verification-service.test.ts's
+ * BusinessTrustRecordBuilder, matching verification-service.test.ts's
  * convention.
  */
 async function buildTrustRecord(
@@ -149,7 +149,7 @@ async function buildTrustRecord(
     execution,
   };
 
-  return new ExecutionTrustRecordBuilder().build(context);
+  return new BusinessTrustRecordBuilder().build(context);
 }
 
 describe("VerificationService negative cases (in-memory, always-on)", () => {

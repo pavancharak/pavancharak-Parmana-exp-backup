@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { ExecutionTrustPipeline } from "../../src/ExecutionTrustPipeline.js";
+import { BusinessTrustPipeline } from "../../src/BusinessTrustPipeline.js";
 import { createRuntimeContext } from "../fixtures/runtime-context.js";
 
-describe("ExecutionTrustPipeline", () => {
+describe("BusinessTrustPipeline", () => {
   it("should generate an Execution Trust Record", async () => {
-    const pipeline = new ExecutionTrustPipeline();
+    const pipeline = new BusinessTrustPipeline();
 
     const context = createRuntimeContext();
 
@@ -31,7 +31,7 @@ describe("ExecutionTrustPipeline", () => {
   });
 
   it("should produce the same business transaction", async () => {
-    const pipeline = new ExecutionTrustPipeline();
+    const pipeline = new BusinessTrustPipeline();
 
     const context = createRuntimeContext();
 
