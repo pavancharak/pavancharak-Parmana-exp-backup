@@ -5,22 +5,28 @@ description: "Every term used on this site, mapped to its real source."
 
 | Term | Meaning | Source |
 |---|---|---|
+| **Policy** | A named, versioned, ordered list of rules; first match wins, no match rejects | [Policies and the decision](/concepts/policies-and-the-decision) |
+| **Fail-closed** | The absence of a matching rule, a missing connector, or a failed check always denies, there is no default-allow path anywhere in this system | [Policies and the decision](/concepts/policies-and-the-decision) |
 | **Authority** | The entity empowered to authorize execution within a trust domain | `packages/shared/src/domain/authority.ts` |
 | **Authorization** | A grant, from an Authority, for a specific business purpose | `packages/shared/src/domain/authorization.ts` |
 | **Intent** | The specific action + target + parameters an Authority intends to execute | `packages/shared/src/domain/intent.ts` |
 | **Business Transaction** | The immutable input to policy evaluation, combining Authority + Authorization + Intent + a Policy reference | `packages/shared/src/domain/business-transaction.ts` |
-| **Decision** | The immutable result of evaluating an Intent against a Policy — `APPROVED` or `REJECTED` | `packages/shared/src/domain/decision.ts` |
-| **Execution** | What actually happened after a Decision — status, mode, evidence | `packages/shared/src/domain/execution.ts` |
-| **Execution Trust Record** | The canonical, append-only, signed aggregate of a Business Transaction's complete history | [Trust Record](/trust-record/overview) |
-| **Signed Execution Authorization** | The v1 envelope: a signed, content-bound, single-use, time-bounded proof that Parmana authorized one specific execution | [Signed Execution Authorization](/authorization/signed-execution-authorization) |
-| **Execution Permit** | An earlier prototype name for the same idea now covered by Signed Execution Authorization. Added in commit `39c89e9`, deleted the same day in `17dfe81` in favor of the current architecture. Does not exist in the current codebase — do not treat references to it elsewhere as describing shipped behavior. | git history only |
-| **`businessTransactionHash`** | The canonical content hash bound into a Signed Execution Authorization's payload — the mechanism that closes the check-vs-use (TOCTOU) gap | [Content Binding & TOCTOU](/concepts/content-binding-toctou) |
-| **Execution Gateway** | The library that recomputes `businessTransactionHash` and releases verified content to a Connector — real, but not wired into the default server | [Execution Gateway](/authorization/execution-gateway) |
-| **Connector** | An interface for an enterprise execution system (SAP, a bank's payment rail, etc.) integrated behind the Gateway. One reference implementation (`HttpConnector`) exists. | `packages/execution-gateway/src/Connector.ts` |
-| **Execution Control** | Gateway-authenticated, session-scoped credential isolation for connectors — real, tested, in-memory scaffold; not the finished credential-brokering claim | [Roadmap](/roadmap) |
-| **Nonce** | A single-use value inside an authorization payload; a receiving system must reject a repeat | [Signed Execution Authorization](/authorization/signed-execution-authorization) |
+| **Decision** | The immutable result of evaluating an Intent against a Policy, `APPROVED` or `REJECTED` | `packages/shared/src/domain/decision.ts` |
+| **Execution** | What actually happened after a Decision, status, mode, evidence | `packages/shared/src/domain/execution.ts` |
+| **Execution Trust Record** | The canonical, append-only, signed aggregate of a Business Transaction's complete history | [Execution trust records](/concepts/execution-trust-records) |
+| **Signed Execution Authorization** | The v1 envelope: a signed, content-bound, single-use, time-bounded proof that Parmana authorized one specific execution | [Execution authorization](/concepts/execution-authorization) |
+| **Execution Permit** | Two different things share this name. An earlier prototype (`packages/shared/src/domain/execution-permit.ts`, added and deleted the same day) is gone, do not treat old references to it as shipped behavior. A separate, currently real `ExecutionPermit` exists in `@parmana/execution-control`, consumed only by `@parmana/receipt` and tutorials 53-56, disconnected from `packages/runtime` and `packages/api`. | [@parmana/execution-control](/reference/execution-control) |
+| **`businessTransactionHash`** | The canonical content hash bound into a Signed Execution Authorization's payload, the mechanism that closes the check-vs-use (TOCTOU) gap | [Content Binding & TOCTOU](/concepts/content-binding-toctou) |
+| **Execution Gateway** | The sole boundary that recomputes `businessTransactionHash` and releases verified content to a Connector. Wired into the default server unconditionally as of commit `651497a` | [The gateway](/concepts/the-gateway) |
+| **Gateway Attestation** | A request-bound signature proving the gateway itself, not just Parmana's policy engine, released one specific request | [Gateway attestation](/concepts/gateway-attestation) |
+| **Connector** | An interface for an enterprise execution system (SAP, a bank's payment rail, etc.) integrated behind the Gateway. `HttpConnector` and `MockConnector` are reference implementations; four enterprise-named connectors exist as explicit mocks. Only `vendor-payment` (a `MockConnector`) is registered in the default server. | `packages/execution-gateway/src/Connector.ts` |
+| **Execution Control** | Gateway-authenticated, session-scoped credential isolation for connectors. Real, tested, and wired into the default server for the one registered connector; not yet a general-purpose claim for arbitrary connectors | [Credential isolation](/concepts/credential-isolation) |
+| **Session Credential** | A single-use, time-bounded credential lease issued only after gateway attestation succeeds, consumed exactly once by a connector | [Credential isolation](/concepts/credential-isolation) |
+| **Credential Provider** | Resolves a connector's credential from a source (environment variable, static map); never returns a raw value a caller upstream can see | [Credential isolation](/concepts/credential-isolation) |
+| **Connector Evidence** | What a connector's execution leaves on the trust record: connector ID, version, capability, sanitized endpoint, a `connectorEvidenceHash`, never the credential itself | [Execution trust records](/concepts/execution-trust-records) |
+| **Nonce** | A single-use value inside an authorization payload; a receiving system must reject a repeat | [Execution authorization](/concepts/execution-authorization) |
 | **Verification** | The 3-check process (integrity, signature, authorization binding) confirming an Execution Trust Record's validity | [Verification](/verification/overview) |
-| **Replay** | Two unconnected things share this name — a signature recheck (`POST /replay`) and a disconnected determinism engine (`packages/replay`). Neither does semantic re-evaluation. | [Replay](/replay/overview) |
+| **Replay** | Two unconnected things share this name: a signature recheck (`POST /replay`) and a disconnected engine (`packages/replay`) that genuinely re-evaluates the recorded policy decision, scoped to one execution, not reachable from the API. | [Replay](/replay/overview) |
 | **Receipt** | A signed, independently-verifiable attestation of an Execution Trust Record's state | `packages/shared/src/domain/receipt.ts` |
-| **TOCTOU** | Time-Of-Check-To-Time-Of-Use — the gap between what was authorized and what was actually executed | [Content Binding & TOCTOU](/concepts/content-binding-toctou) |
+| **TOCTOU** | Time-Of-Check-To-Time-Of-Use, the gap between what was authorized and what was actually executed | [Content Binding & TOCTOU](/concepts/content-binding-toctou) |
 | **TTL** | Time-to-live; the bounded window an authorization is valid for, capped to limit exposure from other gaps (e.g. an unshared `NonceStore`) | CLAIMS.md 3.2 |

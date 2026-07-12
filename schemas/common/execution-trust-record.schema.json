@@ -133,7 +133,7 @@
         "intent": {
           "intentId": "ae5865f6-181b-409a-90ec-1b4b8b8414ba",
           "authorizationId": "6e9d6aa6-6d20-40a8-b05d-383516365cc7",
-          "action": "VendorPayment",
+          "action": "payments:execute",
           "target": "vendor/V-100",
           "parameters": {
             "amount": 4500,
@@ -190,7 +190,7 @@
           },
           "evidence": {
             "businessTransactionId": "eed2a972-1bf5-4166-8472-761f76fbf1b2",
-            "action": "VendorPayment",
+            "action": "payments:execute",
             "target": "vendor/V-100",
             "parameters": {
               "amount": 4500,

@@ -95,7 +95,7 @@
       },
       "evidence": {
         "businessTransactionId": "eed2a972-1bf5-4166-8472-761f76fbf1b2",
-        "action": "VendorPayment",
+        "action": "payments:execute",
         "target": "vendor/V-100",
         "parameters": {
           "amount": 4500,

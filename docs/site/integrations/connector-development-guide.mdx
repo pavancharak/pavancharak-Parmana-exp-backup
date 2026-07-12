@@ -1,16 +1,16 @@
 ---
 title: "Connector Development Guide"
-description: "How to implement a Connector against @parmana/connector-sdk — every example uses MockConnector or HttpConnector, no enterprise-specific example."
+description: "How to implement a Connector against @parmana/connector-sdk, every example uses MockConnector or HttpConnector, no enterprise-specific example."
 ---
 
 <Info>**[AVAILABLE] as a library.** `packages/connector-sdk`.</Info>
 
-## Connector responsibilities — and what a Connector must never do
+## Connector responsibilities, and what a Connector must never do
 
 A Connector validates a request, executes using an already-resolved credential, and
 returns a deterministic response. A Connector never evaluates policy, authorizes
 execution, interprets AI output, makes a business decision, or resolves a credential
-itself — credential resolution happens exclusively inside the Execution Gateway, before a
+itself, credential resolution happens exclusively inside the Execution Gateway, before a
 Connector is ever called.
 
 ```typescript
@@ -30,7 +30,7 @@ class ExampleConnector implements Connector {
     if (!this.capabilities.includes(request.capability)) {
       throw new Error(`does not declare capability "${request.capability}"`);
     }
-    // context.credential is an opaque CredentialHandle — read it, never log it.
+    // context.credential is an opaque CredentialHandle, read it, never log it.
     return { success: true, metadata: { recordId: "example-1" } };
   }
 }
@@ -39,7 +39,7 @@ class ExampleConnector implements Connector {
 ## Capabilities are namespaced verbs
 
 `ConnectorCapability` is a plain string, validated eagerly by `connectorCapabilities()`
-against `namespace:verb` (e.g. `http:get`, `crm:read`, `payments:refund`) — a malformed
+against `namespace:verb` (e.g. `http:get`, `crm:read`, `payments:refund`), a malformed
 capability throws at connector construction, not at execution time. By convention,
 `ExecutableContent.action` *is* the capability string; this is what
 `execution-control`'s `DefaultConnectorPolicy` already checks unchanged.
@@ -61,9 +61,9 @@ registry.register({
   },
   connectorIdentity: { connectorId: "example", publicIdentity: "spiffe://parmana/connectors/example", authenticationMetadata: {} },
   credentialProvider: new StaticCredentialProvider({ example: { token: "..." } }),
-  policy, // a ConnectorPolicy — e.g. CapabilityConnectorPolicy(new DefaultConnectorPolicy(...))
+  policy, // a ConnectorPolicy, e.g. CapabilityConnectorPolicy(new DefaultConnectorPolicy(...))
   gatewayAuthentication,
-  crypto, // @parmana/crypto CryptoProvider — reused for evidence hashing, not reimplemented
+  crypto, // @parmana/crypto CryptoProvider, reused for evidence hashing, not reimplemented
 });
 ```
 
@@ -91,7 +91,7 @@ can assert exactly what was executed.
 
 ## Version and health checks fail closed
 
-`SdkConnectorExecutor` rejects execution — before invoking your connector — if:
+`SdkConnectorExecutor` rejects execution, before invoking your connector, if:
 
 - an `expectedVersion` was configured at registration and the connector's own
   `metadata.version` doesn't match (guards a rolling deployment that swapped connector
@@ -100,9 +100,9 @@ can assert exactly what was executed.
 
 ## What every connector's evidence looks like
 
-Every execution produces a `ConnectorEvidence` object — connector ID, version, capability,
+Every execution produces a `ConnectorEvidence` object, connector ID, version, capability,
 a sanitized endpoint (credentials and query parameters stripped), the credential provider's
 ID, redacted request/response summaries, timestamps, and a hash computed by the existing
-`TrustRecordHasher` — attached at `ExecutionResult.metadata.connector`. See
-[Execution Trust Record](/trust-record/overview) for how this reaches the Trust Record
+`TrustRecordHasher`, attached at `ExecutionResult.metadata.connector`. See
+[Execution Trust Record](/concepts/execution-trust-records) for how this reaches the Trust Record
 without any change to its schema or hashing pipeline.

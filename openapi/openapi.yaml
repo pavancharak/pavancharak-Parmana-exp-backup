@@ -184,7 +184,7 @@ paths:
                   intent:
                     intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
                     authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
-                    action: VendorPayment
+                    action: "payments:execute"
                     target: vendor/V-100
                     parameters:
                       amount: 4500
@@ -236,7 +236,7 @@ paths:
                       intent:
                         intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
                         authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
-                        action: VendorPayment
+                        action: "payments:execute"
                         target: vendor/V-100
                         parameters:
                           amount: 4500
@@ -286,7 +286,7 @@ paths:
                           authorizationId: 1dc2d137-fde2-4d9c-b298-79e9f8a0d03e
                         evidence:
                           businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                          action: VendorPayment
+                          action: "payments:execute"
                           target: vendor/V-100
                           parameters:
                             amount: 4500
@@ -361,9 +361,18 @@ paths:
 
         '500':
           description: >-
-            Uncategorized failure, INCLUDING a policy REJECTED decision (Runtime
-            throws a RuntimeError with no explicit status, defaulting to 500) —
-            see description above.
+            Uncategorized failure. Covers three distinct, verified conditions —
+            a policy REJECTED decision (RuntimeError, no explicit status,
+            defaulting to 500), no Connector registered for the request's
+            action (also a RuntimeError, see createConnectorRoute.ts, the
+            default server registers only "payments:execute"), and a
+            structurally incomplete request body (a valid-UUID
+            businessTransactionId but missing required nested fields, e.g.
+            metadata), which throws an uncaught TypeError inside
+            BusinessTransactionValidator.validate before it ever reaches a
+            typed error class, and is caught only by the generic 500 handler.
+            The third case does not carry a code field — see the
+            malformedBody example below.
           content:
             application/json:
               schema:
@@ -376,6 +385,18 @@ paths:
                       Execution rejected: Vendor payment rejected because the
                       assessed payment risk exceeds the maximum permitted threshold.
                     code: RUNTIME_ERROR
+                noConnectorRegistered:
+                  summary: Real captured response — action has no registered Connector
+                  value:
+                    error: "No connector registered for action: vendor-payment."
+                    code: RUNTIME_ERROR
+                malformedBody:
+                  summary: >-
+                    Real captured response — valid UUID but missing required
+                    nested fields (e.g. metadata); no code field, this is the
+                    generic 500 handler, not a typed RuntimeError
+                  value:
+                    error: Internal Server Error
 
   /transactions:
     post:
@@ -431,7 +452,7 @@ paths:
                   intent:
                     intentId: 023fbdd4-f206-4a42-b7dd-d5f865fd2c74
                     authorizationId: 5fb16a24-6688-4f6f-98ee-53a117f0f2c9
-                    action: VendorPayment
+                    action: "payments:execute"
                     target: vendor/V-300
                     parameters:
                       amount: 3300
@@ -489,7 +510,7 @@ paths:
                       intent:
                         intentId: 023fbdd4-f206-4a42-b7dd-d5f865fd2c74
                         authorizationId: 5fb16a24-6688-4f6f-98ee-53a117f0f2c9
-                        action: VendorPayment
+                        action: "payments:execute"
                         target: vendor/V-300
                         parameters:
                           amount: 3300
@@ -539,7 +560,7 @@ paths:
                           authorizationId: 9189f64e-8888-4cb8-8690-46eec6d6ced5
                         evidence:
                           businessTransactionId: ffe803db-fb24-498a-9826-47ddc7e7167d
-                          action: VendorPayment
+                          action: "payments:execute"
                           target: vendor/V-300
                           parameters:
                             amount: 3300
@@ -621,9 +642,12 @@ paths:
 
         '500':
           description: >-
-            Uncategorized failure, INCLUDING a policy REJECTED decision
-            (Runtime throws a RuntimeError with no explicit status,
-            defaulting to 500) — see POST /execute.
+            Uncategorized failure, INCLUDING a policy REJECTED decision, no
+            Connector registered for the request's action, and a
+            structurally incomplete body throwing an uncaught TypeError — see
+            the fuller description and all three examples on POST /execute,
+            same pipeline, not independently re-verified on this route in
+            this pass.
           content:
             application/json:
               schema:
@@ -694,7 +718,7 @@ paths:
                       intent:
                         intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
                         authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
-                        action: VendorPayment
+                        action: "payments:execute"
                         target: vendor/V-100
                         parameters:
                           amount: 4500
@@ -734,7 +758,7 @@ paths:
                       intent:
                         intentId: 95d1607c-cfb7-49b0-b1ce-de217b5e0799
                         authorizationId: ce7d2d10-191f-421d-8f17-4d23f94f7c87
-                        action: VendorPayment
+                        action: "payments:execute"
                         target: vendor/V-200
                         parameters:
                           amount: 2200
@@ -800,7 +824,7 @@ paths:
                     intent:
                       intentId: 95d1607c-cfb7-49b0-b1ce-de217b5e0799
                       authorizationId: ce7d2d10-191f-421d-8f17-4d23f94f7c87
-                      action: VendorPayment
+                      action: "payments:execute"
                       target: vendor/V-200
                       parameters:
                         amount: 2200
@@ -1139,7 +1163,7 @@ paths:
                       intent:
                         intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
                         authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
-                        action: VendorPayment
+                        action: "payments:execute"
                         target: vendor/V-100
                         parameters:
                           amount: 4500
@@ -1189,7 +1213,7 @@ paths:
                           authorizationId: 1dc2d137-fde2-4d9c-b298-79e9f8a0d03e
                         evidence:
                           businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                          action: VendorPayment
+                          action: "payments:execute"
                           target: vendor/V-100
                           parameters:
                             amount: 4500

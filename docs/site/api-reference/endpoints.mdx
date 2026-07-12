@@ -1,9 +1,20 @@
 ---
 title: "Endpoints"
-description: "All 13 routes mounted in packages/api/src/app.ts. Real examples throughout."
+description: "All 14 routes mounted in packages/api/src/app.ts. Every request/response/error shape below was triggered against a live local server, not inferred from code."
 ---
 
+<Info>**[AVAILABLE]**, every example below is real output from this session, commit `651497a`. No authentication middleware exists on any route.</Info>
+
 ## System
+
+### `GET /`
+
+`packages/api/src/app.ts`, defined inline, not in a separate `routes/` file, unlike every
+other route on this page. Easy to miss when enumerating routes by scanning `routes/`.
+
+```json
+{"name":"Parmana","status":"UP"}
+```
 
 ### `GET /health`
 
@@ -25,129 +36,197 @@ description: "All 13 routes mounted in packages/api/src/app.ts. Real examples th
 
 ### `POST /execute`
 
-`packages/api/src/routes/execute.ts`. Validates `businessTransactionId` is a UUID (400 if
-not), maps the body via `BusinessTransactionMapper.fromRequest` (forces
-`status: RECEIVED`, `createdAt: now`, regardless of what the client sends), then executes.
-Returns the full [Execution Trust Record](/trust-record/overview) (see that page for a
-real example).
+`packages/api/src/routes/execute.ts`. Validates `businessTransactionId` is a UUID, maps the
+body via `BusinessTransactionMapper.fromRequest` (forces `status: RECEIVED`, `createdAt:
+now`, regardless of what the client sends), then executes through [The
+gateway](/concepts/the-gateway). Returns the full [Execution trust
+record](/concepts/execution-trust-records).
+
+**Request**: a `BusinessTransaction` (see [Execution trust records](/concepts/execution-trust-records) for the shape).
+
+**Response (200)**: the resulting `ExecutionTrustRecord`.
+
+| Status | Condition | Real example, this session |
+|---|---|---|
+| 400 | `businessTransactionId` is missing or not a UUID | `{"error":"businessTransactionId must be a valid UUID."}` |
+| 409 | A record with this `businessTransactionId` already exists (`DuplicateBusinessTransactionError`) | `{"error":"Business Transaction 'a1a1a1a1-1111-4111-8111-111111111111' already exists."}` |
+| 500 | Policy evaluated to `REJECTED` (a `RuntimeError`, not a distinct status) | `{"error":"Execution rejected: Vendor payment rejected because the vendor has not been verified.","code":"RUNTIME_ERROR"}` |
+| 500 | No connector registered for the request's `action` | `{"error":"No connector registered for action: <action>.","code":"RUNTIME_ERROR"}` (see [The gateway](/concepts/the-gateway)) |
 
 <Warning>
-This route — like every route on this server — does **not** check content-binding. See
-[Content Binding & TOCTOU](/concepts/content-binding-toctou).
+**Verified, not inferred: a structurally incomplete body (a valid UUID but missing required
+nested objects like `metadata`) does not produce the 400
+`BusinessTransactionValidationError` the error-handler is written to catch.** It crashes
+with an unstructured 500:
+
+```json
+{"error":"Internal Server Error"}
+```
+
+The real cause, from the server's own log: `BusinessTransactionValidator.validate` throws a
+raw `TypeError: Cannot read properties of undefined (reading 'businessTransactionId')`
+(`packages/runtime/src/validators/BusinessTransactionValidator.ts:14`), which is not an
+instance of `BusinessTransactionValidationError`, so `error-handler.ts`'s `instanceof` check
+never matches and it falls through to the generic 500. This is a real gap between the
+error-handler's apparent design and what a caller actually sees for this specific input
+shape, reported here, not fixed, see the phase report accompanying this page's introduction
+for tracking.
 </Warning>
 
 ### `GET/POST /transactions`
 
 `packages/api/src/routes/transactions.ts`.
 
-- `GET /transactions?page=1&pageSize=25` — list.
-- `GET /transactions/:id` — one Business Transaction, 404 if not found.
-- `POST /transactions` — **also executes**, duplicating `POST /execute`, but with weaker
-  validation: no UUID check, and the body is spread directly rather than passed through
-  `BusinessTransactionMapper` (`transactions.ts:91-101`). Returns 201 with an
-  `ExecutionTrustRecord`. This duplication is flagged as a core-API finding, not fixed
-  here — see [Roadmap](/roadmap).
+- **`GET /transactions?page=1&pageSize=25`**: list. **Response (200)**: `BusinessTransaction[]`.
+- **`GET /transactions/:id`**: one Business Transaction. **Response (200)**:
+  `BusinessTransaction`. **404** if not found: `{"error":"Business Transaction not found."}`.
+- **`POST /transactions`**: **also executes**, duplicating `POST /execute`, but with weaker
+  validation, no UUID-format distinction beyond the same regex check, and the body is spread
+  directly rather than passed through the same mapper path (`transactions.ts:91-101`).
+  **Response (201)**: `ExecutionTrustRecord`. **400** on invalid UUID, verified identical
+  message to `/execute`'s 400: `{"error":"businessTransactionId must be a valid UUID."}`.
+  This duplication is flagged as a core-API finding, not fixed here, see [Roadmap](/roadmap).
 
 ## Verification
 
 ### `POST /verify`
 
-`packages/api/src/routes/verify.ts`. Fresh verification — see
-[Verification](/verification/overview).
+`packages/api/src/routes/verify.ts`. Fresh verification, appends a new `Verification` to the
+record's history, see [Verify a trust record independently](/guides/verify-independently).
+
+**Request**: `{"businessTransactionId": "<uuid>"}`.
+
+**Response (200)**, real example:
 
 ```json
-// request
-{"businessTransactionId": "111a9197-21b3-42fb-8b7b-a000f1278680"}
-```
-
-```json
-// response
 {
-  "verificationId": "3d611b90-fde3-4c5e-b4e4-9c8c3b3caf2f",
-  "businessTransactionId": "111a9197-21b3-42fb-8b7b-a000f1278680",
+  "verificationId": "dcf429c9-91c5-4ef1-9b8d-5259ff10aad1",
+  "businessTransactionId": "a1a1a1a1-1111-4111-8111-111111111111",
   "status": "VERIFIED",
   "message": "Execution Trust Record verified successfully.",
-  "verifiedAt": "2026-07-06T04:10:15.021Z",
-  "trustRecordHash": "861fe01aaadf904a003d3e6118e74f967164a52d91eb18f97ca6cbce71292768"
+  "verifiedAt": "2026-07-12T08:38:34.934Z",
+  "trustRecordHash": "52da1a19a3cdb868f6ff0eb1ee8a1e7877301a767b65926b165afb88bff1601e"
 }
 ```
+
+| Status | Condition | Real example |
+|---|---|---|
+| 400 | `businessTransactionId` missing | `{"error":"businessTransactionId is required."}` |
+| 400 | `businessTransactionId` not a UUID | `{"error":"businessTransactionId must be a valid UUID."}` |
+| 404 | Valid UUID, no matching record | `{"error":"Execution Trust Record not found.","code":"VERIFICATION_FAILED"}` |
 
 ### `GET /verification/:id`
 
 `packages/api/src/routes/verify-get.ts`, mounted at `/verification`. Reads the **latest**
-verification without re-running one — 404 if the Trust Record or its verification history
-is missing. Distinct route from `POST /verify` above.
+verification without re-running one, distinct route from `POST /verify` above.
+
+**Response (200)**: the same `Verification` shape as `POST /verify`.
+
+| Status | Condition | Real example |
+|---|---|---|
+| 404 | Record not found | `{"error":"Execution Trust Record not found."}` |
+| 404 | Record found, but `verifications` is empty | `{"error":"Verification not found."}` |
 
 ## Receipts
 
 ### `POST /receipt`
 
-`packages/api/src/routes/receipt.ts`. Same request/response pattern as `/verify` —
-`{"businessTransactionId": "..."}` in, a `Receipt` out (see
-[Trust Record](/trust-record/overview) for a `Receipt`'s shape).
+`packages/api/src/routes/receipt.ts`. Same request pattern as `/verify`.
+
+**Request**: `{"businessTransactionId": "<uuid>"}`.
+
+**Response (200)**, real example:
+
+```json
+{
+  "receiptId": "218ec153-5bc4-4b13-aa51-58fea5829acd",
+  "businessTransactionId": "a1a1a1a1-1111-4111-8111-111111111111",
+  "trustRecordHash": "52da1a19a3cdb868f6ff0eb1ee8a1e7877301a767b65926b165afb88bff1601e",
+  "receiptHash": "38c75aec10023d012f9c435acc2e5b0e89009da90da1ff484fcb327e15ed51f8",
+  "issuedAt": "2026-07-12T08:38:43.623Z",
+  "algorithm": "ed25519",
+  "signature": "6Jo++W3JpFpcbG3lKKHRLraVRVQenftCTusJxB+x2LYP8zW3P5Evbw+kFXeSmyREUxfxbxEN5PsNpq3sF+a6Bg=="
+}
+```
+
+| Status | Condition |
+|---|---|
+| 400 | `businessTransactionId` missing or not a UUID, same messages as `/verify` |
 
 ### `GET /receipt/latest/:id`
 
 `packages/api/src/routes/receipt-get.ts`, mounted at `/receipt/latest`. Reads the latest
 receipt without generating a new one.
 
+**Response (200)**: the same `Receipt` shape as `POST /receipt`.
+
+| Status | Condition | Real example |
+|---|---|---|
+| 404 | Record not found | `{"error":"Execution Trust Record not found."}` |
+| 404 | Record found, `receipts` empty | `{"error":"Receipt not found."}` |
+
 ## Replay
 
 ### `POST /replay`
 
-`packages/api/src/routes/replay.ts`. **Re-verifies the Trust Record's signature — it does
+`packages/api/src/routes/replay.ts`. **Re-verifies the trust record's signature, it does
 not reconstruct or re-execute anything.** See [Replay](/replay/overview) for why this name
 is narrower than it sounds.
 
-```json
-// request
-{"businessTransactionId": "111a9197-21b3-42fb-8b7b-a000f1278680"}
-```
+**Request**: `{"businessTransactionId": "<uuid>"}`.
+
+**Response (200)**, real example:
 
 ```json
-// response
 {
-  "businessTransactionId": "111a9197-21b3-42fb-8b7b-a000f1278680",
-  "trustRecordHash": "8d8fc49457038134776ac20fee289991596ab30dff5765e2d1007aed2f51ad69",
+  "businessTransactionId": "a1a1a1a1-1111-4111-8111-111111111111",
+  "trustRecordHash": "52da1a19a3cdb868f6ff0eb1ee8a1e7877301a767b65926b165afb88bff1601e",
   "verified": true
 }
 ```
+
+| Status | Condition | Real example |
+|---|---|---|
+| 400 | `businessTransactionId` missing | `{"error":"businessTransactionId is required."}` |
+| 404 | Valid UUID, no matching record | `{"error":"Execution Trust Record not found.","code":"VERIFICATION_FAILED"}` |
+
+Note this route does not validate UUID format the way `/verify` does, only presence, an
+invalid non-UUID string reaches the same "not found" path as a well-formed but unknown UUID.
 
 ## Trust Records
 
 ### `GET /trust-records/:id`
 
-`packages/api/src/routes/trust-records.ts`. Returns the full
-[Execution Trust Record](/trust-record/overview), 404 if not found.
+`packages/api/src/routes/trust-records.ts`. Returns the full [Execution trust
+record](/concepts/execution-trust-records).
+
+| Status | Condition | Real example |
+|---|---|---|
+| 404 | Not found | `{"error":"Execution Trust Record not found."}` |
 
 ## Policies
 
 ### `POST /policies/validate`
 
 `packages/api/src/routes/policies.ts`. **Does not validate a policy document.** It checks
-only that a policy with the given `policyId` + `policyVersion` is loadable from disk —
-`policyRepository.load(policyId, policyVersion)`. This is a naming/semantics gap flagged
-in [Roadmap](/roadmap), not fixed at the route level.
+only that a policy with the given `policyId` + `policyVersion` is loadable from disk,
+`policyRepository.load(policyId, policyVersion)`. This naming/semantics gap is flagged in
+[Roadmap](/roadmap), not fixed at the route level.
 
-```json
-// request
-{"policyId": "vendor-payment", "policyVersion": "2.0.0"}
-```
+**Request**: `{"policyId": "...", "policyVersion": "..."}`.
 
-```json
-// response (200)
-{"valid": true, "errors": []}
-```
-
-```json
-// response (404, unknown policy/version)
-{"valid": false, "errors": ["<error message>"]}
-```
+| Status | Condition | Real example |
+|---|---|---|
+| 200 | Policy loadable | `{"valid":true,"errors":[]}` |
+| 400 | `policyId` missing/empty | `{"valid":false,"errors":["policyId is required."]}` |
+| 400 | `policyVersion` missing/empty | `{"valid":false,"errors":["policyVersion is required."]}` |
+| 404 | Policy/version not found on disk | `{"valid":false,"errors":["Policy 'nonexistent-policy' version '9.9.9' was not found."]}` |
 
 ## Full route list
 
 | Method | Path | Source |
 |---|---|---|
+| GET | `/` | `app.ts` (inline) |
 | GET | `/health` | `routes/health.ts` |
 | GET | `/version` | `routes/version.ts` |
 | POST | `/execute` | `routes/execute.ts` |

@@ -3,11 +3,13 @@ title: "Packages"
 description: "Every package in packages/*, its real purpose, and its evidence-backed status."
 ---
 
-Test counts below are from a per-package `vitest run` on 2026-07-06 (commit `1f62e24` plus
-this session's uncommitted work). Running `vitest run` once from the repo root instead
-of per-package will produce spurious failures in `packages/runtime` — several tests resolve
-fixture paths relative to `process.cwd()` assuming a per-package invocation; this is a
-pre-existing test fragility, not a functional bug (see [Troubleshooting](/troubleshooting)).
+Per-package test counts below are from 2026-07-06 (commit `1f62e24`) and not independently
+re-verified in this pass, the whole-repo total is current: `npm test` reports 327 passed, 1
+skipped, across 82 test files, as of commit `651497a`. Running `vitest run` once from the
+repo root instead of per-package will produce spurious failures in `packages/runtime`,
+several tests resolve fixture paths relative to `process.cwd()` assuming a per-package
+invocation, this is a pre-existing test fragility, not a functional bug (see
+[Troubleshooting](/troubleshooting)).
 
 | Package | Purpose | Status | Tests | Evidence |
 |---|---|---|---|---|
@@ -15,22 +17,22 @@ pre-existing test fragility, not a functional bug (see [Troubleshooting](/troubl
 | `crypto` | Signing, hashing, key providers, canonical serialization | [AVAILABLE] | 29 | `AuthorizationSigner`, `Ed25519SignatureProvider`, `Dilithium3SignatureProvider` |
 | `policy` | Deterministic, first-match-semantics rule evaluation | [AVAILABLE] | 61 | `PolicyRouter`, `PolicyValidator`, CLAIMS.md 2.2/2.3 |
 | `runtime` | Orchestrates policy → decision → execution → trust record; the 3-check `VerificationService` | [AVAILABLE] | 31 | `packages/runtime/src/services/verification-service.ts` |
-| `api` | The Express HTTP server — the only long-running process | [AVAILABLE] | 30 + 1 skipped | `packages/api/src/app.ts` |
-| `receipt` | Cryptographic receipts over a verified Trust Record | [AVAILABLE] | — (covered via runtime/api) | `ReceiptCrypto`, `ReceiptHasher` |
-| `replay` | Deterministic execution reconstruction | [PARTIAL] | 9 | Package + engine real; **semantic verification of every trust artifact is an explicit Future Claim in CLAIMS.md, not yet true** |
-| `storage` | Append-only ledger abstraction; memory / Postgres / Supabase providers | [AVAILABLE] | 8 | `memory` provider verified live this session; Supabase/Postgres providers exist in source, not independently verified in this audit |
+| `api` | The Express HTTP server, the only long-running process | [AVAILABLE] | 30 + 1 skipped | `packages/api/src/app.ts` |
+| `receipt` | A real `ExecutionReceipt`/`ExecutionPermit` model. Disconnected: nothing in `runtime` or `api` imports it, the actual wired receipts come from `crypto`'s `ReceiptCrypto` directly | [PARTIAL] | not independently re-verified this pass | [@parmana/receipt](/reference/receipt) |
+| `replay` | `ReplayEngine` genuinely re-evaluates a recorded policy decision. Disconnected: nothing in `runtime` or `api` imports it | [PARTIAL] | 9 | Semantic verification of *every* trust artifact remains an explicit Future Claim in CLAIMS.md, this package covers one execution's decision outcome, verified live, see [Replay](/replay/overview) |
+| `storage` | Append-only ledger abstraction; `memory` and `supabase` providers are real, `postgres`/`sqlite` are declared but throw at construction | [AVAILABLE] for `memory`/`supabase` | 8 | `memory` provider verified live this session; see [@parmana/storage](/reference/storage) |
 | `envelope-verifier` | Verifies a `SignedExecutionAuthorization`: signature, expiry, TTL, nonce | [AVAILABLE] | 15 | `EnvelopeVerifier`, CLAIMS.md 2.9/2.10 |
-| `execution-gateway` | Recomputes content hash, compares to `businessTransactionHash`, releases to a `Connector` | [AVAILABLE] as a library; **not wired into the running server** | 25 | `ExecutionGateway.ts:150-165`; see the Warning on [Architecture Overview](/architecture/overview) |
-| `execution-control` | Gateway-authenticated, session-scoped credential isolation for connectors | [PARTIAL] | 11 | `ExecutionControlService`, `InMemoryCredentialVault` — real scaffold, not the finished "AI never holds credentials" claim (see [Roadmap](/roadmap)) |
-| `connector-sdk` | Connector authoring contracts (capabilities, metadata, versioning, health) and reference implementations (`HttpConnector`, `MockConnector`), extending `execution-control`'s registry/vault/policy seams — never modifying them | [AVAILABLE] as a library | 45 | `packages/connector-sdk/src`; see [Integrations](/integrations/overview) |
-| `execution-system` | `ExecutionSystem` interface + the default (non-gateway) implementation the server actually uses | [AVAILABLE] | 1 | `packages/execution-system/src` |
+| `execution-gateway` | Recomputes content hash, compares to `businessTransactionHash`, releases to a `Connector`, wired into the default server unconditionally as of commit `651497a` | [AVAILABLE] | 25 | `ExecutionGateway.ts:150-165`; see [The gateway](/concepts/the-gateway) |
+| `execution-control` | Gateway-authenticated, session-scoped credential isolation for connectors, real and wired into the default server for the one connector it registers | [PARTIAL] for arbitrary connectors | 11 | `ExecutionControlService`, `InMemorySessionCredentialVault`, not yet the finished "AI never holds credentials" claim for connectors you haven't wired (see [Roadmap](/roadmap)) |
+| `connector-sdk` | Connector authoring contracts (capabilities, metadata, versioning, health), two generic reference implementations, and four enterprise-named reference mocks, extending `execution-control`'s registry/vault/policy seams, never modifying them | [AVAILABLE] as a library | 45 | `packages/connector-sdk/src`; see [Integrations](/integrations/overview) |
+| `execution-system` | `ExecutionSystem` interface, plus `DefaultExecutionSystem` (a no-op placeholder used by many tutorials, not by the default server) | [AVAILABLE] | 1 | See [@parmana/execution-system](/reference/execution-system), which explains the placeholder's real scope |
 
 ## SDKs and app
 
 | Package | Purpose | Status | Evidence |
 |---|---|---|---|
 | `python/` | Python SDK | [AVAILABLE] | 26 tests, structured HTTP exceptions, generated + drift-guarded models |
-| `typescript/` | TypeScript SDK | [PARTIAL] | Real client/model code; **all 9 test files are empty (0 lines)**; `HttpTransport.ts:107-125` returns any HTTP status as a "successful" response — 4xx/5xx are never raised |
+| `typescript/` | TypeScript SDK | [PARTIAL] | Real client/model code, all 9 test files are empty (0 lines), confirmed this session; `HttpTransport.ts` returns any HTTP status as a "successful" response, 4xx/5xx are never raised |
 
 ## Not a package: `python-old/`
 

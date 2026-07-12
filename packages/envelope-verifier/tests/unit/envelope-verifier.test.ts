@@ -91,6 +91,34 @@ describe("EnvelopeVerifier", () => {
     expect(second.checks.ttlWithinPolicy).toBe(true);
   });
 
+  it("under two concurrent verify() calls with one nonce, exactly one succeeds (deterministic, not flaky)", async () => {
+    // MemoryNonceStore.checkAndRecord() is async but has no await between
+    // its check and its set — Node's run-to-completion semantics mean two
+    // calls issued via Promise.all cannot interleave inside that
+    // synchronous prefix, so this is deterministic, not probabilistic.
+    const { privateKey, publicKey } = generateKeyPair();
+    const signed = await signAuthorization(privateKey);
+
+    const nonceStore = new MemoryNonceStore();
+
+    const verifier = new EnvelopeVerifier({
+      publicKey,
+      nonceStore,
+    });
+
+    const [first, second] = await Promise.all([
+      verifier.verify(signed),
+      verifier.verify(signed),
+    ]);
+
+    const valid = [first, second].filter((r) => r.valid);
+    const invalid = [first, second].filter((r) => !r.valid);
+
+    expect(valid).toHaveLength(1);
+    expect(invalid).toHaveLength(1);
+    expect(invalid[0]?.checks.nonceUnseen).toBe(false);
+  });
+
   it("verifyChecks() never consumes the nonce, even on failure", async () => {
     const { privateKey, publicKey } = generateKeyPair();
     const signed = await signAuthorization(privateKey);
@@ -187,6 +215,37 @@ describe("EnvelopeVerifier", () => {
 
     expect(originalResult.valid).toBe(true);
     expect(originalResult.checks.nonceUnseen).toBe(true);
+  });
+
+  it("treats the exact expiresAt instant as expired (boundary is exclusive, not inclusive)", async () => {
+    // Previously untested: existing expiry tests only used "clearly
+    // expired" (+120s past a 60s TTL) and "clearly valid" (+1s) instants,
+    // never the exact boundary. AuthorizationVerifier's comparison is
+    // `now.getTime() < expiry` (strict <), so at now === expiresAt
+    // exactly, the envelope must already read as expired.
+    const { privateKey, publicKey } = generateKeyPair();
+    const signed = await signAuthorization(privateKey, 60);
+
+    const verifier = new EnvelopeVerifier({
+      publicKey,
+      nonceStore: new MemoryNonceStore(),
+    });
+
+    const exactExpiry = new Date(Date.parse(signed.payload.expiresAt));
+
+    const result = await verifier.verify(signed, exactExpiry);
+
+    expect(result.valid).toBe(false);
+    expect(result.checks.notExpired).toBe(false);
+    expect(result.checks.signatureVerified).toBe(true);
+
+    // One millisecond before the boundary must still be valid, confirming
+    // this isn't a wider off-by-one, just the exact instant.
+    const oneMsBeforeExpiry = new Date(exactExpiry.getTime() - 1);
+
+    const stillValidResult = await verifier.verify(signed, oneMsBeforeExpiry);
+
+    expect(stillValidResult.checks.notExpired).toBe(true);
   });
 
   it("rejects an envelope whose TTL exceeds maxTtlSeconds", async () => {

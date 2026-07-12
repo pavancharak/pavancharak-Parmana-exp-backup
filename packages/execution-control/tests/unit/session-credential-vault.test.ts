@@ -106,6 +106,74 @@ describe("InMemorySessionCredentialVault", () => {
     );
   });
 
+  it("rejects consume() for an unknown session credential ID (previously untested)", async () => {
+    const { vault } = fixture();
+
+    await expect(vault.consume("no-such-id")).rejects.toThrow(
+      "Unknown session credential: no-such-id.",
+    );
+  });
+
+  it("rejects revoke() for an unknown session credential ID (previously untested)", async () => {
+    const { vault } = fixture();
+
+    await expect(vault.revoke("no-such-id")).rejects.toThrow(
+      "Unknown session credential: no-such-id.",
+    );
+  });
+
+  it("treats the exact expiresAt instant as expired (boundary is inclusive via >=, previously untested)", async () => {
+    const { vault, clock } = fixture(1_000);
+
+    const session = await vault.issue("sap", "authorization-1");
+
+    // issuedAt is 2026-01-01T00:00:00Z, lifetimeMs 1_000, so expiresAt is
+    // exactly 2026-01-01T00:00:01.000Z. consume()'s comparison is
+    // `now >= expiresAt`, so the exact instant must already be expired.
+    clock.advanceTo(new Date("2026-01-01T00:00:01.000Z"));
+
+    await expect(vault.consume(session.sessionCredentialId)).rejects.toThrow(
+      "expired",
+    );
+  });
+
+  it("does not treat one millisecond before expiresAt as expired", async () => {
+    const { vault, clock } = fixture(1_000);
+
+    const session = await vault.issue("sap", "authorization-1");
+
+    clock.advanceTo(new Date("2026-01-01T00:00:00.999Z"));
+
+    const credential = await vault.consume(session.sessionCredentialId);
+    expect(credential.value).toEqual({ apiKey: "sap-secret" });
+  });
+
+  it("under two concurrent consume() calls on one session, exactly one succeeds (deterministic, not flaky)", async () => {
+    // InMemorySessionCredentialVault.consume() marks `record.used = true`
+    // synchronously, before its only internal await (the credential
+    // resolution call) — Node's run-to-completion semantics mean two
+    // consume() calls issued via Promise.all cannot interleave inside
+    // that synchronous prefix, so this is deterministic, not a race that
+    // only sometimes reproduces.
+    const { vault } = fixture();
+
+    const session = await vault.issue("sap", "authorization-1");
+
+    const results = await Promise.allSettled([
+      vault.consume(session.sessionCredentialId),
+      vault.consume(session.sessionCredentialId),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === "fulfilled");
+    const rejected = results.filter((r) => r.status === "rejected");
+
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason.message).toContain(
+      "already been used",
+    );
+  });
+
   it("resolves the underlying secret only at consume(), never at issue()", async () => {
     const inner = new InMemoryCredentialVault();
     inner.setCredential("sap", { value: Object.freeze({ apiKey: "sap-secret" }) });

@@ -3,15 +3,15 @@ title: "Cryptography"
 description: "Ed25519 default, ML-DSA-65 (post-quantum) configurable. Local PEM keys today; KMS/HSM is roadmap."
 ---
 
-<Info>**[AVAILABLE]** for the core primitives below. **[ROADMAP]** for KMS/HSM key custody — clearly separated.</Info>
+<Info>**[AVAILABLE]** for the core primitives below. **[ROADMAP]** for KMS/HSM key custody, clearly separated.</Info>
 
 ## Signature algorithms
 
 | Algorithm | Status | Notes |
 |---|---|---|
 | Ed25519 | [AVAILABLE], default | Deterministic signatures. `Ed25519SignatureProvider`. |
-| ML-DSA-65 (FIPS 204, historically called "dilithium3" in this codebase) | [AVAILABLE], opt-in | Selectable via `SIGNATURE_PROVIDER=dilithium3`. Requires **Node ≥ 24** for native `node:crypto` ml-dsa-65 support. **Signatures are randomized, not deterministic** — signing the same message twice produces two different, both-valid signatures. Only verification is deterministic (CLAIMS.md §5). |
-| ECDSA P-256 | Declared in `SignatureAlgorithms` enum | No dedicated provider class confirmed in this audit — treat as unimplemented until checked. |
+| ML-DSA-65 (FIPS 204, historically called "dilithium3" in this codebase) | [AVAILABLE], opt-in | Selectable via `PRIMARY_SIGNATURE_PROVIDER=dilithium3`. Requires **Node ≥ 24** for native `node:crypto` ml-dsa-65 support. **Signatures are randomized, not deterministic**, signing the same message twice produces two different, both-valid signatures. Only verification is deterministic (CLAIMS.md §5). |
+| ECDSA P-256 | Declared in `SignatureAlgorithms` enum | No dedicated provider class confirmed in this audit, treat as unimplemented until checked. |
 
 CLAIMS.md 2.13/2.14. Evidence: `packages/crypto/test/SignatureProvider.test.ts`,
 `Dilithium3SignatureProvider.test.ts`, `dilithium3-cross-instance.test.ts`.
@@ -27,23 +27,25 @@ verifying sides), and receipt hashing.
 
 Signing or verifying with the wrong key type for the configured provider (e.g. an Ed25519
 key against an ML-DSA-65 provider) fails closed with an error naming both the expected and
-actual key type — it does not silently dispatch based on the key's own type
+actual key type, it does not silently dispatch based on the key's own type
 (`assertKeyType`, used by both signature providers; CLAIMS.md 2.13).
 
 ## Key custody today: local PEM files
 
 ```bash
 KEY_PROVIDER=local
-PRIVATE_KEY_PATH=./keys/default.private.pem
-PUBLIC_KEY_PATH=./keys/default.public.pem
+PARMANA_KEY_DIR=./keys
 ```
 
-`FileKeyProvider` reads PEM files from disk. This is the **only** implemented key
-provider.
+`FileKeyProvider` reads `<PARMANA_KEY_DIR>/<keyId>.private.pem` /
+`<PARMANA_KEY_DIR>/<keyId>.public.pem` from disk, one directory, keys distinguished by ID
+(`default`, `pq`, `gateway`), not by separate per-file path variables. This is the **only**
+implemented key provider. See [Deploy patterns](/guides/deploy-patterns) for the full set of
+keys a running server needs.
 
 <Warning>
 `KeyProviders` (`packages/shared/src/config/KeyProviders.ts`) declares `aws-kms`,
-`azure-key-vault`, `gcp-kms`, and `hsm` as valid **config values** — but no provider class
+`azure-key-vault`, `gcp-kms`, and `hsm` as valid **config values**, but no provider class
 implements any of them. Setting `KEY_PROVIDER` to one of these today will not do anything
 useful; it's a declared config surface for planned work, not a working integration. See
 [Roadmap](/roadmap) for the KMS custody plan.
@@ -53,12 +55,12 @@ useful; it's a declared config surface for planned work, not a working integrati
 There is a live incident on record: the default signing key committed to this repository
 before 2026-07-05 was publicly exposed and is permanently compromised; it was rotated on
 2026-07-05 (`docs/CLAIMS.md`, "Key Compromise Notice"). This is exactly the kind of
-exposure KMS/HSM custody is designed to prevent — see [Roadmap](/roadmap), Move 1.
+exposure KMS/HSM custody is designed to prevent, see [Roadmap](/roadmap), Move 1.
 </Note>
 
 ## No algorithm migration path yet
 
 `AuthorizationVerifier` does not dispatch verification based on the envelope's `algorithm`
-field — a verifying process supports exactly one configured `SIGNATURE_PROVIDER` at a
+field, a verifying process supports exactly one configured `PRIMARY_SIGNATURE_PROVIDER` at a
 time. Re-keying from Ed25519 to ML-DSA-65 while retaining the ability to verify
 previously-signed records is an explicit Future Claim, not yet built (CLAIMS.md §4).

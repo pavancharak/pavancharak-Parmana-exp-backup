@@ -1,0 +1,136 @@
+---
+title: "Deploy Patterns"
+description: "In-memory vs Supabase storage, the full environment variable checklist, and how key management actually works: two separate keypairs, one directory, one optional rotation variable."
+---
+
+<Info>**[AVAILABLE]** for everything below, this is what actually runs today. Cloud/KMS/multi-instance/HA deployment is [ROADMAP], see [Roadmap](/roadmap).</Info>
+
+## Goal
+
+Stand up a real deployment with the storage backend you actually want, and understand
+exactly which keys the server needs, where they live, and what each one is for.
+
+## Prerequisites
+
+- Read [Gateway attestation](/concepts/gateway-attestation), this guide's key management
+  section assumes you know the gateway keypair is separate from the authorization key and
+  why.
+
+## Steps
+
+### 1. Choose a storage provider
+
+```typescript
+// packages/storage/src/StorageFactory.ts
+switch (configuration.provider) {
+  case "memory":   return new MemoryStorageProvider();
+  case "supabase": return new SupabaseStorageProvider();
+  case "postgres": throw new Error("Postgres storage provider not implemented.");
+  case "sqlite":   throw new Error("SQLite storage provider not implemented.");
+}
+```
+
+Only `memory` and `supabase` have a real class behind them, `postgres` and `sqlite` are
+declared in the type union and throw immediately at startup, by design, fails closed rather
+than silently falling back to something else.
+
+```bash
+PARMANA_STORAGE=memory     # in-process, non-persistent, no external dependency
+# or
+PARMANA_STORAGE=supabase   # this repo's committed .env default
+```
+
+`PARMANA_STORAGE` is the only variable read for this. An older `DATABASE_PROVIDER` variable
+existed briefly as a second, disconnected path to the same setting and is now retired: if
+it's present in the environment, config loading fails at startup naming `PARMANA_STORAGE` as
+the replacement, rather than silently ignoring it.
+
+### 2. Generate both required keypairs
+
+Two, deliberately separate:
+
+```bash
+node_modules/.bin/tsx scripts/generate-keypair.ts --algorithm ed25519 --key-id default
+npm run generate:gateway-keys
+```
+
+Both write into `PARMANA_KEY_DIR` (defaults to `./keys`). `default.*.pem` signs and verifies
+[execution authorizations](/concepts/execution-authorization). `gateway.*.pem` signs
+[gateway attestations](/concepts/gateway-attestation). They protect different things and are
+never the same key, mixing them up is not just a style choice, `assertKeyType` fails closed
+if you sign with the wrong one for a configured provider.
+
+### 3. Set the full environment checklist
+
+```bash
+PARMANA_STORAGE=memory                        # or: supabase
+PARMANA_POLICY_DIR=/absolute/path/to/policies
+PARMANA_KEY_DIR=/absolute/path/to/keys
+PARMANA_GATEWAY_KEY_ID=gateway                 # optional, defaults to "gateway"
+VENDOR_PAYMENT_TOKEN=...                       # credential for the one wired connector
+PRIMARY_SIGNATURE_PROVIDER=ed25519             # or: dilithium3, needs Node >= 24
+HASH_PROVIDER=sha256
+```
+
+### 4. Run it
+
+```bash
+npm run dev
+```
+
+## Verify
+
+Confirm the server actually started and is enforcing what you expect:
+
+```bash
+curl http://localhost:3000/health
+# {"status":"UP"}
+```
+
+If `PARMANA_KEY_DIR` is missing `gateway.private.pem`, the server refuses to start with a
+message naming the exact missing path, it does not start in a degraded, gateway-less mode,
+there is no such mode, see [The gateway](/concepts/the-gateway).
+
+## What `PARMANA_GATEWAY_KEY_ID` is for
+
+Rotating the gateway's key without touching `default.*.pem` or restarting with a completely
+new key directory: generate a second gateway keypair under a different ID (for example
+`gateway-v2`), verify it works, then flip `PARMANA_GATEWAY_KEY_ID=gateway-v2` and restart.
+The old `gateway.*.pem` files can stay in place until you're confident in the rotation, they
+simply won't be read.
+
+## What this deployment does not give you
+
+- **No authentication.** Every route is open.
+- **No KMS/HSM.** Both private keys are files on disk, exactly the exposure that produced
+  the incident noted on [Security](/security/overview). `KeyProviders` declares `aws-kms`,
+  `azure-key-vault`, `gcp-kms`, and `hsm` as config values with zero implementing classes,
+  setting `KEY_PROVIDER` to one of these today does nothing useful.
+- **Single process, single instance.** No shared `NonceStore` across replicas, a fleet of
+  these processes would each accept the same authorization once, not once fleet-wide
+  (CLAIMS.md 3.2).
+- **Only one connector registered.** `vendor-payment`, a reference mock, see [Add a
+  connector with the Connector SDK](/guides/add-a-connector) for what adding another
+  requires today.
+
+## Troubleshoot
+
+- **`Gateway private key not found`.** Run `npm run generate:gateway-keys`, or confirm
+  `PARMANA_KEY_DIR` points at the directory you actually generated into.
+- **`Key directory does not exist`.** `PARMANA_KEY_DIR` (or the `./keys` default) must exist
+  before the server starts, `FileKeyProvider` doesn't create it.
+- **Config loading fails naming `DATABASE_PROVIDER`.** Remove that variable from your
+  environment, use `PARMANA_STORAGE` instead, see step 1.
+- **`Postgres storage provider not implemented.`** Expected, `postgres` and `sqlite` are
+  declared but not built, use `memory` or `supabase`.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Choose a signature provider" icon="key" href="/guides/choose-a-signature-provider">
+    What `PRIMARY_SIGNATURE_PROVIDER` actually changes, and its real cost.
+  </Card>
+  <Card title="Roadmap" icon="map" href="/roadmap">
+    What's designed but not built yet for production deployment: KMS, HA, network enforcement.
+  </Card>
+</CardGroup>

@@ -59,8 +59,8 @@ def main() -> None:
         intent=Intent(
             intent_id="intent-001",
             authorization_id="authorization-001",
-            action="VendorPayment",
-            target="vendor/V-100",
+            action="payments:execute",
+            target="vendor://payments",
             parameters={
                 "amount": 1000,
                 "currency": "USD",

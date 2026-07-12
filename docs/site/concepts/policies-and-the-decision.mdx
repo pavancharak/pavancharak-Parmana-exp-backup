@@ -1,0 +1,116 @@
+---
+title: "Policies and the Decision"
+description: "Deterministic, first-match rule evaluation over runtime signals: what a Policy is, why it's structured this way, and how a Decision comes out of it."
+---
+
+<Info>**[AVAILABLE]**. `packages/policy`, 61 tests. CLAIMS.md 2.2/2.3.</Info>
+
+## What it is
+
+A Policy is a named, versioned, ordered list of rules. Each rule pairs a condition (a
+boolean expression over named "signals") with an outcome: approve, reject, or require
+override. `PolicyEngine` evaluates a transaction's signals against a policy's rules and
+returns exactly one [Decision](#what-a-decision-records).
+
+## Why it exists
+
+Every action Parmana authorizes has to be justified by something a human can read and a
+machine can evaluate identically every time. A policy is that something: not a prompt, not
+a model call, a plain data structure that produces the same outcome for the same input,
+every time, forever. That's what makes an authorized action defensible after the fact.
+
+## How it behaves
+
+The runtime executes exactly one, explicitly referenced policy, identified by
+`PolicyReference { name, version, schemaVersion }` on the Business Transaction. It does not
+discover policies, negotiate them, auto-select "latest," or substitute an alternative.
+`PolicyRouter` loads by exact name and version; `PolicyValidator` checks the loaded policy's
+identity before evaluation runs.
+
+Rules are evaluated **sequentially, first match wins**:
+
+```typescript
+// packages/policy/src/PolicyEngine.ts:96-117 (findFirstMatch)
+for (const rule of rules) {
+  if (this.evaluateCondition(rule.condition, signals)) {
+    return rule;
+  }
+}
+return null;
+```
+
+If no rule matches, `findFirstMatch` returns `null`, and the outcome defaults to `REJECT`
+(`PolicyEngine.ts:191-206`, `toOutcome`'s `default` case). There is no code path where an
+unmatched transaction is approved. This is what "fail closed" means here in practice: the
+absence of a rule is a denial, not a pass-through. A trailing `{ "always": true }` rule
+typically makes the reject-by-default behavior explicit in the policy document itself.
+
+## Minimal example
+
+From `policies/vendor-payment/2.0.0/policy.json`, a real policy in this repo:
+
+```json
+{
+  "policyId": "vendor-payment",
+  "policyVersion": "2.0.0",
+  "schemaVersion": "1.0.0",
+  "signalsSchema": {
+    "vendorVerified": "boolean",
+    "invoiceVerified": "boolean",
+    "paymentApproved": "boolean",
+    "sufficientFunds": "boolean",
+    "paymentAmount": "number",
+    "riskScore": "number"
+  },
+  "rules": [
+    {
+      "id": "approve-payment",
+      "condition": {
+        "all": [
+          { "fact": "vendorVerified", "operator": "eq", "value": true },
+          { "fact": "invoiceVerified", "operator": "eq", "value": true },
+          { "fact": "paymentApproved", "operator": "eq", "value": true },
+          { "fact": "sufficientFunds", "operator": "eq", "value": true },
+          { "fact": "paymentAmount", "operator": "gt", "value": 0 },
+          { "fact": "riskScore", "operator": "lte", "value": 20 }
+        ]
+      },
+      "outcome": { "action": "approve", "reason": "..." }
+    }
+  ]
+}
+```
+
+## What a Decision records
+
+```typescript
+// packages/shared/src/domain/decision.ts
+export interface Decision {
+  readonly decisionId: string;
+  readonly intentId: string;
+  readonly policy: PolicyReference;
+  readonly signals: Record<string, JsonValue>;   // captured for deterministic replay
+  readonly outcome: DecisionOutcome;              // APPROVED | REJECTED
+  readonly reason?: string;
+  readonly evaluatedAt: Date;
+}
+```
+
+The signals evaluated are captured on the Decision itself, this is what
+[replay](/replay/overview) reconstructs from: given the same recorded signals and the same
+policy version, re-evaluation must produce the same outcome.
+
+`TrustChainValidationComponent` and `RuntimeEngine` refuse to execute when required trust
+artifacts are missing or the Decision is not `APPROVED` (CLAIMS.md 2.4). Only an `APPROVED`
+Decision can produce a [signed execution authorization](/concepts/execution-authorization).
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Execution authorization" icon="file-signature" href="/concepts/execution-authorization">
+    What an APPROVED decision becomes: a signed, single-use envelope.
+  </Card>
+  <Card title="Determinism and clocks" icon="clock" href="/concepts/determinism-and-clocks">
+    What "deterministic" means precisely, and where it does and doesn't apply.
+  </Card>
+</CardGroup>

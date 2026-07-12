@@ -23,11 +23,11 @@ resolves paths relative to an arbitrary workspace directory instead of the repo 
 directory as `path.resolve(process.cwd(), "../../policies")`. This assumes
 `process.cwd()` is a package directory (e.g. `packages/runtime`), which is true when you
 `cd` into the package and run vitest there, but not true when a single vitest process runs
-from the true repo root against every package's tests at once — then `process.cwd()` is
+from the true repo root against every package's tests at once, then `process.cwd()` is
 the repo root itself, and `"../../policies"` overshoots by two directory levels (landing on
 `D:\policies` rather than `D:\...\parmana-exp\policies` on this checkout).
 
-**Not a functional bug** — it's a test-path assumption that only holds under per-package
+**Not a functional bug**, it's a test-path assumption that only holds under per-package
 invocation, which is how the project's own `"test": "vitest run"` script in each
 `package.json` is meant to be run:
 
@@ -39,7 +39,7 @@ cd packages/runtime && ../../node_modules/.bin/vitest run   # passes
 
 **Cause:** the referenced `policy.version` doesn't match a real
 `policies/<name>/<version>/policy.json` on disk. Check `PARMANA_POLICY_DIR` and the exact
-version folder — for example `policies/vendor-payment/` currently only has a `2.0.0/`
+version folder, for example `policies/vendor-payment/` currently only has a `2.0.0/`
 folder, not `1.0.0/`.
 
 ## `PARMANA_POLICY_DIR` and running from a fresh clone
@@ -52,12 +52,12 @@ isn't set to an absolute, correct path. Set it explicitly, as shown in
 ## A resubmitted, modified transaction under the same ID isn't rejected the way I expected
 
 You're likely expecting content-binding protection from the plain API. It isn't there by
-default — read [Content Binding & TOCTOU](/concepts/content-binding-toctou) before
+default, read [Content Binding & TOCTOU](/concepts/content-binding-toctou) before
 debugging further; this is very likely working as currently (if incompletely) designed,
 not a bug.
 
 ## The TypeScript SDK isn't throwing on a 4xx/5xx response
 
-Confirmed, not a misunderstanding on your part — see [TypeScript SDK](/sdks/typescript).
+Confirmed, not a misunderstanding on your part, see [TypeScript SDK](/sdks/typescript).
 Check `response.status` on the returned object yourself, or use the
 [Python SDK](/sdks/python), which raises structured exceptions.

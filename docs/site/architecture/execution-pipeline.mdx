@@ -1,7 +1,14 @@
 ---
 title: "The Execution Pipeline"
-description: "Stage by stage: what runs today in the default server, and what only runs if a consuming service wires it in."
+description: "Stage by stage: what runs on every request through the default server today, updated to reflect the gateway now being wired unconditionally."
 ---
+
+<Warning>
+**This page previously said stages 5-6 (gateway, connector enforcement) are not invoked by
+the default server.** That was true through commit `4740aee` (2026-07-08). As of `651497a`
+(2026-07-11), they run on every request. See [The gateway](/concepts/the-gateway) for the
+current mechanism and its one real caveat: only one connector is registered.
+</Warning>
 
 ## Stage-by-stage status
 
@@ -10,30 +17,32 @@ description: "Stage by stage: what runs today in the default server, and what on
 | 1. Accept Business Transaction | Validates trust-chain invariants (IDs match across the chain, policy/action present) | [AVAILABLE] | `BusinessTransactionValidator`, `packages/runtime/src/validators/BusinessTransactionValidator.ts` |
 | 2. Policy evaluation | Loads the exact referenced policy (name+version), evaluates signals against sequential rules, first match wins | [AVAILABLE] | `PolicyRouter`, `PolicyEngine`, CLAIMS.md 2.2/2.3 |
 | 3. Execution gate | Refuses to execute when the Decision is not `APPROVED` or required trust artifacts are missing | [AVAILABLE] | `ExecutionGate`, `TrustChainValidationComponent`, CLAIMS.md 2.4 |
-| 4. Signed Execution Authorization | Signs a payload scoped to one Decision, bound to a single-use nonce, valid only within a bounded window — **only after** the gate approves | [AVAILABLE] | `RuntimeAuthorizationSigner`, CLAIMS.md 2.8/2.12 |
-| 5. Execution Gateway (content-binding) | Recomputes the executable-content hash, compares to the authorization's `businessTransactionHash`, rejects a mismatch before consuming the nonce | [AVAILABLE] as a library; **not invoked by the default server** | `ExecutionGateway.ts:141-195`; see [Content Binding & TOCTOU](/concepts/content-binding-toctou) |
-| 6. Credential Isolation / Connector Enforcement | Resolves a credential handle inside the Gateway boundary, then forwards verified content to the target system through a capability-checked Connector | [AVAILABLE] (legacy `HttpConnector`; new capability-aware `HttpConnector`/`MockConnector` via `@parmana/connector-sdk`) | `packages/execution-gateway/src/HttpConnector.ts`, `packages/connector-sdk/src/{HttpConnector,MockConnector,SdkConnectorExecutor}.ts` |
+| 4. Signed Execution Authorization | Signs a payload scoped to one Decision, bound to a single-use nonce, valid only within a bounded window, only after the gate approves | [AVAILABLE] | `RuntimeAuthorizationSigner`, CLAIMS.md 2.8/2.12 |
+| 5. Execution Gateway (content-binding) | Recomputes the executable-content hash, compares to the authorization's `businessTransactionHash`, rejects a mismatch before consuming the nonce | [AVAILABLE], wired into the default server unconditionally | `ExecutionGateway.ts:141-195`; see [The gateway](/concepts/the-gateway) |
+| 6. Credential Isolation / Connector Enforcement | Resolves a credential handle inside the Gateway boundary, then forwards verified content to the target system through a capability-checked Connector | [AVAILABLE] for the one registered connector (`vendor-payment`); reaching a second connector requires a bootstrap code change | `packages/connector-sdk/src/{HttpConnector,MockConnector,SdkConnectorExecutor}.ts`, `packages/api/src/bootstrap/createConnectorRegistry.ts` |
 | 7. Execution Trust Record | Assembles the immutable record: transaction, executions, overrides, verifications, receipts, canonical hash, signature | [AVAILABLE] | `ExecutionTrustRecordBuilder`, CLAIMS.md 2.5 |
 | 8. Verification | Recomputes hash, verifies signature, checks authorization binding on every `APPROVED` execution | [AVAILABLE], exactly 3 checks | `VerificationService`, CLAIMS.md 2.15 |
-| 9. Replay | Deterministically reconstructs the recorded decision | [PARTIAL] | See [Replay](/replay/overview) |
+| 9. Replay | Genuinely re-evaluates the recorded policy decision, scoped to one execution, disconnected from the API | [PARTIAL] | See [Replay](/replay/overview) |
 
 ## What actually runs when you call `POST /execute` today
 
-Stages 1–4 and 7–8 run in the default server. Stages 5–6 (gateway, connector) are replaced
-by `packages/execution-system`'s default (non-gateway) implementation, which does not
-recompute or check `businessTransactionHash`. This is the single most important thing to
-understand before relying on Parmana for a threat model that includes payload tampering
-after authorization — see [Content Binding & TOCTOU](/concepts/content-binding-toctou).
+All nine stages run, in order, on every request. Stage 6's connector enforcement is real
+only for the `payments:execute` action, the one connector wired into
+`createConnectorRegistry.ts`, an action with no matching connector fails closed with "No
+connector registered for action," it does not silently skip stages 5-6, see [The
+gateway](/concepts/the-gateway) for the mechanism and [Quickstart](/quickstart) for a
+verified live run through all nine stages.
 
 ## Fail-closed properties that do hold today
 
-- A rejected Decision **never** produces a Signed Execution Authorization — authorization
+- A rejected Decision **never** produces a Signed Execution Authorization, authorization
   signing happens only after `executionGate.enforce()` approves
-  (`packages/runtime/src/RuntimeEngine.ts`; CLAIMS.md 2.12,
-  `packages/runtime/test/execution-authorization-wiring.test.ts` — "rejected transaction
-  produces no authorization").
+  (`packages/runtime/src/RuntimeEngine.ts`, CLAIMS.md 2.12,
+  `packages/runtime/test/execution-authorization-wiring.test.ts`, "rejected transaction
+  produces no authorization"). It throws rather than returning a rejected result, see [Write
+  your first policy](/guides/write-your-first-policy).
 - Signing or verifying with the wrong key type (e.g. an Ed25519 key against an ML-DSA-65
   provider) fails closed with a named error rather than silently dispatching on the key's
   own type (`assertKeyType`, CLAIMS.md 2.13).
 - The Trust Record's `authorizationId` is part of the canonically-hashed content, not
-  attached alongside it — tampering with it changes the recomputed hash (CLAIMS.md 2.11).
+  attached alongside it, tampering with it changes the recomputed hash (CLAIMS.md 2.11).

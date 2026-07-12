@@ -1,0 +1,77 @@
+---
+title: "@parmana/policy"
+description: "Deterministic, first-match-wins rule evaluation, plus loading and validating policy documents."
+---
+
+<Info>**[AVAILABLE]**. `packages/policy`, 61 tests. CLAIMS.md 2.2/2.3.</Info>
+
+## Purpose
+
+Evaluates a `PolicySignals` object against a `Policy`'s ordered rules and returns exactly
+one `Decision`. See [Policies and the decision](/concepts/policies-and-the-decision) for the
+concept, this page is the export reference.
+
+## Install
+
+```bash
+npm install @parmana/policy
+```
+
+## Key exports
+
+### Engine, [AVAILABLE]
+
+| Export | Signature |
+|---|---|
+| `PolicyEngine` | `.evaluate(policy: Policy, input: PolicyInput): PolicyDecision`, first-match-wins over `policy.rules`, unmatched input rejects |
+
+### Routing and loading, [AVAILABLE]
+
+| Export | Purpose |
+|---|---|
+| `PolicyRouter` | Resolves a `PolicyReference { name, version, schemaVersion }` to a loaded `Policy` |
+| `PolicyRegistry` | In-memory policy lookup by name/version |
+| `PolicyRepository` (type) | The interface `FilePolicyRepository` and any custom repository implement |
+| `FilePolicyRepository` | `new FilePolicyRepository(directory: string)`, resolves `<directory>/<name>/<version>/policy.json` |
+
+### Validation, [AVAILABLE]
+
+| Export | Purpose |
+|---|---|
+| `PolicyValidator` | Checks a loaded policy's identity (`policyId`/`policyVersion`) matches what was requested before evaluation runs |
+| `SignalValidator` | Validates submitted signals against a policy's `signalsSchema` |
+
+### Types
+
+`Policy`, `PolicyRule`, `PolicyCondition`, `PolicyRuleOutcome`, `PolicyInput`,
+`PolicySignals`, `PolicyDecision`, `PolicyAction` (enum: `APPROVE`, `REJECT`,
+`REQUIRE_OVERRIDE`), `PolicyOutcome` (enum: `APPROVE`, `REJECT`, `REQUIRE_OVERRIDE`).
+
+## Minimal example
+
+```typescript
+import { FilePolicyRepository, PolicyEngine } from "@parmana/policy";
+
+const repository = new FilePolicyRepository("policies");
+const policy = await repository.load("vendor-payment", "2.0.0");
+
+const engine = new PolicyEngine();
+const decision = engine.evaluate(policy, {
+  vendorVerified: true, invoiceVerified: true, paymentApproved: true,
+  sufficientFunds: true, paymentAmount: 1000, riskScore: 5,
+});
+// decision.outcome === "APPROVE"
+```
+
+Full runnable version: [Write your first policy](/guides/write-your-first-policy).
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Write your first policy" icon="scale-balanced" href="/guides/write-your-first-policy">
+    Write a policy and confirm both the approve and reject paths.
+  </Card>
+  <Card title="@parmana/runtime" icon="cog" href="/reference/runtime">
+    Where `PolicyEngine` is actually invoked as part of executing a transaction.
+  </Card>
+</CardGroup>

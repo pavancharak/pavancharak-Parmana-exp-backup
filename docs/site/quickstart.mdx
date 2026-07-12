@@ -1,30 +1,49 @@
 ---
 title: "Quickstart"
-description: "Run a local Parmana Runtime and execute your first Business Transaction with the Python SDK."
+description: "Install to your first authorized execution in under 10 minutes, using the in-memory server."
 ---
 
 <Info>
-**[AVAILABLE]** — every step below is copied from a real run against a local server on
-2026-07-06. Source: `python/examples/quickstart/`.
+**[AVAILABLE]**, every command below was run against a live local server on 2026-07-12
+(commit `651497a`), including `python/examples/quickstart/run.py` itself.
 </Info>
 
-## 1. Start the Runtime locally
+## 1. Install dependencies
+
+```bash
+npm install
+```
+
+## 2. Generate a local Gateway keypair
+
+The Execution Gateway signs its own attestations with a keypair separate from the
+authorization-verification key (`keys/default.*.pem`, already committed for local dev). No
+key is generated automatically, you have to create one:
+
+```bash
+npm run generate:gateway-keys
+```
+
+This runs `scripts/generate-keypair.ts --algorithm ed25519 --key-id gateway`, writing
+`keys/gateway.private.pem` / `keys/gateway.public.pem`. `keys/` is gitignored, this stays
+local. See
+[`createGatewayKeyPair.ts`](https://github.com/parmana-ai/parmana/blob/main/packages/api/src/bootstrap/createGatewayKeyPair.ts)
+for why this key is deliberately separate from the authorization key, and
+[Deploy patterns](/deployment/local) for how to manage it outside local dev.
+
+## 3. Start the Runtime locally
 
 The committed `.env` defaults to Supabase-backed storage. To run fully locally with no
-external dependency, override storage to `memory`:
+external dependency, override storage to `memory`. The one connector wired into the default
+server, `vendor-payment`, is a reference mock that reads its credential from an environment
+variable, set a placeholder value for it:
 
 ```bash
 PARMANA_STORAGE=memory \
   PARMANA_POLICY_DIR=/absolute/path/to/policies \
-  node_modules/.bin/tsx packages/api/src/server.ts
+  VENDOR_PAYMENT_TOKEN=quickstart-demo-token \
+  npm run dev
 ```
-
-<Warning>
-Plain `npm run dev` / `npx tsx ...` do not resolve correctly at the repo root today: both
-the root `package.json` and `typescript/package.json` declare `"name": "parmana"`, which
-breaks npm's workspace resolution for both `npm run` and `npx`. Invoke the local `tsx`
-binary directly, as shown above, until that's fixed upstream.
-</Warning>
 
 Confirm it's up:
 
@@ -35,13 +54,21 @@ curl http://localhost:3000/version
 # {"name":"Parmana","version":"0.4.0","api":"v1"}
 ```
 
-## 2. Install the Python SDK
+<Note>
+**The Execution Gateway is wired into this server unconditionally** (`createExecutionSystem()`
+always returns `createExecutionGateway()`, `packages/api/src/bootstrap/createExecutionSystem.ts`).
+Every `POST /execute` is independently re-verified and routed through a real Connector. An
+action with no registered connector fails closed with `"No connector registered for action"`,
+it does not silently skip enforcement. See [The gateway](/concepts/the-gateway).
+</Note>
+
+## 4. Install the Python SDK
 
 ```bash
 pip install -e ./python
 ```
 
-## 3. Execute a Business Transaction
+## 5. Execute a Business Transaction
 
 ```python
 from datetime import UTC, datetime
@@ -77,7 +104,7 @@ transaction = BusinessTransaction(
     ),
     intent=Intent(
         intent_id="intent-001", authorization_id="authorization-001",
-        action="VendorPayment", target="vendor/V-100",
+        action="payments:execute", target="vendor://payments",
         parameters={"amount": 1000, "currency": "USD"}, created_at=now,
     ),
     policy=PolicyReference(name="vendor-payment", version="2.0.0", schema_version="1.0.0"),
@@ -93,30 +120,30 @@ trust_record = client.execution.execute(transaction)
 print(trust_record.trust_record_hash)
 ```
 
-Full runnable version: `python/examples/quickstart/run.py`.
+Full runnable version: `python/examples/quickstart/run.py`, this is the same transaction it
+sends.
 
-## 4. Real output
+## 6. Real output
 
-Captured from an actual run, 2026-07-06 (IDs and hashes differ on every run):
+Captured from an actual run, 2026-07-12 (IDs and hashes differ on every run):
 
 ```
-Business Transaction ID: 111a9197-21b3-42fb-8b7b-a000f1278680
-Trust Record ID:         71dc39c9-2f24-401c-b999-6cbc12ee4156
-Trust Record Hash:       8d8fc49457038134776ac20fee289991596ab30dff5765e2d1007aed2f51ad69
-Signature Algorithm:     SignatureAlgorithm.ED25519
+Trust Record Hash: fdb313e82c7cd86cf5f1dfb0ab90ac72f550a67a91891ebfce9462a73e9da103
 ```
 
-The full `ExecutionTrustRecord` includes the `signature` block, the `executions[0].evidence`
-(what was actually executed), and an initial `verifications` / `receipts` history. See
-[Trust Record](/trust-record/overview) for the complete shape.
+The full `ExecutionTrustRecord` includes the `signature` block, `executions[0].decision`
+(`outcome: APPROVED`, evaluated by the `vendor-payment` policy), `executions[0].evidence`
+(what the connector actually did, including a `connectorEvidenceHash`), and an initial
+`verifications` / `receipts` history. See [Trust Record](/concepts/execution-trust-records) for the
+complete shape.
 
 ## Next
 
 <CardGroup cols={2}>
+  <Card title="How Parmana thinks" icon="brain" href="/how-parmana-thinks">
+    The concepts behind what just happened: policy, authorization, the gateway, trust records.
+  </Card>
   <Card title="Verify & replay" icon="check-double" href="/verification/overview">
     Read back or re-run verification against the record you just created.
-  </Card>
-  <Card title="Content binding" icon="shield-check" href="/concepts/content-binding-toctou">
-    Understand exactly what protection you do — and don't — get from the plain API.
   </Card>
 </CardGroup>

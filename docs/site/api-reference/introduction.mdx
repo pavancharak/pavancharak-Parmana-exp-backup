@@ -1,9 +1,9 @@
 ---
 title: "REST API Introduction"
-description: "13 routes, enumerated from packages/api/src/app.ts. Nothing here is invented."
+description: "14 routes, enumerated from packages/api/src/app.ts. Every status code and error shape on this page was triggered against a live server in this session, not inferred from code."
 ---
 
-<Info>**[AVAILABLE]** — every route below is mounted in `packages/api/src/app.ts`. No other routes exist.</Info>
+<Info>**[AVAILABLE]**, every route below is mounted in `packages/api/src/app.ts`. No other routes exist.</Info>
 
 ## Base URL
 
@@ -12,19 +12,27 @@ Local: `http://localhost:3000` (see [Quickstart](/quickstart) for starting the s
 ## Errors
 
 Non-2xx responses are `{ "error": string }`, sometimes with a `code` field, per
-`packages/api/src/middleware/error-handler.ts`:
+`packages/api/src/middleware/error-handler.ts`, verified for each route on
+[Endpoints](/api-reference/endpoints):
 
-| Status | When |
-|---|---|
-| 400 | `BusinessTransactionValidationError`, `PolicyValidationError`, `SignalValidationError` |
-| 404 | `PolicyNotFoundError` |
-| 409 | `DuplicateBusinessTransactionError` |
-| (varies) | Any other `RuntimeError` — status/code from the error itself |
-| 500 | Unexpected failure (logged via `console.error`, not a structured logger — see [Roadmap](/roadmap)) |
+| Status | When | Verified this session |
+|---|---|---|
+| 400 | `BusinessTransactionValidationError`, `PolicyValidationError`, `SignalValidationError`, or a route's own hand-written field check | Field checks yes, on every route. `BusinessTransactionValidationError` specifically, no, see the warning below. |
+| 404 | `PolicyNotFoundError`, or a route's own "not found" check | Yes |
+| 409 | `DuplicateBusinessTransactionError` | Yes |
+| (varies, seen: 500) | Any other `RuntimeError`, status/code from the error itself | Yes, `RUNTIME_ERROR` / `VERIFICATION_FAILED` |
+| 500 | Unexpected failure (logged via `console.error`, not a structured logger, see [Roadmap](/roadmap)) | Yes, see the warning below |
+
+<Warning>
+**A structurally incomplete `POST /execute` or `POST /transactions` body does not reach the
+400 `BusinessTransactionValidationError` path this table implies exists for it.** It throws
+an unhandled `TypeError` from deep inside validation, caught only by the generic 500 case.
+Full detail and the exact server-side stack trace on [Endpoints](/api-reference/endpoints).
+</Warning>
 
 The Python SDK raises a specific exception per status code
-(`ValidationError`/`NotFoundError`/`ConflictError`/`ServerError`/etc.) — see
-[Python SDK](/sdks/python). The TypeScript SDK does not — see
+(`ValidationError`/`NotFoundError`/`ConflictError`/`ServerError`/etc.), see
+[Python SDK](/sdks/python). The TypeScript SDK does not, see
 [TypeScript SDK](/sdks/typescript).
 
 ## Auth

@@ -1,0 +1,156 @@
+---
+title: "Write Your First Policy"
+description: "Write a custom Policy, evaluate a transaction against it, and confirm both the approve and reject paths."
+---
+
+<Info>**[AVAILABLE]**, every command below was run in this session against the repo's actual code, commit `651497a`.</Info>
+
+## Goal
+
+Write a new Policy from scratch, distinct from the shipped `vendor-payment` one, and confirm
+it approves and rejects correctly.
+
+## Prerequisites
+
+- The repo cloned and `npm install` run.
+- Read [Policies and the decision](/concepts/policies-and-the-decision) first if you haven't,
+  this guide assumes you know what first-match-wins and fail-closed mean.
+
+## Steps
+
+### 1. Write the policy document
+
+A Policy is a JSON file at `<policyDir>/<name>/<version>/policy.json`. Create
+`policies/high-value-payment/1.0.0/policy.json`:
+
+```json
+{
+  "policyId": "high-value-payment",
+  "policyVersion": "1.0.0",
+  "schemaVersion": "1.0.0",
+  "description": "Authorizes high-value vendor payments requiring Finance Director approval.",
+  "signalsSchema": {
+    "vendorVerified": "boolean",
+    "invoiceVerified": "boolean",
+    "paymentApproved": "boolean",
+    "sufficientFunds": "boolean",
+    "paymentAmount": "number",
+    "riskScore": "number",
+    "financeDirectorApproved": "boolean"
+  },
+  "rules": [
+    {
+      "id": "approve-high-value-payment",
+      "condition": {
+        "all": [
+          { "fact": "vendorVerified", "operator": "eq", "value": true },
+          { "fact": "invoiceVerified", "operator": "eq", "value": true },
+          { "fact": "paymentApproved", "operator": "eq", "value": true },
+          { "fact": "sufficientFunds", "operator": "eq", "value": true },
+          { "fact": "paymentAmount", "operator": "gt", "value": 10000 },
+          { "fact": "financeDirectorApproved", "operator": "eq", "value": true },
+          { "fact": "riskScore", "operator": "lte", "value": 20 }
+        ]
+      },
+      "outcome": { "action": "approve", "reason": "High-value vendor payment authorized after Finance Director approval." }
+    },
+    {
+      "id": "reject-high-value-without-director-approval",
+      "condition": {
+        "all": [
+          { "fact": "paymentAmount", "operator": "gt", "value": 10000 },
+          { "fact": "financeDirectorApproved", "operator": "eq", "value": false }
+        ]
+      },
+      "outcome": { "action": "reject", "reason": "High-value vendor payment rejected because Finance Director approval is required." }
+    },
+    {
+      "id": "reject-default",
+      "condition": { "always": true },
+      "outcome": { "action": "reject", "reason": "One or more required policy conditions were not satisfied." }
+    }
+  ]
+}
+```
+
+Note the trailing `reject-default` rule: without it, an unmatched transaction still
+rejects (fail-closed is the engine's default, not something the policy has to opt into),
+but writing it explicitly documents the reject-by-default behavior for anyone reading the
+policy file itself.
+
+### 2. Reference it from a Business Transaction
+
+```json
+{
+  "policy": { "name": "high-value-payment", "version": "1.0.0", "schemaVersion": "1.0.0" },
+  "signals": {
+    "vendorVerified": true, "invoiceVerified": true, "paymentApproved": true,
+    "sufficientFunds": true, "paymentAmount": 25000, "riskScore": 10,
+    "financeDirectorApproved": true
+  }
+}
+```
+
+### 3. Evaluate it
+
+This exact scenario already exists as `examples/tutorials/14-custom-policy/`, reuse it
+rather than writing a parallel harness: it builds a `FilePolicyRepository` pointed at a
+local `policies/` directory and executes a transaction through `RuntimeFactory.create()`
+directly, no server required.
+
+```bash
+node_modules/.bin/tsx examples/tutorials/14-custom-policy/run.ts
+```
+
+## Verify
+
+Real output, this session:
+
+```json
+"decision": {
+  "outcome": "APPROVED",
+  "reason": "High-value vendor payment authorized after Finance Director approval.",
+  "policy": { "name": "high-value-payment", "version": "1.0.0", "schemaVersion": "1.0.0" }
+},
+"status": "COMPLETED"
+```
+
+```
+Verification: { "status": "VERIFIED", "trustRecordHash": "c22620765972e43e39470d1631cd061de156a4a3a2367d791a23c40dfd32ea3a" }
+```
+
+Now confirm the reject path. In a scratch copy of `transaction.json`, set
+`"financeDirectorApproved": false`, and rerun. This is what actually happens, tested in this
+session, not what you might expect:
+
+```
+RuntimeError: Execution rejected: High-value vendor payment rejected because Finance
+Director approval is required.
+    at ExecutionGate.enforce (packages/runtime/src/ExecutionGate.ts:38:11)
+```
+
+A `REJECTED` decision does not come back as a normal object with `outcome: "REJECTED"`,
+`RuntimeFactory`'s `ExecutionTrustApplication.execute()` throws a `RuntimeError` whose
+message is the matched rule's rejection reason. `examples/tutorials/14-custom-policy/run.ts`
+doesn't catch this specially, so an uncaught rejection crashes the script, that's expected,
+not a bug in the tutorial, a caller that wants to handle rejection gracefully needs a
+`try`/`catch` around `execute()`. The `reject-high-value-without-director-approval` rule is
+what matched, confirmed by the message, first-match-wins doing its job on different signals,
+same policy document, no code change.
+
+## Troubleshoot
+
+- **Decision comes back `REJECTED` with `"reason": "One or more required policy conditions were not satisfied."`, not the reason you expected.** Your transaction's signals matched no earlier rule, only the trailing default. Check `signalsSchema` against what you actually sent, a typo'd signal name is silently `undefined`, which fails every `eq`/`gt`/`lte` condition.
+- **`PolicyValidator` throws about policy identity.** Your Business Transaction's `policy.name`/`policy.version` doesn't match the loaded file's `policyId`/`policyVersion` exactly, these are checked, not inferred from the file path.
+- **Wrong policy loaded, or "policy not found."** `FilePolicyRepository` resolves `<policyDir>/<name>/<version>/policy.json` literally, confirm the directory structure matches, including the version folder.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Authorize and execute an action end to end" icon="play" href="/guides/authorize-and-execute">
+    What happens after a policy approves: signing, gateway verification, execution.
+  </Card>
+  <Card title="Policies and the decision" icon="scale-balanced" href="/concepts/policies-and-the-decision">
+    The concept this guide exercises.
+  </Card>
+</CardGroup>

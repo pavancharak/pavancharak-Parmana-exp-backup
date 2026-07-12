@@ -3,7 +3,7 @@ title: "Storage"
 description: "Append-only persistence for Business Transactions, Trust Records, and policies."
 ---
 
-<Info>**[AVAILABLE]** for `memory` and `supabase`. **Declared but unimplemented** for `postgres`/`sqlite` — see below.</Info>
+<Info>**[AVAILABLE]** for `memory` and `supabase`. **Declared but unimplemented** for `postgres`/`sqlite`, see below.</Info>
 
 ## Providers, precisely
 
@@ -33,8 +33,8 @@ closed rather than silently falling back).
 
 `packages/storage/src/repositories/`: `ExecutionRepository`, `VerificationRepository`,
 `CryptoProofRepository`, plus per-provider `BusinessTransactionRepository` and
-`ExecutionTrustRecordRepository` implementations — the append-only ledger backing every
-[Execution Trust Record](/trust-record/overview).
+`ExecutionTrustRecordRepository` implementations, the append-only ledger backing every
+[Execution Trust Record](/concepts/execution-trust-records).
 
 ## Configuration
 

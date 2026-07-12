@@ -1,26 +1,56 @@
 ---
-title: "Overview"
-description: "Parmana is Execution Trust Infrastructure: a verifiable trust chain between business authorization, policy evaluation, runtime execution, and execution evidence."
+title: "Welcome"
+description: "Parmana is Execution Trust Infrastructure: AI proposes an action, Parmana authorizes it, your systems execute it."
 ---
 
 <Info>
-**Last verified against commit `1f62e24`, 2026-07-06.** This site documents the reference
-implementation in this repository as of that commit, plus in-progress Python SDK and
-documentation work from the current session (not yet committed). Every `[AVAILABLE]` claim
-below cites the source file or test that proves it. See [Contributing](/contributing) for
-the rule this site follows.
+**Last verified against commit `651497a`, 2026-07-12**, including a live local run. Every
+`[AVAILABLE]` claim on this site cites the source file or test that proves it. See
+[Contributing](/contributing) for the rule this site follows.
 </Info>
 
 ## What Parmana is
 
-Parmana establishes a verifiable trust chain between business authorization, policy
-evaluation, runtime execution, and execution evidence. It lets an organization verify
-**what** an automated system executed — not simply trust that it executed correctly.
+Increasingly, the system proposing a business action, a payment, a database change, a
+production deployment, is an AI agent rather than a person clicking a button. Parmana doesn't
+care whether the proposer is a human, a script, or an LLM agent: it treats every caller
+identically. What it cares about is what happens next.
 
-This is not a single claim. It's a set of specific, separately-provable guarantees, each
-tagged below by how far it actually is from "built and tested" today. Source:
-[`docs/CLAIMS.md`](https://github.com/parmana-ai/parmana/blob/main/docs/CLAIMS.md), the
-authoritative claims register this site mirrors.
+Think of how a card network authorizes a purchase. Visa doesn't stock the shelves or move the
+money itself. It decides, quickly and cryptographically, whether the transaction is allowed,
+then hands the merchant's bank a signed authorization to act on. **Parmana plays that role for
+automated business actions.** An agent proposes an action. Parmana's policy engine decides,
+deterministically, whether it's allowed. If approved, Parmana issues a signed, single-use,
+time-bounded authorization. Your own systems, through a Connector, are what actually execute
+it. Parmana never touches your systems directly, the same way a card network never touches
+the goods on the shelf.
+
+## The trust chain, at a glance
+
+```
+Caller (AI agent, script, or person)
+     │  proposes a Business Transaction
+     ▼
+Policy Engine  ──deterministic decision──►  APPROVED or REJECTED
+     │  (no matching rule denies by default: fail closed)
+     ▼  if APPROVED
+Signed Execution Authorization  (single-use, time-bounded, content-bound)
+     │
+     ▼
+Execution Gateway  ──independently re-verifies the signed envelope──►
+     │
+     ├─►  Session Credential Vault  (issues a scoped, single-use credential)
+     ▼
+Connector  (your system: an HTTP call, or a reference mock today)
+     │
+     ▼
+Execution Trust Record  (signed, independently verifiable)
+```
+
+Every stage in that chain is real, tested code, not a diagram of intent. The default local
+server (`packages/api/src/server.ts`) wires the Execution Gateway unconditionally: there is no
+code path where a request skips it. See [How Parmana thinks](/how-parmana-thinks) for what
+each stage guarantees and why.
 
 ## Status tags used throughout this site
 
@@ -32,49 +62,25 @@ authoritative claims register this site mirrors.
     Exists, but incomplete. States exactly what works and what doesn't.
   </Card>
   <Card title="[ROADMAP]" icon="signpost">
-    Designed, not yet built. Says so in the first sentence — never documented as if it ships.
+    Designed, not yet built. Says so in the first sentence, never documented as if it ships.
   </Card>
 </CardGroup>
 
-A page or section with no tag is a bug in this site — [file it as such](/contributing).
-
-## The trust chain, at a glance
-
-```
-Business Transaction → Policy Evaluation → Decision → Signed Execution Authorization
-        │                                                        │
-        ▼                                                        ▼
- Execution Trust Record ◄──────────────────────────────  Execution Gateway
-        │                                              (content-binding check)
-        ▼                                                        │
-   Verification                                                  ▼
-   (integrity, signature,                                   Connector
-    authorization binding)                              (reference: HTTP)
-```
-
-<Warning>
-**The gateway stage is real but not wired into the default server.** The plain,
-running API server (`packages/api`) never constructs an `ExecutionGateway` — its
-`application` singleton is built with no `executionSystem` argument
-(`packages/api/src/application.ts`). So `POST /execute` against a stock local server
-does **not** get content-binding enforcement today. See
-[Content Binding & TOCTOU](/concepts/content-binding-toctou) for the full trace and what
-wiring the gateway in requires.
-</Warning>
+A page or section with no tag is a bug in this site, [file it as such](/contributing).
 
 ## Where to go next
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Run the local API server and execute your first Business Transaction with the Python SDK.
+    Install to first authorized execution in under 10 minutes, using the in-memory server.
+  </Card>
+  <Card title="How Parmana thinks" icon="brain" href="/how-parmana-thinks">
+    The concepts behind the diagram above: policy, authorization, the gateway, trust records.
   </Card>
   <Card title="Architecture" icon="sitemap" href="/architecture/overview">
     Every package, what it actually does, and its current status.
   </Card>
-  <Card title="Content Binding & TOCTOU" icon="shield-check" href="/concepts/content-binding-toctou">
-    The real mechanism that closes the check-vs-use gap — and its real, current limits.
-  </Card>
   <Card title="Roadmap" icon="map" href="/roadmap">
-    What's designed but not yet built, stated plainly — KMS custody, credential brokering, more.
+    What's designed but not yet built, stated plainly: KMS custody, real enterprise connectors, more.
   </Card>
 </CardGroup>

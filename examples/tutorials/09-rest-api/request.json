@@ -27,9 +27,9 @@
     "intentId": "intent-001",
     "authorizationId": "authorization-001",
 
-    "action": "vendor-payment",
+    "action": "payments:execute",
 
-    "target": "sap.payment.release",
+    "target": "vendor://payments",
 
     "parameters": {
       "invoiceId": "invoice-1001",

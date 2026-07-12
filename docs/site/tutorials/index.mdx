@@ -1,0 +1,125 @@
+---
+title: "Tutorials"
+description: "All 60 numbered examples in examples/tutorials/, grouped by what they demonstrate. This page links to them, it does not duplicate their content."
+---
+
+<Info>**[AVAILABLE]**, all 60 run in CI on every change via `npm run examples` (two are excluded from the unattended batch and run individually, noted below). See [Detect tampering](/guides/detect-tampering) and [Choose a signature provider](/guides/choose-a-signature-provider) for guides built directly on several of these.</Info>
+
+Run any of them directly: `node_modules/.bin/tsx examples/tutorials/<NN-name>/run.ts`.
+
+## Fundamentals (01-24)
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 01 | Hello World | Constructing a `BusinessTransaction`, no execution yet |
+| 02 | Policy Evaluation | `PolicyEngine.evaluate()` in isolation |
+| 03 | Runtime Execution | First full `RuntimeFactory` execution, using the `DefaultExecutionSystem` placeholder |
+| 04 | Policy Router | Resolving a `PolicyReference` to a loaded policy |
+| 05 | Verification | Fresh verification appended to a trust record's history |
+| 06 | Replay | `@parmana/replay`'s real, scoped policy re-evaluation, see [Replay](/replay/overview) |
+| 07 | Receipt Generation | The real, wired `Receipt` (via `@parmana/crypto`'s `ReceiptCrypto`), not `@parmana/receipt`'s separate model |
+| 08 | Human Approval | An `Authority` / `Authorization` / `Intent` chain without executing |
+| 09 | REST API | `POST /transactions` over HTTP, excluded from the unattended batch, needs a live server, see [Endpoints](/api-reference/endpoints) |
+| 10 | End-to-End | Execute, verify, and receipt in one run, still via `DefaultExecutionSystem` |
+| 11 | Execution Authorization | The `SignedExecutionAuthorization` envelope itself, printed directly, see [Authorize and execute end to end](/guides/authorize-and-execute) |
+| 12 | Envelope Verification | `EnvelopeVerifier`'s per-check breakdown on a valid envelope |
+| 13 | Post-Quantum Signatures | `config.crypto.primarySignatureProvider` read and printed |
+| 14 | Custom Policy | Writing and evaluating a policy outside the shipped `vendor-payment` one, see [Write your first policy](/guides/write-your-first-policy) |
+| 15 | Custom Runtime Component | Extending `RuntimePipeline` with a custom `RuntimeComponent` |
+| 16 | Runtime Pipeline | The pipeline's stage composition, inspected directly |
+| 17 | Multi-Policy Routing | Routing different transactions to different policies |
+| 18 | Runtime Hooks | `RuntimeHook` / `RuntimeHookRunner` lifecycle callbacks |
+| 19 | Runtime Composition | Assembling a `Runtime` from individual components |
+| 20 | Batch Execution | Multiple transactions through one runtime instance |
+| 21 | Partial Failure Handling | One transaction in a batch failing without stopping the rest |
+| 22 | Idempotent Execution | Resubmitting the same `businessTransactionId` |
+| 23 | Production Deployment | Configuration shape for a non-local deployment |
+| 24 | SDK Integration Patterns | Common client-side call patterns |
+
+## Execution authorization and envelope (25-34)
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 25 | Execution Permit Generation | The `@parmana/execution-control` `ExecutionPermit` model, see [@parmana/receipt](/reference/receipt) for its real, separate scope |
+| 26 | Execution Authorization Verification | `AuthorizationVerifier` checking a signature independent of the fuller envelope flow |
+| 27 | Authorization Expiration | An expired `expiresAt` rejected by `EnvelopeVerifier` |
+| 28 | Envelope Replay Detection | A reused nonce rejected on the second check |
+| 29 | Authorization Tampering | A mutated payload failing signature verification, per-check breakdown, see [Detect tampering](/guides/detect-tampering) |
+| 30 | Policy Version Pinning | An authorization bound to one exact `policyVersion` |
+| 31 | Authorization Binding | `authorizationId` binding an authorization to one decision |
+| 32 | Execution Pipeline | The stages between decision and release, inspected directly |
+| 33 | Execution Boundary | Where policy evaluation ends and release begins |
+| 34 | Execution Gateway | `ExecutionGateway` constructed and exercised directly, see [The gateway](/concepts/the-gateway) |
+
+## Gateway hardening: mutate, verify, watch it fail (35-46)
+
+The same pattern each time: generate something valid, mutate exactly one thing, re-verify,
+confirm rejection. See [Detect tampering](/guides/detect-tampering) for three of these run
+live with real output.
+
+| # | Name | What's mutated |
+|---|---|---|
+| 35 | Replay Attack | The same authorization submitted twice |
+| 36 | Parameter Tampering | A parameter inside the executable content |
+| 37 | Action Substitution | The `action` field |
+| 38 | Target Substitution | The `target` field |
+| 39 | Policy Substitution | The referenced policy |
+| 40 | Signature Forgery | The signature itself, signed by a different key |
+| 41 | Expired Authorization | The clock, past `expiresAt` |
+| 42 | Nonce Reuse | The nonce, submitted a second time |
+| 43 | Stolen Authorization | A valid envelope replayed by a different party |
+| 44 | Direct API Bypass | Attempting to skip the gateway entirely |
+| 45 | Connector Bypass | Attempting to reach a connector without a valid session |
+| 46 | TOCTOU Protection | The full check-vs-use gap, end to end |
+
+## Cryptography (47-52)
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 47 | Canonical JSON | `CanonicalSerializer`'s key-sorted, deterministic output |
+| 48 | Deterministic Hashing | The same content hashing identically every time |
+| 49 | Detached Signatures | Signing content without embedding it in the signature artifact |
+| 50 | Ed25519 | Default signature provider, sign and verify, see [Choose a signature provider](/guides/choose-a-signature-provider) |
+| 51 | Dilithium3 | ML-DSA-65 (post-quantum), signing with the `pq` key, same guide |
+| 52 | Hybrid Signatures | Both algorithms signing the same artifact at once, same guide |
+
+## Execution Permit and Receipt: a separate, unwired path (53-56)
+
+<Warning>
+None of these four reach `packages/api` or `packages/runtime`. They exercise
+`@parmana/execution-control`'s `ExecutionPermit` and `@parmana/receipt`'s
+`ExecutionReceipt`, real and tested, disconnected from the default server. See
+[@parmana/receipt](/reference/receipt) for the precise scope note.
+</Warning>
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 53 | Execution Permit | Building an `ExecutionPermit` with `ExecutionPermitBuilder` |
+| 54 | Execution Receipt | `ExecutionReceiptBuilder.build(permit, trustRecord)` |
+| 55 | Execution Receipt Verification | `ExecutionReceiptVerifier.verify()`, a structural check, not cryptographic |
+| 56 | Complete Execution Flow | Permit through receipt through verification, one run |
+
+## Credential isolation (57-60)
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 57 | Credential Isolation | The concept end to end, at the library level |
+| 58 | Session Credentials | Issue, consume, expire, reuse-reject, revoke, see [Issue and verify session credentials](/guides/session-credentials) |
+| 59 | Secure Connectors | Gateway attestation plus a `SessionCredentialSecureConnector`, including a spoofed-attestation rejection |
+| 60 | End-to-End Enterprise Execution | The full credential-isolated path, one run |
+
+## Scenarios
+
+Three production-shaped scenarios also live in `examples/scenarios/`, run in the same CI
+batch: `vendor-payment`, `expense-approval`, `purchase-order`.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Detect tampering" icon="bug" href="/guides/detect-tampering">
+    Three of the tutorials above, run live with real output.
+  </Card>
+  <Card title="Trust and Claims" icon="scale-balanced" href="/trust-and-claims/claims-discipline">
+    How every claim on this site, including every line above, maps back to code and tests.
+  </Card>
+</CardGroup>

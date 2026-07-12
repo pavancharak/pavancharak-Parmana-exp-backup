@@ -1,9 +1,9 @@
 ---
 title: "Python SDK"
-description: "The actively maintained SDK — generated models, structured errors, real test coverage."
+description: "The actively maintained SDK, generated models, structured errors, real test coverage."
 ---
 
-<Info>**[AVAILABLE]** — `python/`, v1.0.0. 26 passing tests, 0 placeholders. ruff/black/mypy all pass clean.</Info>
+<Info>**[AVAILABLE]**, `python/`, v1.0.0. 26 passing tests, 0 placeholders. ruff/black/mypy all pass clean.</Info>
 
 ## Install
 
@@ -11,14 +11,14 @@ description: "The actively maintained SDK — generated models, structured error
 pip install -e ./python
 ```
 
-`py.typed` is shipped — this is a PEP 561 typed distribution, confirmed by installing into
+`py.typed` is shipped, this is a PEP 561 typed distribution, confirmed by installing into
 a clean venv and checking `parmana.__file__`'s directory for the marker.
 
 ## Models are generated, not hand-maintained
 
 Every model in `python/parmana/models/*.py` is generated directly from the TypeScript AST
 of `packages/shared/src/domain/*.ts` (and `CryptoAlgorithms.ts`) by
-`python/scripts/generate_models.ts` — not hand-aligned copies. A drift guard
+`python/scripts/generate_models.ts`, not hand-aligned copies. A drift guard
 (`npm run check:python-models`, wired into CI) regenerates into memory and fails the build
 if the committed output would change:
 
@@ -33,7 +33,7 @@ and re-running `--check` reports `DRIFT DETECTED` and exits 1.
 Enums are real Python `str, Enum` classes (e.g. `SignatureAlgorithm`,
 `VerificationStatus`), not bare strings.
 
-## Structured HTTP errors — they actually raise
+## Structured HTTP errors, they actually raise
 
 ```python
 from parmana import ConflictError, NotFoundError, ValidationError
@@ -56,10 +56,10 @@ except ConflictError as exc:          # HTTP 409
 
 All inherit `ParmanaHttpError` → `ApiError`. Proven against the real `HttpTransport` (not a
 test double) using `responses`-mocked HTTP, one test per status code plus a connection
-failure case — 10 tests in `python/tests/test_http_transport.py`.
+failure case, 10 tests in `python/tests/test_http_transport.py`.
 
 The client also reuses a `requests.Session()` (connection pooling) and retries idempotent
-GETs with backoff on 502/503/504 — POSTs are never retried.
+GETs with backoff on 502/503/504, POSTs are never retried.
 
 ## Every endpoint the API exposes has a method
 
@@ -77,12 +77,12 @@ client.trust_records.get(id)                    # GET /trust-records/:id
 client.policy.validate(policy_id, policy_version) # POST /policies/validate
 ```
 
-`policy.validate` takes `(policy_id, policy_version)`, not a policy document — matching
+`policy.validate` takes `(policy_id, policy_version)`, not a policy document, matching
 what the route actually reads (see [REST API](/api-reference/endpoints)).
 
 ## Examples
 
 Three runnable examples, each with its own README (prerequisites + real captured output):
 `python/examples/quickstart/`, `python/examples/verify/`, `python/examples/content_binding/`
-(the last one demonstrates — honestly — what content-binding protection you do *not* get
+(the last one demonstrates, honestly, what content-binding protection you do *not* get
 from the plain API; see [Content Binding & TOCTOU](/concepts/content-binding-toctou)).

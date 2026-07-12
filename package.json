@@ -16,6 +16,7 @@
     "clean": "tsc -b --clean",
     "rebuild": "npm run clean && npm run build:force",
     "dev": "tsx packages/api/src/server.ts",
+    "generate:gateway-keys": "tsx scripts/generate-keypair.ts --algorithm ed25519 --key-id gateway",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",

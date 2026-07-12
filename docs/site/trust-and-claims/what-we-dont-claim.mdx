@@ -1,0 +1,97 @@
+---
+title: "What Parmana Does Not Claim"
+description: "Honest limitations, sourced from CLAIMS.md's own refused claims and from what this documentation effort found while verifying every page against code."
+---
+
+<Info>Every item below is sourced, CLAIMS.md §5 for the permanent refusals, or a specific
+file/test/live run for everything else on this page.</Info>
+
+## Permanent refusals, CLAIMS.md §5
+
+These are not "not yet" items. Parmana does not intend to ever make these claims unscoped,
+because no implementation could honestly back them:
+
+- Execution is impossible to bypass under all circumstances.
+- Mathematical proof of execution correctness.
+- Cryptographic proof of every aspect of runtime behavior.
+- Guaranteed regulatory compliance.
+- Absolute prevention of all unauthorized execution.
+- Tamper-proof operation in every deployment environment.
+- Elimination of all software defects or operational risks.
+- "Non-bypassable" or "the single execution authority" as an **unscoped**, system-wide
+  claim. [The gateway](/concepts/the-gateway) enforces nothing at the network level, and is
+  a property of systems that route through it, not of the network Parmana runs on.
+- Deterministic signature output for ML-DSA-65. Those signatures are randomized by design,
+  only *verification* is deterministic, see [Choose a signature provider](/guides/choose-a-signature-provider).
+
+## Scoped claims, not absent ones
+
+Some real, tested guarantees hold only within a stated boundary. Treating the boundary as
+the whole claim is the honest reading:
+
+- **Envelope verification is non-bypassable only for a system that runs it.** As of commit
+  `651497a` the default server does, for the one connector it registers. A system you build
+  that doesn't call `@parmana/envelope-verifier` gets none of this.
+- **Single-use is scoped to whichever `NonceStore` instance checks it.** Independent gateway
+  instances, each with their own `MemoryNonceStore`, can each accept the same authorization
+  once, not once fleet-wide (CLAIMS.md 3.2).
+- **Credential isolation is proven for one connector, `vendor-payment`.** The mechanism is
+  generic and tested, but reaching a *second* connector today is a bootstrap code change,
+  not something the architecture does automatically, see [Credential isolation](/concepts/credential-isolation).
+
+## Mocks are labeled as mocks
+
+`SapConnector`, `OracleConnector`, `WorkdayConnector`, and `SalesforceConnector`
+(`packages/connector-sdk/src/connectors/`) are explicit, self-documented reference mocks,
+*"deterministic, in-memory connector used until the real enterprise connector is
+implemented."* None of them calls a real SAP, Oracle, Workday, or Salesforce system, and
+none is wired into the default server. No real enterprise connector exists in this
+repository for any vendor. See [The gateway](/concepts/the-gateway) and [Add a connector
+with the Connector SDK](/guides/add-a-connector).
+
+## Real, tested, and disconnected from the default server
+
+Two packages found during this documentation effort are genuinely built and tested, but
+don't participate in the pipeline `packages/api` actually runs:
+
+- **`@parmana/receipt`**: its `ExecutionReceiptBuilder`, `ExecutionReceiptVerifier`, and the
+  separate `ExecutionPermit` model it depends on (from `@parmana/execution-control`) are
+  exercised only by `examples/tutorials/53` through `56`. Nothing in `packages/runtime` or
+  `packages/api` imports `@parmana/receipt`. See [@parmana/receipt](/reference/receipt).
+- **`@parmana/replay`**'s `ReplayEngine`: does genuinely re-evaluate a recorded policy
+  decision, real semantic verification, not a signature recheck, but nothing in
+  `packages/api` or `packages/runtime` imports it either. `POST /replay` is a separate,
+  narrower thing (a signature recheck). See [@parmana/replay](/reference/replay).
+
+## No authentication
+
+`packages/api` has no auth middleware on any of its 14 routes today. Every route in
+[Endpoints](/api-reference/endpoints) is unauthenticated in the current implementation, this
+is a present, current gap, not a caveat about some future deployment.
+
+## No key management beyond local files
+
+Both signing keys, `default.*.pem` and `gateway.*.pem`, are files on disk read by
+`FileKeyProvider`, the only implemented `KeyProvider`. `aws-kms`, `azure-key-vault`,
+`gcp-kms`, and `hsm` are declared as valid config values with zero implementing classes,
+setting `KEY_PROVIDER` to one of these does nothing. See [Deploy patterns](/guides/deploy-patterns)
+and the key-compromise incident on [Security](/security/overview).
+
+## One verified, current gap in error handling
+
+A structurally incomplete `POST /execute` body (a valid UUID, but missing required nested
+fields) does not produce the clean 400 the error-handler appears designed to return, it
+throws an unhandled `TypeError` deep in validation, caught only by a generic 500. Verified
+live, not inferred, see [Endpoints](/api-reference/endpoints). This is reported, not fixed,
+in this documentation pass.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="The CLAIMS.md discipline" icon="shield-check" href="/trust-and-claims/claims-discipline">
+    How to verify any of the above yourself.
+  </Card>
+  <Card title="Roadmap" icon="map" href="/roadmap">
+    What's designed but not built yet, and the sequencing behind it.
+  </Card>
+</CardGroup>

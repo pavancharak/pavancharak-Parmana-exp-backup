@@ -1,0 +1,84 @@
+---
+title: "@parmana/crypto"
+description: "Signing, hashing, and verification. Ed25519 and ML-DSA-65 providers, canonical serialization, and the file-based key provider."
+---
+
+<Info>**[AVAILABLE]** for every export below. **[ROADMAP]** for KMS/HSM key custody, no provider class exists for it yet, see [Deploy patterns](/guides/deploy-patterns).</Info>
+
+## Purpose
+
+Every hash and signature in Parmana goes through this package: trust record hashing,
+authorization signing and verification, receipt signing, and canonical JSON serialization
+so the signing side and verifying side always compute byte-identical input.
+
+## Install
+
+```bash
+npm install @parmana/crypto
+```
+
+## Key exports
+
+### Bootstrap, [AVAILABLE]
+
+| Export | Signature |
+|---|---|
+| `CryptoBootstrap.create()` | `(): CryptoProvider`, builds from `config.crypto.primarySignatureProvider` |
+| `CryptoBootstrap.createHybrid()` | `(): HybridCryptoProvider`, requires `SECONDARY_SIGNATURE_PROVIDER` set, throws otherwise |
+
+See [Choose a signature provider](/guides/choose-a-signature-provider) for both, run live.
+
+### High-level services, [AVAILABLE]
+
+| Export | Purpose |
+|---|---|
+| `VerificationCrypto` | `.hash()`, `.sign()`, `.verifySignature()`, `.verify()` on an `ExecutionTrustRecord`. No constructor arguments, builds its own `FileKeyProvider` internally. See [Verify a trust record independently](/guides/verify-independently). |
+| `AuthorizationSigner` | `.sign({ decisionId, businessTransactionId, policyName, policyVersion, executableContent }, privateKey, keyId, ttlSeconds): Promise<SignedExecutionAuthorization>` |
+| `AuthorizationVerifier` | Verifies a `SignedExecutionAuthorization`'s signature independent of `@parmana/envelope-verifier`'s fuller checks (expiry, nonce, TTL policy) |
+| `ReceiptCrypto` | Signs and verifies `Receipt` artifacts |
+| `TrustRecordHasher` | Canonical hash of an `ExecutionTrustRecord`'s signed fields, see [Execution trust records](/concepts/execution-trust-records) for exactly which fields |
+| `ExecutableContentHasher` | Canonical hash of `{ businessTransactionId, action, target, parameters }`, the value bound into `businessTransactionHash`, see [The gateway](/concepts/the-gateway) |
+| `ReceiptHasher` | Canonical hash for receipts |
+
+### Low-level primitives, [AVAILABLE]
+
+| Export | Purpose |
+|---|---|
+| `ArtifactSigner` / `SignatureVerifier` | Sign/verify any canonically-serializable object with a given `CryptoProvider` |
+| `CanonicalSerializer` | Key-sorted, deterministic JSON serialization, what makes hashing reproducible |
+| `Ed25519SignatureProvider` | Default signature provider |
+| `Dilithium3SignatureProvider` | ML-DSA-65 (FIPS 204) provider, requires Node ≥ 24, produces randomized (non-deterministic) signatures |
+| `SHA256HashProvider` | Default hash provider |
+| `FileKeyProvider` | `.getPrivateKey(keyId)`, `.getPublicKey(keyId)`, reads `<PARMANA_KEY_DIR>/<keyId>.{private,public}.pem`. `getPublicKey` never checks for the private key file. The only implemented `KeyProvider`. |
+| `assertKeyType` | Fails closed, naming both expected and actual key type, if a key doesn't match the configured provider (CLAIMS.md 2.13) |
+
+### Hybrid signing, [AVAILABLE]
+
+| Export | Purpose |
+|---|---|
+| `HybridSigner` / `HybridVerifier` | Sign or verify with two `CryptoProvider`s at once |
+| `SignatureBundleBuilder` | Builds a `SignatureBundle` (primary + secondary signature) |
+
+## Minimal example
+
+```typescript
+import { readFileSync } from "node:fs";
+import { VerificationCrypto } from "@parmana/crypto";
+
+const trustRecord = JSON.parse(readFileSync("trust-record.json", "utf8"));
+const crypto = new VerificationCrypto();
+const verified = await crypto.verify(trustRecord); // true, offline, no server needed
+```
+
+Full runnable version: [Verify a trust record independently](/guides/verify-independently).
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Choose a signature provider" icon="key" href="/guides/choose-a-signature-provider">
+    Ed25519, ML-DSA-65, and hybrid signing, all run live.
+  </Card>
+  <Card title="@parmana/envelope-verifier" icon="shield-check" href="/reference/envelope-verifier">
+    Where `AuthorizationVerifier`'s check fits into the fuller envelope verification flow.
+  </Card>
+</CardGroup>

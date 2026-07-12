@@ -13,6 +13,12 @@ const root = path.resolve(__dirname, "..");
 // isn't safe to run unattended alongside the rest of this list.
 // Run it individually — see examples/04-verified-execution/README.md.
 //
+// examples/tutorials/09-rest-api is intentionally excluded for the
+// same reason: it POSTs to a live Parmana API server at
+// PARMANA_API_URL / http://localhost:3000, which this runner does
+// not start. Run it individually with a server already up — see
+// examples/tutorials/09-rest-api/README.md.
+//
 const examples = [
   "examples/tutorials/01-hello-world/run.ts",
   "examples/tutorials/02-policy-evaluation/run.ts",
@@ -22,7 +28,6 @@ const examples = [
   "examples/tutorials/06-replay/run.ts",
   "examples/tutorials/07-receipt-generation/run.ts",
   "examples/tutorials/08-human-approval/run.ts",
-  "examples/tutorials/09-rest-api/run.ts",
   "examples/tutorials/10-end-to-end/run.ts",
     "examples/tutorials/11-execution-authorization/run.ts",
   "examples/tutorials/12-envelope-verification/run.ts",
@@ -71,7 +76,7 @@ const examples = [
   "examples/tutorials/55-execution-receipt-verification/run.ts",
  "examples/tutorials/56-complete-execution-flow/run.ts",
     "examples/tutorials/51-dilithium3/run.ts",
-  "examples/tutorials/52-hybrid-execution-trust/run.ts",
+  "examples/tutorials/52-hybrid-signatures/run.ts",
   "examples/tutorials/57-credential-isolation/run.ts",
   "examples/tutorials/58-session-credentials/run.ts",
   "examples/tutorials/59-secure-connectors/run.ts",

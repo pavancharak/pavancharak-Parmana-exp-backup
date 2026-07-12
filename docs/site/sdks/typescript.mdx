@@ -1,11 +1,11 @@
 ---
 title: "TypeScript SDK"
-description: "Real client code and a full error taxonomy — neither is tested, and the error taxonomy is never actually used."
+description: "Real client code and a full error taxonomy, neither is tested, and the error taxonomy is never actually used."
 ---
 
 <Warning>
 **[PARTIAL].** Downgraded from an initial [AVAILABLE] label after checking source
-directly. Two specific, unfixed problems, stated precisely below — this page exists so you
+directly. Two specific, unfixed problems, stated precisely below, this page exists so you
 know them before relying on this SDK, not to discourage using it.
 </Warning>
 
@@ -14,12 +14,12 @@ know them before relying on this SDK, not to discourage using it.
 `typescript/src/` has genuine structure: a `client/`, per-resource API classes, a
 `transport/HttpTransport`, `models/`, and `config/`. It builds. Version `1.0.0`.
 
-## Problem 1 — the entire test suite is empty
+## Problem 1, the entire test suite is empty
 
-Every file under `typescript/test/*.test.ts` — `ParmanaClient.test.ts`,
+Every file under `typescript/test/*.test.ts`, `ParmanaClient.test.ts`,
 `HttpTransport.test.ts`, `Errors.test.ts`, `VerificationApi.test.ts`,
 `RuntimeApi.test.ts`, `ReplayApi.test.ts`, `PolicyApi.test.ts`, `HealthApi.test.ts`,
-`Configuration.test.ts` — is **0 bytes**. `vitest run` reports "9 passed" because an empty
+`Configuration.test.ts`, is **0 bytes**. `vitest run` reports "9 passed" because an empty
 file trivially has nothing to fail; it asserts nothing.
 
 ```
@@ -36,14 +36,14 @@ $ wc -l typescript/test/*.test.ts
 0 total
 ```
 
-## Problem 2 — a full error taxonomy exists and is never thrown
+## Problem 2, a full error taxonomy exists and is never thrown
 
 `typescript/src/errors/` declares `ExecutionRejectedError`, `ValidationError`,
 `InternalServerError`, `VerificationError`, `ReplayError`, `NetworkError`,
-`TimeoutError`, `ConfigurationError` — a well-named taxonomy.
+`TimeoutError`, `ConfigurationError`, a well-named taxonomy.
 (`AuthenticationError` and `AuthorizationError` were removed in a later
 session: the Runtime enforces no authentication or authorization, so a
-client-side taxonomy implying it does was misleading — see docs/CLAIMS.md.)
+client-side taxonomy implying it does was misleading, see docs/CLAIMS.md.)
 Checked directly: **none of `ExecutionRejectedError`, `ValidationError`, or
 `InternalServerError` is ever constructed anywhere in the SDK source.**
 
@@ -61,12 +61,12 @@ if (response.status === 204) {
 return { status: response.status, headers, body };
 ```
 
-A `400`, `404`, or `500` response comes back looking exactly like a `200` — the error body
+A `400`, `404`, or `500` response comes back looking exactly like a `200`, the error body
 sits in `.body`, un-thrown, un-flagged. Only `NetworkError` (fetch failure) and
 `TimeoutError` (abort) are actually raised, from the `catch` block around `fetch()` itself.
 
 **If you're writing error-handling code against this SDK today, check `response.status`
-in the returned object yourself** — do not rely on a thrown, typed exception for a 4xx/5xx
+in the returned object yourself**, do not rely on a thrown, typed exception for a 4xx/5xx
 from the Runtime. Compare with the [Python SDK](/sdks/python), where this exact problem was
 found and fixed this session, with tests proving each status code raises its specific type.
 

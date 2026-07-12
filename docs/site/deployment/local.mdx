@@ -3,7 +3,7 @@ title: "Local / Self-Hosted Deployment"
 description: "The real, current deployment model: a single Node.js process, local PEM keys, your choice of memory or Supabase storage."
 ---
 
-<Info>**[AVAILABLE]** — this is what actually runs. Cloud/KMS/multi-instance/HA deployment is [ROADMAP] — see [Roadmap](/roadmap).</Info>
+<Info>**[AVAILABLE]**, this is what actually runs. Cloud/KMS/multi-instance/HA deployment is [ROADMAP], see [Roadmap](/roadmap).</Info>
 
 ## What runs today
 
@@ -20,38 +20,49 @@ NODE_ENV=...
 PORT=3000
 PARMANA_STORAGE=supabase     # or: memory
 HASH_PROVIDER=sha256
-SIGNATURE_PROVIDER=ed25519   # or: dilithium3 (needs Node >= 24)
+PRIMARY_SIGNATURE_PROVIDER=ed25519   # or: dilithium3 (needs Node >= 24)
 KEY_PROVIDER=local
-PRIVATE_KEY_PATH=./keys/default.private.pem
-PUBLIC_KEY_PATH=./keys/default.public.pem
+PARMANA_KEY_DIR=./keys
+PARMANA_GATEWAY_KEY_ID=gateway       # optional, defaults to "gateway"
 TRUST_PROFILE=v1
 LOG_LEVEL=...                # read into config; no logger currently consumes it, see Roadmap
 PARMANA_POLICY_DIR=...
+VENDOR_PAYMENT_TOKEN=...     # credential for the one wired connector, see below
 ```
+
+`PARMANA_KEY_DIR` is a single directory containing every keypair `FileKeyProvider` reads:
+`default.*.pem` (authorization signing/verification) and `gateway.*.pem` (gateway
+attestation, see [Gateway attestation](/concepts/gateway-attestation)). They are
+deliberately separate keys in the same directory, not one key used for two purposes.
+`PARMANA_GATEWAY_KEY_ID` lets you point the gateway at a differently-named key pair (for
+example during rotation, run both `gateway` and `gateway-v2` side by side, then flip the
+env var) without touching `default.*.pem` at all.
 
 ## Running it
 
 ```bash
 PARMANA_STORAGE=memory \
   PARMANA_POLICY_DIR=/absolute/path/to/policies \
-  node_modules/.bin/tsx packages/api/src/server.ts
+  VENDOR_PAYMENT_TOKEN=quickstart-demo-token \
+  npm run dev
 ```
 
-<Warning>
-Invoke the local `tsx` binary directly. Plain `npm run dev` and `npx tsx ...` break at
-this repo's root today: both `package.json` and `typescript/package.json` declare
-`"name": "parmana"`, which corrupts npm's workspace resolution for both `npm run` and
-`npx`. See [Troubleshooting](/troubleshooting).
-</Warning>
+Generate the gateway keypair first if you haven't, `npm run generate:gateway-keys`, see
+[Quickstart](/quickstart) step 2. Without it, the server refuses to start: the gateway is
+wired unconditionally (see [The gateway](/concepts/the-gateway)), there is no code path that
+skips needing this key.
 
 ## What this deployment does not give you
 
-- **No content-binding enforcement.** The server never constructs an `ExecutionGateway`.
-  See [Content Binding & TOCTOU](/concepts/content-binding-toctou).
 - **No authentication.** Every route is open.
-- **No KMS/HSM.** Your private key is a file on disk, exactly the exposure that produced
-  the incident noted on [Security](/security/overview).
-- **Single process, single instance.** No shared `NonceStore` across replicas, no HA.
+- **No KMS/HSM.** Your private keys, both `default.private.pem` and `gateway.private.pem`,
+  are files on disk, exactly the exposure that produced the incident noted on
+  [Security](/security/overview).
+- **Single process, single instance.** No shared `NonceStore` across replicas, no HA. A
+  fleet of these processes would each accept the same authorization once, not once
+  fleet-wide (CLAIMS.md 3.2).
+- **Only one connector registered.** `vendor-payment`, a reference mock. See [The
+  gateway](/concepts/the-gateway) for what adding another requires today.
 
 ## Node version
 

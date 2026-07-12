@@ -1,23 +1,25 @@
 ---
 title: "Security"
-description: "What Parmana actually guarantees, precisely scoped — and, as important, what it explicitly does not claim."
+description: "What Parmana actually guarantees, precisely scoped, and, as important, what it explicitly does not claim."
 ---
 
-<Info>This page is a direct mirror of `docs/CLAIMS.md` sections 3 and 5 — read that file for the authoritative version.</Info>
+<Info>This page is a direct mirror of `docs/CLAIMS.md` sections 3 and 5, read that file for the authoritative version.</Info>
 
 ## Claims that hold, with their scope
 
 **Non-bypassable envelope verification (Conditional Claim 3.1).** For any system running
 `@parmana/envelope-verifier`, execution requests not authorized by Parmana are
-cryptographically impossible to accept — **only** for a receiving system that (a) runs the
+cryptographically impossible to accept, **only** for a receiving system that (a) runs the
 verifier and (b) gates every execution-triggering code path behind its result. Parmana
-enforces nothing at the network level. See [Content Binding & TOCTOU](/concepts/content-binding-toctou)
-for the mechanism and the confirmed fact that the default local server does not do (a).
+enforces nothing at the network level. As of commit `651497a`, the default local server does
+both (a) and (b) for the one connector it registers, see [The gateway](/concepts/the-gateway)
+for the mechanism and its one real remaining caveat: a second connector isn't reachable
+without a bootstrap code change.
 
 **Fleet-wide single-use requires a shared NonceStore (3.2).** Single-use enforcement is
 scoped to whichever `NonceStore` instance performs the check. Independent instances each
 using their own store can each accept the same authorization once. `MemoryNonceStore`
-loses all state on restart. Every envelope's bounded TTL limits — but does not eliminate —
+loses all state on restart. Every envelope's bounded TTL limits, but does not eliminate,
 the exposure window from either gap.
 
 ## Claims Parmana intentionally does not make
@@ -30,15 +32,15 @@ Directly from CLAIMS.md §5:
 - Guaranteed regulatory compliance.
 - Absolute prevention of all unauthorized execution.
 - Tamper-proof operation in every deployment environment.
-- "Non-bypassable" or "the single execution authority" as an unscoped, system-wide claim —
+- "Non-bypassable" or "the single execution authority" as an unscoped, system-wide claim,
   envelope verification is opt-in per receiving endpoint (see 3.1 above).
-- Deterministic signature output for ML-DSA-65 — those signatures are randomized by design;
+- Deterministic signature output for ML-DSA-65, those signatures are randomized by design;
   only verification is deterministic.
 
 ## Known incident
 
 The default signing key committed to this repository before 2026-07-05 was publicly
-exposed in the public GitHub repository and must be treated as permanently compromised —
+exposed in the public GitHub repository and must be treated as permanently compromised,
 all signatures produced by that key are void for authenticity purposes regardless of when
 signed. The key pair was rotated on 2026-07-05. Source: CLAIMS.md, "Key Compromise Notice."
 
@@ -46,9 +48,9 @@ signed. The key pair was rotated on 2026-07-05. Source: CLAIMS.md, "Key Compromi
 
 `packages/api` has no auth middleware on any route. Every endpoint in
 [the reference](/api-reference/endpoints) is unauthenticated in the current
-implementation. This is a real, current gap — not a future-tense caveat.
+implementation. This is a real, current gap, not a future-tense caveat.
 
 ## Where hardening work is tracked
 
 KMS/HSM key custody, credential brokering, and network-level enforcement are real,
-specific, sequenced plans — not vague future promises. See [Roadmap](/roadmap).
+specific, sequenced plans, not vague future promises. See [Roadmap](/roadmap).

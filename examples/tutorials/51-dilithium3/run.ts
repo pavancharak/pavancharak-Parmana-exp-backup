@@ -31,6 +31,14 @@ async function main(): Promise<void> {
   //
   // Crypto configuration.
   //
+  // This tutorial signs with the "pq" key, which is
+  // ml-dsa-65 (Dilithium3) key material. CryptoBootstrap.create()
+  // builds its provider from PRIMARY_SIGNATURE_PROVIDER, which
+  // defaults to ed25519, so it must be overridden here to match
+  // the key this tutorial actually loads below.
+  //
+  process.env.PRIMARY_SIGNATURE_PROVIDER = "dilithium3";
+
   const crypto =
     CryptoBootstrap.create();
 

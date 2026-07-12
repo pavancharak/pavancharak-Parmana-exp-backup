@@ -4,14 +4,14 @@
   "name": "Parmana",
   "description": "Execution Trust Infrastructure — verifiable trust between business authorization, policy evaluation, runtime execution, and execution evidence.",
   "colors": {
-    "primary": "#E8871E",
-    "light": "#F2A94E",
-    "dark": "#1B1B1F"
+    "primary": "#E0670B",
+    "light": "#F0954A",
+    "dark": "#211A12"
   },
   "background": {
     "color": {
-      "light": "#F6EFE1",
-      "dark": "#141416"
+      "light": "#FAF4E8",
+      "dark": "#17120C"
     }
   },
   "logo": {
@@ -28,7 +28,34 @@
             "group": "Get Started",
             "pages": [
               "index",
-              "quickstart"
+              "quickstart",
+              "how-parmana-thinks"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/policies-and-the-decision",
+              "concepts/execution-authorization",
+              "concepts/the-gateway",
+              "concepts/credential-isolation",
+              "concepts/gateway-attestation",
+              "concepts/execution-trust-records",
+              "concepts/determinism-and-clocks",
+              "concepts/content-binding-toctou"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/write-your-first-policy",
+              "guides/authorize-and-execute",
+              "guides/add-a-connector",
+              "guides/session-credentials",
+              "guides/verify-independently",
+              "guides/detect-tampering",
+              "guides/choose-a-signature-provider",
+              "guides/deploy-patterns"
             ]
           },
           {
@@ -40,24 +67,8 @@
             ]
           },
           {
-            "group": "Concepts",
-            "pages": [
-              "concepts/execution-trust",
-              "concepts/content-binding-toctou"
-            ]
-          },
-          {
-            "group": "Authorization & Gateway",
-            "pages": [
-              "authorization/signed-execution-authorization",
-              "authorization/execution-gateway"
-            ]
-          },
-          {
             "group": "Runtime",
             "pages": [
-              "runtime/policy-evaluation",
-              "trust-record/overview",
               "verification/overview",
               "replay/overview"
             ]
@@ -85,6 +96,24 @@
             ]
           },
           {
+            "group": "Package Reference",
+            "pages": [
+              "reference/shared",
+              "reference/crypto",
+              "reference/policy",
+              "reference/execution-system",
+              "reference/execution-control",
+              "reference/envelope-verifier",
+              "reference/execution-gateway",
+              "reference/connector-sdk",
+              "reference/runtime",
+              "reference/storage",
+              "reference/replay",
+              "reference/receipt",
+              "reference/api"
+            ]
+          },
+          {
             "group": "Security & Deployment",
             "pages": [
               "security/overview",
@@ -95,8 +124,20 @@
             "group": "Integrations",
             "pages": [
               "integrations/overview",
-              "integrations/connector-development-guide",
-              "integrations/credentials"
+              "integrations/connector-development-guide"
+            ]
+          },
+          {
+            "group": "Tutorials",
+            "pages": [
+              "tutorials/index"
+            ]
+          },
+          {
+            "group": "Trust and Claims",
+            "pages": [
+              "trust-and-claims/claims-discipline",
+              "trust-and-claims/what-we-dont-claim"
             ]
           },
           {
@@ -113,6 +154,14 @@
       }
     ]
   },
+  "redirects": [
+    { "source": "/runtime/policy-evaluation", "destination": "/concepts/policies-and-the-decision" },
+    { "source": "/authorization/signed-execution-authorization", "destination": "/concepts/execution-authorization" },
+    { "source": "/authorization/execution-gateway", "destination": "/concepts/the-gateway" },
+    { "source": "/integrations/credentials", "destination": "/concepts/credential-isolation" },
+    { "source": "/trust-record/overview", "destination": "/concepts/execution-trust-records" },
+    { "source": "/concepts/execution-trust", "destination": "/concepts/execution-trust-records" }
+  ],
   "navbar": {
     "links": [
       {
