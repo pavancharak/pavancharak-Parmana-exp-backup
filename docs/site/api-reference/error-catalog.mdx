@@ -1,0 +1,56 @@
+---
+title: "Error Catalog"
+description: "Every error this API can return: HTTP status, code (when present), the exact condition that produces it, and what a caller should do. Assembled from live-triggered captures, not inferred from code."
+---
+
+<Info>**[AVAILABLE]**. Every row below was triggered against a live server this session or the session that produced [REST API Introduction](/api-reference/introduction), not inferred from reading source. See [Error handling](/api-reference/error-handling) for the envelope shape this table assumes.</Info>
+
+## Authentication
+
+| Status | Code | Message | Condition | What to do |
+|---|---|---|---|---|
+| 401 | none | `authentication required` | `Authorization` header missing, not a `Bearer <key>`, or the key doesn't match a configured hash | Send a valid key from [Authentication](/api-reference/authentication). Not retryable without fixing the header. |
+
+## Validation (caller's request is malformed)
+
+| Status | Code | Message | Condition | Routes | What to do |
+|---|---|---|---|---|---|
+| 400 | none | `businessTransactionId must be a valid UUID.` | `businessTransactionId` present but not a valid UUID v1-v5 | `POST /execute`, `POST /transactions`, `POST /verify`, `POST /receipt` | Fix the ID format. Not a transient failure. |
+| 400 | none | `businessTransactionId is required.` | `businessTransactionId` missing entirely | `POST /replay` | Include the field. `/replay` checks presence only, not UUID format, unlike the routes above. |
+| 400 | none | `authorization.authorityId must match authority.authorityId.` | A Business Transaction trust-chain invariant failed (`BusinessTransactionValidationError`) | `POST /execute`, `POST /transactions` | Fix the request body's internal consistency; this is one example invariant among several the shared validator enforces. |
+| 400 | none | `{"valid":false,"errors":["policyId is required."]}` / `["policyVersion is required."]` | `policyId` or `policyVersion` missing/empty, checked in that order, first miss short-circuits | `POST /policies/validate` | Supply both fields. This route never uses the shared `{error}` envelope, see [Error handling](/api-reference/error-handling). |
+
+## Not found
+
+| Status | Code | Message | Condition | Routes | What to do |
+|---|---|---|---|---|---|
+| 404 | none | `Policy '<name>' version '<version>' was not found.` | `transaction.policy.name`/`version` doesn't match any published Policy (`PolicyNotFoundError`) | `POST /execute`, `POST /transactions` | Publish the policy first, or fix the name/version in the request. |
+| 404 | none | `{"valid":false,"errors":["Policy '<name>' version '<version>' was not found."]}` | Same condition as above, different envelope | `POST /policies/validate` | Same fix; this route reshapes the error locally instead of using the shared handler. |
+| 404 | none | `Business Transaction not found.` | No Business Transaction exists for the path ID | `GET /transactions/{id}` | Confirm the ID; nothing to retry. |
+| 404 | `VERIFICATION_FAILED` | `Execution Trust Record not found.` | No Execution Trust Record exists for `businessTransactionId` (`VerificationFailedError`, reused across three POST routes) | `POST /verify`, `POST /receipt`, `POST /replay` | Confirm the record exists via `GET /trust-records/{id}` first. |
+| 404 | none | `Execution Trust Record not found.` | Same underlying condition, but reached via a GET, no `code` field on this path | `GET /verification/{id}`, `GET /receipt/latest/{id}`, `GET /trust-records/{id}` | Same fix; note the `code` field's presence depends on which route you called, not on the underlying cause. |
+| 404 | none | `Verification not found.` | Record exists but has no Verification yet | `GET /verification/{id}` | In practice every Execution produces a Verification synchronously, this is an edge case for records that haven't completed that step. |
+| 404 | none | `Receipt not found.` | Record exists but has no Receipt yet | `GET /receipt/latest/{id}` | Call `POST /receipt` first, or the record's Execution hasn't reached that stage. |
+
+## Conflict
+
+| Status | Code | Message | Condition | Routes | What to do |
+|---|---|---|---|---|---|
+| 409 | none | `Business Transaction '<id>' already exists.` | A Business Transaction with this `businessTransactionId` already exists (`DuplicateBusinessTransactionError`) | `POST /execute`, `POST /transactions` | This is not a transient failure to retry. Fetch the existing record instead, see [Idempotency and nonces](/api-reference/idempotency-and-nonces). |
+| 409 | `RECEIPT_GENERATION_FAILED` | `Execution Trust Record must be successfully verified before a Receipt can be generated.` | The record exists but its latest Verification isn't `VERIFIED` | `POST /receipt` | Call `POST /verify` first and confirm `status: VERIFIED` before requesting a Receipt. |
+
+## Server-side (500)
+
+| Status | Code | Message | Condition | Routes | What to do |
+|---|---|---|---|---|---|
+| 500 | `RUNTIME_ERROR` | `Execution rejected: <policy-specific reason>` | Policy evaluation returned `REJECTED` (a `RuntimeError`, no dedicated status of its own) | `POST /execute`, `POST /transactions` | This is a real, observed pipeline outcome, not a bug: the request was well-formed but the business decision was no. Read the reason string; it names the specific Policy condition that failed. |
+| 500 | none | `Internal Server Error` | A structurally incomplete but UUID-valid body (for example, `businessTransactionId` present but `metadata` missing) throws an unhandled `TypeError` inside `BusinessTransactionValidator.validate` before any typed error class is constructed | `POST /execute`, `POST /transactions` | Send every required nested object from the [OpenAPI reference](/api-reference/introduction)'s request schema. The generic message hides the real cause; it is visible only in server logs. |
+| 500 | none | `Internal Server Error` | **Regression, verified this pass:** no Connector is registered for the request's `action`. Previously reached the client as a coded `RuntimeError` (`"No connector registered for action: <action>.", code: RUNTIME_ERROR`); it no longer does, see [Error handling](/api-reference/error-handling) for the mechanism. | `POST /execute`, `POST /transactions` | Use a registered `action` (`payments:execute` is the only one wired by default, see [Add a connector](/guides/add-a-connector)). This is flagged as a product regression to fix in `packages/connector-sdk`, not a documentation issue. |
+
+## What's deliberately not here
+
+This catalog lists errors from the 14 routes in `packages/api/src/app.ts`. It does not cover
+exceptions raised only in code paths unreachable from the HTTP API (for example, internal
+validator classes that never escape a route handler uncaught), or client-side SDK exceptions,
+see [Python SDK](/sdks/python) and [TypeScript SDK](/sdks/typescript) for how each wraps these
+same HTTP responses.

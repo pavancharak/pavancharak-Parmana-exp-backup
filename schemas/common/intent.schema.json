@@ -20,11 +20,11 @@
     },
     "authorizationId": {
       "type": "string",
-      "description": "Authorization under which this Intent was created. Must match authorization.authorizationId — Parmana rejects a mismatch with a 400."
+      "description": "Authorization under which this Intent was created. Must match authorization.authorizationId. Parmana rejects a mismatch with a 400."
     },
     "action": {
       "type": "string",
-      "description": "Business action being requested. Required and non-empty — Parmana rejects an empty action with a 400.",
+      "description": "Business action being requested. Required and non-empty. Parmana rejects an empty action with a 400.",
       "examples": [
         "VendorPayment",
         "TransferFunds",
@@ -41,7 +41,7 @@
     },
     "parameters": {
       "type": "object",
-      "description": "Immutable business parameters describing the intended action. Not evaluated by policy — see signals.",
+      "description": "Immutable business parameters describing the intended action. Not evaluated by policy, see signals.",
       "additionalProperties": true
     },
     "createdAt": {

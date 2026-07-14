@@ -1,0 +1,56 @@
+---
+title: "Idempotency and Nonces"
+description: "There is no Idempotency-Key header. businessTransactionId is the API-layer idempotency mechanism, and it behaves differently from Stripe's: a duplicate is a 409, not a replayed response. Nonces are a separate, internal concept."
+---
+
+<Info>**[AVAILABLE]** for what's described below. No `Idempotency-Key` header exists anywhere in this API, this page is describing the real mechanism, not a gap.</Info>
+
+## businessTransactionId is the idempotency key, but not Stripe's kind
+
+`POST /execute` and `POST /transactions` require a caller-supplied `businessTransactionId`
+(a UUID). Submitting the same one twice does **not** replay the first response the way
+Stripe's `Idempotency-Key` does. It fails:
+
+```json
+{ "error": "Business Transaction 'a1a1a1a1-1111-4111-8111-111111111111' already exists." }
+```
+
+with a 409, from `DuplicateBusinessTransactionError`. If your integration retries a timed-out
+request with the same `businessTransactionId`, you get an error, not the original Execution
+Trust Record. To retrieve the original result after a 409, call `GET
+/trust-records/{businessTransactionId}` (or `GET /transactions/{businessTransactionId}`)
+with the same ID.
+
+**Practical guidance for callers:** generate `businessTransactionId` deterministically from
+your own idempotency key (a UUIDv5 derived from your order ID, for example) so retries
+naturally collide on the same ID, then treat a 409 on that ID as "already submitted, go
+fetch it" rather than as a failure.
+
+## Nonces are a different, internal concept
+
+The word "nonce" in this system refers to the single-use `nonce` inside a
+`SignedExecutionAuthorization`, part of the internal decision-to-execution pipeline, not
+something a REST API caller sends or manages. It is checked by a `NonceStore` when the
+[gateway](/concepts/the-gateway) verifies an authorization has not already been consumed,
+before the [execution](/architecture/execution-pipeline) it authorizes is allowed to run.
+See [Execution Authorization](/concepts/execution-authorization) for the full mechanism
+this protects.
+
+<Warning>
+This nonce check is scoped to whichever `NonceStore` instance verifies it. A fleet of API
+processes with no shared store would each accept the same authorization once, not once
+fleet-wide, see [Deploy patterns](/guides/deploy-patterns#what-this-deployment-does-not-give-you).
+</Warning>
+
+## What this means together
+
+Two independent replay defenses exist at two different layers, and neither is an
+`Idempotency-Key` header:
+
+| Layer | Mechanism | What repeating gets you |
+|---|---|---|
+| REST API (`businessTransactionId`) | Uniqueness check against storage | 409, not the original response |
+| Internal authorization (`nonce`) | Single-use check in `NonceStore` | Rejected authorization, execution never runs |
+
+Neither layer is configurable per-request, and there is no way to opt out of the
+`businessTransactionId` uniqueness check from the API.

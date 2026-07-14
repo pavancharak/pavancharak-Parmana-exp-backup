@@ -594,7 +594,33 @@ Evidence
 
 \* packages/connector-sdk/tests/unit (45 tests: registry, credential-provider leak checks, HttpConnector incl. timeout/fail-closed, MockConnector, evidence hashing/redaction, end-to-end Gateway integration, Execution Trust Record hash-boundary regression)
 
-\* policies/connector-capability/1.0.0/policy.json (reference policy: ALLOW crm:read, BLOCK crm:delete, threshold-gated payments:refund, default BLOCK — no approval-workflow outcome)
+\* policies/connector-capability/1.0.0/policy.json (reference policy: ALLOW crm:read, BLOCK crm:delete, threshold-gated payments:refund, default BLOCK, no approval-workflow outcome)
+
+
+
+\---
+
+
+
+\## 3.4 Razorpay Refund Connector (Scoped)
+
+
+
+Razorpay refunds are authorized against a deterministic policy pack (payment must exist and be captured, currency must be INR, amount must not exceed the refundable remainder, a per-refund cap, a daily cumulative cap tracked through the existing storage layer) and executed with credentials the requesting code never holds: key\_id and key\_secret are resolved only inside the existing session credential vault, at execution time, and destroyed immediately afterward by the existing try/finally pattern. A signed authorization and the existing, unmodified Execution Gateway pipeline (envelope verification, one-time Gateway sessions, session-credential issuance/consumption/destruction) carry every request. A repeated request for the same parmana transaction id is answered from a local outcome cache before any network call is made; independently, before every refund-create call the connector lists existing Razorpay refunds for the payment and treats one already tagged with the same transaction id as already executed, never creating a duplicate. This claim covers refund creation only. It does not claim payout creation (RazorpayX), webhooks, or live-mode operation, and it does not claim any change to Phase 1's Runtime, Policy Engine, Execution Gateway, Replay, Receipt Generation, Verification, or REST API, all of which remain exactly as evidenced elsewhere in this document.
+
+
+
+Evidence
+
+
+
+\* packages/connector-sdk/src/connectors/razorpay (RazorpayConnector, RazorpayRefundService, RazorpayRefundHarness, RazorpayCumulativeRefundLedger, RazorpayRefundReceipt, MockRazorpayServer)
+
+\* packages/connector-sdk/tests/unit/razorpay-connector.test.ts, razorpay-refund-policy.test.ts, razorpay-refund-service.test.ts (approval and execution, denial for each policy rule, application-level idempotency with no duplicate create call, replay with no second HTTP call at all, key\_secret absence from evidence/receipt/thrown errors, tamper rejection via businessTransactionHash verification)
+
+\* policies/razorpay-refund/1.0.0/policy.json
+
+\* examples/tutorials/61-razorpay-refund (four outcomes: approved and executed, denied by policy, replay returning the recorded result, tamper rejected)
 
 
 
@@ -609,6 +635,8 @@ Evidence
 The following claims are planned but are intentionally withheld until supported by implementation, testing, audit, and documented proof.
 
 
+
+\* \[FUTURE\] Razorpay payout creation (RazorpayX) and webhook handling: no implementation exists for either. The Razorpay connector implemented in this milestone covers refund creation only.
 
 \* \[FUTURE\] Stripe connector — no implementation exists; would implement @parmana/connector-sdk's Connector interface.
 

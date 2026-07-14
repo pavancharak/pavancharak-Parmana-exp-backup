@@ -56,7 +56,7 @@ Everywhere else on this site, "deterministic" means something different: [policy
 evaluation](/concepts/policies-and-the-decision) producing the same decision for the same
 signals every time. That determinism is about the absence of randomness or hidden state in
 rule evaluation, not about clock injection. `packages/runtime` builders
-(`DecisionBuilder`, `ExecutionBuilder`, `ExecutionTrustRecordBuilder`) call `new Date()` and
+(`DecisionBuilder`, `ExecutionBuilder`, `BusinessTrustRecordBuilder`) call `new Date()` and
 `crypto.randomUUID()` directly, they do not take an injected `Clock` or `IdGenerator`. A
 Decision's `evaluatedAt` and an Execution Trust Record's `createdAt` are real wall-clock
 timestamps, not reproducible across runs, and that's fine: what has to be reproducible is

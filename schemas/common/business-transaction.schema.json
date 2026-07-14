@@ -42,7 +42,7 @@
     },
     "status": {
       "type": "string",
-      "description": "Current Business Transaction lifecycle state. Always RECEIVED at creation on both POST /execute and POST /transactions — Parmana sets this field via BusinessTransactionMapper.fromRequest and ignores any status the client sends.",
+      "description": "Current Business Transaction lifecycle state. Always RECEIVED at creation on both POST /execute and POST /transactions. Parmana sets this field via BusinessTransactionMapper.fromRequest and ignores any status the client sends.",
       "enum": [
         "RECEIVED",
         "POLICY_EVALUATED",

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.parmana.ai/common/verification.schema.json",
   "title": "Verification",
-  "description": "Immutable result of verifying an entire Execution Trust Record: recomputed hash matches the stored hash, signature verifies, and every APPROVED Execution carries a non-empty authorizationId. All checks always run and are reported together in message — a failure in one does not skip the others.",
+  "description": "Immutable result of verifying an entire Execution Trust Record: recomputed hash matches the stored hash, signature verifies, and every APPROVED Execution carries a non-empty authorizationId. All checks always run and are reported together in message; a failure in one does not skip the others.",
   "type": "object",
   "additionalProperties": true,
   "required": [
@@ -31,7 +31,7 @@
     },
     "message": {
       "type": "string",
-      "description": "Human-readable verification summary — either the success message, or every failed check's message joined with \"; \"."
+      "description": "Human-readable verification summary: either the success message, or every failed check's message joined with \"; \"."
     },
     "verifiedAt": {
       "type": "string",

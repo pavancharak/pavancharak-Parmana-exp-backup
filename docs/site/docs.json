@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "maple",
   "name": "Parmana",
-  "description": "Execution Trust Infrastructure — verifiable trust between business authorization, policy evaluation, runtime execution, and execution evidence.",
+  "description": "Execution Trust Infrastructure: verifiable trust between business authorization, policy evaluation, runtime execution, and execution evidence.",
   "colors": {
     "primary": "#E0670B",
     "light": "#F0954A",
@@ -92,8 +92,12 @@
             "group": "REST API",
             "pages": [
               "api-reference/introduction",
-              "api-reference/endpoints"
-            ]
+              "api-reference/authentication",
+              "api-reference/error-handling",
+              "api-reference/idempotency-and-nonces",
+              "api-reference/error-catalog"
+            ],
+            "openapi": "openapi.bundled.yaml"
           },
           {
             "group": "Package Reference",
@@ -160,7 +164,8 @@
     { "source": "/authorization/execution-gateway", "destination": "/concepts/the-gateway" },
     { "source": "/integrations/credentials", "destination": "/concepts/credential-isolation" },
     { "source": "/trust-record/overview", "destination": "/concepts/execution-trust-records" },
-    { "source": "/concepts/execution-trust", "destination": "/concepts/execution-trust-records" }
+    { "source": "/concepts/execution-trust", "destination": "/concepts/execution-trust-records" },
+    { "source": "/api-reference/endpoints", "destination": "/api-reference/introduction" }
   ],
   "navbar": {
     "links": [

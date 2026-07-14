@@ -18,7 +18,7 @@
     },
     "authorityId": {
       "type": "string",
-      "description": "Authority issuing this Authorization. Must match authority.authorityId — Parmana rejects a mismatch with a 400."
+      "description": "Authority issuing this Authorization. Must match authority.authorityId. Parmana rejects a mismatch with a 400."
     },
     "purpose": {
       "type": "string",

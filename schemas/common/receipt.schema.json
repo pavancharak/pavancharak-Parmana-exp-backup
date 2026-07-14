@@ -25,7 +25,7 @@
     },
     "executionId": {
       "type": "string",
-      "description": "Execution represented by this Receipt. Absent when the Receipt represents the latest transaction state — every Receipt currently produced by ReceiptService omits this field."
+      "description": "Execution represented by this Receipt. Absent when the Receipt represents the latest transaction state; every Receipt currently produced by ReceiptService omits this field."
     },
     "trustRecordHash": {
       "type": "string",

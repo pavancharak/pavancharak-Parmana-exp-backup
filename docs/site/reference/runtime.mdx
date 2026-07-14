@@ -47,8 +47,9 @@ page), `verification-service`.
 `RuntimeError` (base, carries `status` and `code`), `BusinessTransactionValidationError`,
 `DuplicateBusinessTransactionError`, `VerificationFailedError`, `ReceiptGenerationError`.
 `packages/api/src/middleware/error-handler.ts` checks these by `instanceof` to pick an HTTP
-status, verified per-route on [Endpoints](/api-reference/endpoints), including one gap where
-a raw `TypeError` from validation bypasses this entirely.
+status, verified per-route on [Error handling](/api-reference/error-handling), including two
+gaps where a raw, uncaught error bypasses this entirely, see the [Error
+catalog](/api-reference/error-catalog).
 
 ## A rejected decision throws, it does not return
 

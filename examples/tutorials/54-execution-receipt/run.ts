@@ -9,7 +9,7 @@ import {
 } from "@parmana/execution-control";
 
 import {
-  ExecutionTrustRecordBuilder,
+  ExecutionTrustAttestationBuilder,
 } from "@parmana/execution-system";
 
 import {
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
   // Build Execution Trust Record.
   //
   const trustRecord =
-    await new ExecutionTrustRecordBuilder(
+    await new ExecutionTrustAttestationBuilder(
       crypto,
     ).build(
       artifact,

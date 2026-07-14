@@ -253,7 +253,12 @@ async function main(): Promise<void> {
   };
 
   function requestWithSession(
-    session = sessions.create(release, 30_000, sessionIssuanceAuthentication),
+    session = sessions.create(
+      release,
+      connectorIdentity.connectorId,
+      30_000,
+      sessionIssuanceAuthentication,
+    ),
   ): GatewayExecutionRequest {
     return {
       authorization,

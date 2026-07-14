@@ -65,11 +65,11 @@
   },
   "examples": [
     {
-      "executionId": "2be38c15-f93c-4621-9a1c-7570c130dea0",
-      "businessTransactionId": "eed2a972-1bf5-4166-8472-761f76fbf1b2",
+      "executionId": "90746492-7721-4228-b244-67bf8a45ca68",
+      "businessTransactionId": "44b34a79-e0f2-49d7-a48e-e52fff88182e",
       "decision": {
-        "decisionId": "9d69dc0b-333a-4be3-b09f-358fece806f3",
-        "intentId": "ae5865f6-181b-409a-90ec-1b4b8b8414ba",
+        "decisionId": "8ec880cb-677a-4889-96f1-5a18a4edc1b5",
+        "intentId": "1e77d0b3-2e57-4e31-b780-03abc92f1b69",
         "policy": {
           "name": "vendor-payment",
           "version": "2.0.0",
@@ -80,32 +80,56 @@
           "invoiceVerified": true,
           "paymentApproved": true,
           "sufficientFunds": true,
-          "paymentAmount": 4500,
-          "riskScore": 10
+          "paymentAmount": 5000,
+          "riskScore": 12
         },
         "outcome": "APPROVED",
         "reason": "Vendor payment authorized. Vendor verification, invoice verification, payment approval, funding, and risk assessment requirements were satisfied.",
-        "evaluatedAt": "2026-07-07T16:38:59.326Z"
+        "evaluatedAt": "2026-07-13T17:36:00.967Z"
       },
       "status": "COMPLETED",
       "mode": "SYNC",
-      "startedAt": "2026-07-07T16:38:59.328Z",
+      "startedAt": "2026-07-13T17:36:00.968Z",
       "metadata": {
-        "authorizationId": "1dc2d137-fde2-4d9c-b298-79e9f8a0d03e"
+        "authorizationId": "dbc09266-2078-4d4e-93d0-f355eb7eebcc"
       },
       "evidence": {
-        "businessTransactionId": "eed2a972-1bf5-4166-8472-761f76fbf1b2",
+        "businessTransactionId": "44b34a79-e0f2-49d7-a48e-e52fff88182e",
         "action": "payments:execute",
-        "target": "vendor/V-100",
+        "target": "vendor/V-500",
         "parameters": {
-          "amount": 4500,
+          "amount": 5000,
           "currency": "USD"
         },
         "success": true,
-        "executedAt": "2026-07-07T16:38:59.328Z",
-        "attributes": {}
+        "executedAt": "2026-07-13T17:36:00.970Z",
+        "attributes": {
+          "connector": {
+            "connectorId": "vendor-payment",
+            "connectorVersion": "1.0.0",
+            "capability": "payments:execute",
+            "sanitizedEndpoint": "vendor/V-500",
+            "credentialProviderId": "environment",
+            "requestSummary": {
+              "businessTransactionId": "44b34a79-e0f2-49d7-a48e-e52fff88182e",
+              "action": "payments:execute",
+              "target": "vendor/V-500",
+              "parameters": {
+                "amount": 5000,
+                "currency": "USD"
+              }
+            },
+            "responseSummary": {
+              "success": true,
+              "metadata": {}
+            },
+            "startedAt": "2026-07-13T17:36:00.970Z",
+            "completedAt": "2026-07-13T17:36:00.970Z",
+            "connectorEvidenceHash": "c97411026a82b608d9b0f8b137a64e26d8af24bdda09310b639e527e08a9aada"
+          }
+        }
       },
-      "completedAt": "2026-07-07T16:38:59.329Z"
+      "completedAt": "2026-07-13T17:36:00.970Z"
     }
   ]
 }

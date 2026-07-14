@@ -14,6 +14,9 @@ const apiBaseUrl =
   process.env.PARMANA_API_URL ??
   "http://localhost:3000";
 
+const apiKey =
+  process.env.PARMANA_API_KEY;
+
 const endpoint =
   `${apiBaseUrl}/transactions`;
 
@@ -39,6 +42,7 @@ const response = await fetch(endpoint, {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
+    ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
   },
   body: JSON.stringify(request),
 });

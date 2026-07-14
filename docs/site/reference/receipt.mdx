@@ -19,7 +19,8 @@ from a running `packages/api` server.
 ## Purpose
 
 Builds and verifies an `ExecutionReceipt`: a bundle of an `ExecutionPermit` (from
-`@parmana/execution-control`) plus an `ExecutionTrustRecord`. Exercised end to end by
+`@parmana/execution-control`) plus an `ExecutionTrustAttestation` (from
+`@parmana/execution-system`). Exercised end to end by
 `examples/tutorials/53-execution-permit/` through `56-complete-execution-flow/`.
 
 ## Install
@@ -32,7 +33,7 @@ npm install @parmana/receipt
 
 | Export | Stability |
 |---|---|
-| `ExecutionReceiptBuilder` | [PARTIAL]. `.build(permit: ExecutionPermit, trustRecord: ExecutionTrustRecord): ExecutionReceipt`. Real, tested, unconsumed elsewhere. |
+| `ExecutionReceiptBuilder` | [PARTIAL]. `.build(permit: ExecutionPermit, trustRecord: ExecutionTrustAttestation): ExecutionReceipt`. Real, tested, unconsumed elsewhere. |
 | `ExecutionReceiptVerifier` | [PARTIAL]. `.verify(receipt): boolean`, checks `version === 1` and that `permit`/`trustRecord` are both present. **Not a cryptographic check**, it does not re-verify the permit's signature or the trust record's hash itself. |
 | `ExecutionReceipt` (model) | `{ version, permit, trustRecord }` |
 | `ReceiptEngine` / `ReceiptBuilder` | [PARTIAL]. A third, separate `Receipt` shape (`{ receiptId, businessTransactionId, trustRecordHash, verificationId, status, issuedAt, receiptHash }`), also unconsumed anywhere in this monorepo outside its own tests. |

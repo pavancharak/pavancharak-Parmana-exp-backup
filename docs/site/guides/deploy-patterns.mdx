@@ -171,6 +171,21 @@ Skips caller authentication entirely and logs a loud warning at startup every ti
 exists for local development and running the tutorials, and must never be set in a real
 deployment, doing so removes the only authentication this API has.
 
+### The OpenAPI spec endpoint
+
+`GET /openapi.yaml` serves the bundled spec (`openapi/openapi.bundled.yaml`) as a static
+file and, like `GET /health`, is exempt from caller authentication, see
+`packages/api/src/routes/openapi.ts`. This is deliberate: a caller cannot discover how to
+get a key from a spec it isn't allowed to read, the same reasoning Stripe and most public
+API providers apply to their own spec/docs endpoints.
+
+**Exposing it in production is almost always the right default.** The spec contains no
+secrets, only route shapes and example payloads with already-rotated or synthetic IDs. If
+your deployment has a reason to hide API surface area entirely (an internal-only service
+behind a network boundary where even the shape of the API is sensitive), the route can be
+disabled by not mounting `openapiRoutes` in `packages/api/src/app.ts`, there is no
+environment-variable toggle for this today, it's a code change.
+
 ## What this deployment does not give you
 
 - **No KMS/HSM.** Both private keys are files on disk, exactly the exposure that produced

@@ -44,11 +44,16 @@ exposed in the public GitHub repository and must be treated as permanently compr
 all signatures produced by that key are void for authenticity purposes regardless of when
 signed. The key pair was rotated on 2026-07-05. Source: CLAIMS.md, "Key Compromise Notice."
 
-## No authentication on the API today
+## Caller authentication exists; per-caller authorization does not
 
-`packages/api` has no auth middleware on any route. Every endpoint in
-[the reference](/api-reference/endpoints) is unauthenticated in the current
-implementation. This is a real, current gap, not a future-tense caveat.
+`packages/api` gates every route except `GET /health` behind a caller bearer key, verified
+live this pass, see [Authentication](/api-reference/authentication). What's still missing:
+any authenticated caller can call any route (no per-caller scoping), there is no mutual TLS
+by default, and rotation is a manual operator procedure with no self-service endpoint, see
+[Deploy patterns](/guides/deploy-patterns#caller-authentication). This authentication layer
+is independent of, and does not substitute for, [Execution
+Authorization](/concepts/execution-authorization) or [gateway
+attestation](/concepts/gateway-attestation).
 
 ## Where hardening work is tracked
 

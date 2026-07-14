@@ -21,11 +21,15 @@
   },
   "dependencies": {
     "@parmana/crypto": "0.1.0",
+    "@parmana/envelope-verifier": "0.1.0",
     "@parmana/execution-control": "0.1.0",
-    "@parmana/shared": "0.1.0"
+    "@parmana/execution-gateway": "0.1.0",
+    "@parmana/execution-system": "0.1.0",
+    "@parmana/policy": "0.1.0",
+    "@parmana/shared": "0.1.0",
+    "@parmana/storage": "0.1.0"
   },
   "devDependencies": {
-    "@parmana/policy": "0.1.0",
     "typescript": "^5.9.0",
     "vitest": "^4.1.9"
   },

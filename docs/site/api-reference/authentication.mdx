@@ -1,0 +1,62 @@
+---
+title: "Authentication"
+description: "How to authenticate API requests: the bearer key model, what gets checked, and how it differs from Policy evaluation and gateway attestation."
+---
+
+<Info>**[AVAILABLE]**. `packages/api/src/middleware/caller-auth.ts`, `StaticKeyAuthenticator`, verified against a live server in this session.</Info>
+
+## Send a bearer key
+
+Every route requires `Authorization: Bearer <key>` except `GET /health`.
+
+```bash
+curl http://localhost:3000/version \
+  -H "Authorization: Bearer $PARMANA_API_KEY"
+```
+
+A missing or invalid header returns 401 before a Business Transaction is even constructed:
+
+```json
+{ "error": "authentication required" }
+```
+
+## Where keys come from
+
+Keys are minted by `scripts/generate-api-key.ts`, one per calling system. The raw key is
+shown once and never written to disk; only a SHA-256 hash of it is configured server-side
+via `PARMANA_API_KEYS`, and comparisons run in constant time
+(`packages/api/src/auth/StaticKeyAuthenticator.ts`). There is no self-service key-management
+endpoint: issuing and rotating keys is an operator action, not an API call. See [Deploy
+patterns](/guides/deploy-patterns#caller-authentication) for the full setup and rotation
+procedure.
+
+## What this layer does and does not prove
+
+Caller authentication answers exactly one question: **should this HTTP request be
+entertained at all.** It is the first thing that runs, ahead of Policy evaluation and
+[gateway attestation](/concepts/gateway-attestation), and it is independent of both:
+
+- A well-authenticated caller submitting a Policy-rejected transaction is still rejected,
+  see [Policies and the decision](/concepts/policies-and-the-decision).
+- A well-authenticated caller does not thereby prove anything about *who authorized* the
+  underlying business action, that is what [Execution
+  Authorization](/concepts/execution-authorization) and [the gateway](/concepts/the-gateway)
+  establish, on a completely separate signature.
+
+Keeping these layers apart is deliberate: see [How Parmana
+thinks](/how-parmana-thinks).
+
+## Local development
+
+`PARMANA_AUTH_DISABLED=true` skips this middleware entirely and logs a loud warning at
+startup every time it does. It exists for local development and running the tutorials.
+**Never set it in a real deployment.** It removes the only authentication this API has, and
+every route becomes reachable by anyone who can reach the port.
+
+## Errors
+
+| Status | Condition | Body |
+|---|---|---|
+| 401 | Missing or invalid `Authorization` header | `{"error":"authentication required"}` |
+
+See the [Error catalog](/api-reference/error-catalog) for every other error this API returns.

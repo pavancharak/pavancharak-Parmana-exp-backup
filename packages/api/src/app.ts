@@ -8,6 +8,7 @@ import type { ExecutionTrustApplication } from "@parmana/runtime";
 
 import { createExecuteRouter } from "./routes/execute.js";
 import healthRoutes from "./routes/health.js";
+import openapiRoutes from "./routes/openapi.js";
 import { createReceiptRouter } from "./routes/receipt.js";
 
 import { createReplayRouter } from "./routes/replay.js";
@@ -49,13 +50,16 @@ app.use(express.json());
 /**
  * System
  *
- * /health is the one route exempt from caller
- * authentication: liveness probes must be able to reach it
- * with no credential. Everything below this line, including
+ * /health and /openapi.yaml are the two routes exempt from
+ * caller authentication: liveness probes and API documentation
+ * consumers must be able to reach them with no credential (a
+ * caller cannot discover how to get a key from a spec it is
+ * not allowed to read). Everything below this line, including
  * "/" and "/version", sits behind the middleware when it is
  * provided.
  */
 app.use("/health", healthRoutes);
+app.use("/openapi.yaml", openapiRoutes);
 
 if (options.callerAuth) {
   app.use(

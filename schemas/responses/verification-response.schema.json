@@ -2,6 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.parmana.ai/responses/verification-response.schema.json",
   "title": "Verification Response",
-  "description": "Response returned by POST /verify and GET /verification/{businessTransactionId}. A bare Verification — no wrapper.",
+  "description": "Response returned by POST /verify and GET /verification/{businessTransactionId}. A bare Verification, no wrapper.",
   "$ref": "../common/verification.schema.json"
 }

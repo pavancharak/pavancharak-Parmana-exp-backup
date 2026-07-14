@@ -9,9 +9,9 @@ description: "The Express server and its bootstrap composition root. For the RES
 
 Composes every other package into one running Express process: policy loading, the
 [gateway](/concepts/the-gateway), [credential isolation](/concepts/credential-isolation),
-and 14 HTTP routes. For the routes themselves, request/response shapes, and verified error
-codes, see [REST API Introduction](/api-reference/introduction) and
-[Endpoints](/api-reference/endpoints), this page covers the server's internal structure.
+caller authentication, and 14 HTTP routes. For the routes themselves, request/response
+shapes, and verified error codes, see [REST API Introduction](/api-reference/introduction),
+this page covers the server's internal structure.
 
 ## Install
 
@@ -23,12 +23,13 @@ patterns](/guides/deploy-patterns).
 | Path | Purpose |
 |---|---|
 | `src/server.ts` | Entry point. Builds the execution system, the application, then the Express app, and listens on port 3000. |
-| `src/app.ts` | Mounts all 14 routes and the error handler, in order, the error handler must be registered last. |
+| `src/app.ts` | Mounts the caller-auth middleware (every route except `/health`), all 14 routes, and the error handler, in order, the error handler must be registered last. |
 | `src/application.ts` | `createApplication(executionSystem)`, wires `RuntimeFactory.create()` with the repositories and policy repository. |
-| `src/routes/*.ts` | One file per route (or router factory), see [Endpoints](/api-reference/endpoints) for each one's behavior. |
+| `src/routes/*.ts` | One file per route (or router factory), see [REST API Introduction](/api-reference/introduction) for each one's behavior. |
 | `src/middleware/error-handler.ts` | Maps thrown errors to HTTP status codes by `instanceof`, falls through to an unstructured 500 for anything unrecognized. |
+| `src/middleware/caller-auth.ts` | Bearer-key caller authentication, see [Authentication](/api-reference/authentication). |
 | `src/mappers/BusinessTransactionMapper.ts` | `fromRequest(body)`, forces `status: RECEIVED` and `createdAt: now` regardless of client input. |
-| `src/bootstrap/*.ts` | The composition root: `createExecutionSystem`, `createExecutionGateway`, `createExecutionControl`, `createConnectorRegistry`, `createConnectorRoute`, `createConnectorAuthenticator`, `createCredentialProvider`, `createVendorPaymentConnector`, `createGatewayKeyPair`, `createGatewayPublicKey`, `createGatewayIdentity`, `createNonceStore`, `createSessionStore`, `createExecutionAuditSink`. Every bootstrap decision described on [The gateway](/concepts/the-gateway) and [Credential isolation](/concepts/credential-isolation) lives here. |
+| `src/bootstrap/*.ts` | The composition root: `createExecutionSystem`, `createExecutionGateway`, `createExecutionControl`, `createConnectorRegistry`, `createConnectorRoute`, `createConnectorAuthenticator`, `createCallerAuthenticator`, `createCredentialProvider`, `createVendorPaymentConnector`, `createGatewayKeyPair`, `createGatewayPublicKey`, `createGatewayIdentity`, `createNonceStore`, `createSessionStore`, `createExecutionAuditSink`. Every bootstrap decision described on [The gateway](/concepts/the-gateway) and [Credential isolation](/concepts/credential-isolation) lives here. |
 
 <Warning>
 **Two files in `src/bootstrap/` are dead code, not wired into anything**: `ConnectorCatalog.ts`
@@ -53,7 +54,7 @@ Full walkthrough: [Quickstart](/quickstart).
 ## Next
 
 <CardGroup cols={2}>
-  <Card title="Endpoints" icon="route" href="/api-reference/endpoints">
+  <Card title="REST API Introduction" icon="route" href="/api-reference/introduction">
     Every route's request, response, and verified error codes.
   </Card>
   <Card title="Deploy patterns" icon="server" href="/guides/deploy-patterns">

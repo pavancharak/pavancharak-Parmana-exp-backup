@@ -27,7 +27,7 @@ npm install @parmana/execution-system
 | `DefaultExecutionSystem` | [AVAILABLE], but a **placeholder**: `execute()` unconditionally returns `{ success: true, ... }`, echoing the request back. No policy re-check, no content-binding, no connector. Many tutorials (1-13) use this for simplicity to demonstrate the Runtime in isolation, it performs no real verification. |
 | `HttpExecutionSystem` | [AVAILABLE]. `new HttpExecutionSystem({ baseUrl })`, `execute()` POSTs to `${baseUrl}/execute` and returns the parsed response. |
 | `ExecutionRequest` | `{ businessTransactionId, action, target, parameters }` |
-| `ExecutionTrustRecordBuilder` | [AVAILABLE]. Assembles the final `ExecutionTrustRecord` from a transaction, decision, and execution result. |
+| `ExecutionTrustAttestationBuilder` | [PARTIAL]. Signs one artifact (hash + hybrid signatures) into an `ExecutionTrustAttestation`, paired with an `ExecutionPermit` to form an `ExecutionReceipt`. Reachable only through `examples/tutorials/53` through `56`, not consumed by `packages/runtime` or `packages/api`. Not the same as `BusinessTrustRecordBuilder` (`@parmana/runtime`), which assembles the full `ExecutionTrustRecord` aggregate and *is* wired into the real pipeline, see [Execution trust records](/concepts/execution-trust-records). |
 
 <Warning>
 **`DefaultExecutionSystem` is not a smaller version of the gateway, it is a stand-in that

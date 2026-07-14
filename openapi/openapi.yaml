@@ -10,12 +10,16 @@ info:
     through cryptographically verifiable Execution Trust Records.
 
 
-    **No authentication is enforced.** No route in this API validates any
-    credential, token, or identity; every request is accepted from any caller
-    who can reach the port. Current deployments assume a trusted network
-    boundary around the API (see docs/CLAIMS.md, "API-layer authentication and
-    authorization"). No security scheme is declared below because none exists
-    in the running service — do not build a client that assumes one.
+    **Every route requires a caller bearer key, except GET /health.** Send
+    `Authorization: Bearer <key>` on every other request. Keys are issued by
+    `scripts/generate-api-key.ts` and configured server-side via
+    `PARMANA_API_KEYS`; only a hash of each key is ever held by the server,
+    verified in constant time. A missing or invalid credential returns 401
+    before a Business Transaction is even constructed, independent of Policy
+    evaluation and gateway attestation, see `packages/api/src/middleware/caller-auth.ts`
+    and [Authentication](/api-reference/authentication). Local development may
+    set `PARMANA_AUTH_DISABLED=true` to skip this middleware entirely; that flag
+    must never be set in a real deployment.
 
   contact:
     name: Parmana
@@ -28,6 +32,9 @@ info:
 servers:
   - url: http://localhost:3000
     description: Local (packages/api, PORT env var, default 3000)
+
+security:
+  - bearerAuth: []
 
 tags:
   - name: Execution
@@ -63,9 +70,13 @@ paths:
       summary: Root
       operationId: getRoot
       description: >
-        Minimal liveness response. Not registered under any router file — defined
+        Minimal liveness response. Not registered under any router file, defined
         directly in packages/api/src/app.ts, ahead of every mounted route.
+        Requires caller authentication, like every route except GET /health.
+        See the security scheme above.
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
           description: Service is responding.
           content:
@@ -87,8 +98,15 @@ paths:
       operationId: getHealth
       description: >
         Returns the operational health of the Parmana service. Always returns
-        status: "UP" unconditionally — see the response schema description for
+        status: "UP" unconditionally. See the response schema description for
         exactly what this endpoint does and does not check.
+
+
+        **One of two routes exempt from caller authentication** (the other is
+        GET /openapi.yaml). Liveness probes must be able to reach it with no
+        credential, see packages/api/src/app.ts (mounted ahead of the
+        caller-auth middleware).
+      security: []
       responses:
         '200':
           description: Service health information.
@@ -102,6 +120,30 @@ paths:
                   value:
                     status: UP
 
+  /openapi.yaml:
+    get:
+      tags:
+        - System
+      summary: Get the OpenAPI spec
+      operationId: getOpenApiSpec
+      description: >
+        Serves the bundled, self-contained OpenAPI document
+        (openapi/openapi.bundled.yaml, produced by `npm run bundle:openapi`
+        from openapi/openapi.yaml + schemas/*.json) as a static file, see
+        packages/api/src/routes/openapi.ts. Exempt from caller authentication
+        for the same reason GET /health is: a caller cannot discover how to
+        get a key from a spec it isn't allowed to read. See [Deploy
+        patterns](/guides/deploy-patterns#the-openapi-spec-endpoint) for the
+        tradeoff of exposing this in production versus disabling it.
+      security: []
+      responses:
+        '200':
+          description: The complete OpenAPI 3.1 document, YAML, self-contained (no external $ref).
+          content:
+            application/yaml:
+              schema:
+                type: string
+
   /version:
     get:
       tags:
@@ -110,9 +152,12 @@ paths:
       operationId: getVersion
       description: >
         Returns hardcoded deployment identifiers. See the response schema
-        description — these three literals are not read from package.json,
-        environment variables, or build metadata.
+        description: these three literals are not read from package.json,
+        environment variables, or build metadata. Requires caller
+        authentication, like every route except GET /health.
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
           description: Service version information.
           content:
@@ -139,18 +184,18 @@ paths:
         resulting Execution Trust Record, generates a Receipt, then returns the
         complete, updated Execution Trust Record. businessTransactionId must be
         a valid UUID (v1-v5) or the request fails before any persistence with a
-        400 — see BusinessTransactionMapper.fromRequest and
+        400. See BusinessTransactionMapper.fromRequest and
         isValidBusinessTransactionId in packages/api/src/routes/execute.ts.
         The mapper reconstructs the transaction field by field, so status and
         createdAt supplied by the client are always ignored (Parmana assigns
         RECEIVED and the current time), and any top-level field not in the
         request schema is silently dropped. POST /transactions applies the
-        identical UUID check and mapper — see that endpoint below.
+        identical UUID check and mapper. See that endpoint below.
 
 
         If Policy evaluation REJECTs the transaction, this endpoint currently
         responds 500 with a RUNTIME_ERROR-coded error envelope naming the
-        rejection reason — see the 500 response below and the executeRejected
+        rejection reason. See the 500 response below and the executeRejected
         example. This is real, observed behavior, not a designed contract; it is
         documented here because the spec must describe the API as implemented.
       requestBody:
@@ -163,33 +208,33 @@ paths:
               vendor-payment-flow:
                 summary: Real captured request (vendor-payment 2.0.0, APPROVED)
                 value:
-                  businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                  businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                   metadata:
-                    businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                    correlationId: 6b97caca-1605-4711-bf00-7e5a65434d93
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    correlationId: cc1ca975-4935-4e9a-a591-8897af6b56fb
                     sourceSystem: vendor-payment-service
                     submittedBy: ap-automation
-                    submittedAt: '2026-07-07T16:38:59.285Z'
+                    submittedAt: '2026-07-13T17:36:00.835Z'
                   authority:
-                    authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+                    authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
                     authorityType: SERVICE
                     principalId: ap-automation-svc
                     displayName: Accounts Payable Automation
-                    issuedAt: '2026-07-07T16:38:59.285Z'
+                    issuedAt: '2026-07-13T17:36:00.835Z'
                   authorization:
-                    authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
-                    authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+                    authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                    authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
                     purpose: Authorize vendor payment disbursement
-                    issuedAt: '2026-07-07T16:38:59.285Z'
+                    issuedAt: '2026-07-13T17:36:00.835Z'
                   intent:
-                    intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
-                    authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
-                    action: "payments:execute"
-                    target: vendor/V-100
+                    intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+                    authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                    action: payments:execute
+                    target: vendor/V-500
                     parameters:
-                      amount: 4500
+                      amount: 5000
                       currency: USD
-                    createdAt: '2026-07-07T16:38:59.285Z'
+                    createdAt: '2026-07-13T17:36:00.835Z'
                   policy:
                     name: vendor-payment
                     version: 2.0.0
@@ -199,11 +244,13 @@ paths:
                     invoiceVerified: true
                     paymentApproved: true
                     sufficientFunds: true
-                    paymentAmount: 4500
-                    riskScore: 10
+                    paymentAmount: 5000
+                    riskScore: 12
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
-          description: Execution Trust pipeline completed. The Execution Trust Record reflects whatever the Decision outcome was — this status code does not by itself mean the payment was approved.
+          description: Execution Trust pipeline completed. The Execution Trust Record reflects whatever the Decision outcome was. This status code does not by itself mean the payment was approved.
           content:
             application/json:
               schema:
@@ -212,36 +259,36 @@ paths:
                 vendor-payment-flow:
                   summary: Real captured response
                   value:
-                    trustRecordId: 759e916e-66d2-48c3-8869-55d557acf155
-                    businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                    trustRecordId: 65fee934-532c-4feb-88d9-72c0cd912a81
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                     transaction:
-                      businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                      businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                       metadata:
-                        businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                        correlationId: 6b97caca-1605-4711-bf00-7e5a65434d93
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        correlationId: cc1ca975-4935-4e9a-a591-8897af6b56fb
                         sourceSystem: vendor-payment-service
                         submittedBy: ap-automation
-                        submittedAt: '2026-07-07T16:38:59.285Z'
+                        submittedAt: '2026-07-13T17:36:00.835Z'
                       authority:
-                        authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+                        authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
                         authorityType: SERVICE
                         principalId: ap-automation-svc
                         displayName: Accounts Payable Automation
-                        issuedAt: '2026-07-07T16:38:59.285Z'
+                        issuedAt: '2026-07-13T17:36:00.835Z'
                       authorization:
-                        authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
-                        authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+                        authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                        authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
                         purpose: Authorize vendor payment disbursement
-                        issuedAt: '2026-07-07T16:38:59.285Z'
+                        issuedAt: '2026-07-13T17:36:00.835Z'
                       intent:
-                        intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
-                        authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
-                        action: "payments:execute"
-                        target: vendor/V-100
+                        intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+                        authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                        action: payments:execute
+                        target: vendor/V-500
                         parameters:
-                          amount: 4500
+                          amount: 5000
                           currency: USD
-                        createdAt: '2026-07-07T16:38:59.285Z'
+                        createdAt: '2026-07-13T17:36:00.835Z'
                       policy:
                         name: vendor-payment
                         version: 2.0.0
@@ -251,17 +298,17 @@ paths:
                         invoiceVerified: true
                         paymentApproved: true
                         sufficientFunds: true
-                        paymentAmount: 4500
-                        riskScore: 10
+                        paymentAmount: 5000
+                        riskScore: 12
                       status: RECEIVED
-                      createdAt: '2026-07-07T16:38:59.325Z'
+                      createdAt: '2026-07-13T17:36:00.965Z'
                     overrides: []
                     executions:
-                      - executionId: 2be38c15-f93c-4621-9a1c-7570c130dea0
-                        businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                      - executionId: 90746492-7721-4228-b244-67bf8a45ca68
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                         decision:
-                          decisionId: 9d69dc0b-333a-4be3-b09f-358fece806f3
-                          intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
+                          decisionId: 8ec880cb-677a-4889-96f1-5a18a4edc1b5
+                          intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
                           policy:
                             name: vendor-payment
                             version: 2.0.0
@@ -271,53 +318,69 @@ paths:
                             invoiceVerified: true
                             paymentApproved: true
                             sufficientFunds: true
-                            paymentAmount: 4500
-                            riskScore: 10
+                            paymentAmount: 5000
+                            riskScore: 12
                           outcome: APPROVED
-                          reason: >-
-                            Vendor payment authorized. Vendor verification, invoice
-                            verification, payment approval, funding, and risk
-                            assessment requirements were satisfied.
-                          evaluatedAt: '2026-07-07T16:38:59.326Z'
+                          reason: Vendor payment authorized. Vendor verification, invoice verification, payment approval, funding, and risk assessment requirements were satisfied.
+                          evaluatedAt: '2026-07-13T17:36:00.967Z'
                         status: COMPLETED
                         mode: SYNC
-                        startedAt: '2026-07-07T16:38:59.328Z'
+                        startedAt: '2026-07-13T17:36:00.968Z'
                         metadata:
-                          authorizationId: 1dc2d137-fde2-4d9c-b298-79e9f8a0d03e
+                          authorizationId: dbc09266-2078-4d4e-93d0-f355eb7eebcc
                         evidence:
-                          businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                          action: "payments:execute"
-                          target: vendor/V-100
+                          businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                          action: payments:execute
+                          target: vendor/V-500
                           parameters:
-                            amount: 4500
+                            amount: 5000
                             currency: USD
                           success: true
-                          executedAt: '2026-07-07T16:38:59.328Z'
-                          attributes: {}
-                        completedAt: '2026-07-07T16:38:59.329Z'
+                          executedAt: '2026-07-13T17:36:00.970Z'
+                          attributes:
+                            connector:
+                              connectorId: vendor-payment
+                              connectorVersion: 1.0.0
+                              capability: payments:execute
+                              sanitizedEndpoint: vendor/V-500
+                              credentialProviderId: environment
+                              requestSummary:
+                                businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                                action: payments:execute
+                                target: vendor/V-500
+                                parameters:
+                                  amount: 5000
+                                  currency: USD
+                              responseSummary:
+                                success: true
+                                metadata: {}
+                              startedAt: '2026-07-13T17:36:00.970Z'
+                              completedAt: '2026-07-13T17:36:00.970Z'
+                              connectorEvidenceHash: c97411026a82b608d9b0f8b137a64e26d8af24bdda09310b639e527e08a9aada
+                        completedAt: '2026-07-13T17:36:00.970Z'
                     verifications:
-                      - verificationId: 0b96c8b4-9cd8-4162-81fc-086575cf0924
-                        businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                      - verificationId: e22354e0-7f22-49b2-bd2f-09e47881d788
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                         status: VERIFIED
                         message: Execution Trust Record verified successfully.
-                        verifiedAt: '2026-07-07T16:38:59.331Z'
-                        trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+                        verifiedAt: '2026-07-13T17:36:00.973Z'
+                        trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
                     receipts:
-                      - receiptId: 3073a598-f927-4caf-8bb8-4f083f62b7e9
-                        businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                        trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
-                        receiptHash: 8a5a0e9255dafef5ec588f0834e3c5b81dc7feb98a59f8bfa7083438fa58e231
-                        issuedAt: '2026-07-07T16:38:59.331Z'
+                      - receiptId: 863947e6-9d36-492e-b9c9-78b0f3e9b6df
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                        receiptHash: c9666b08b42bb5ff77650b544c3c2183609f25e4d8dc09359b71a970c57ed3ce
+                        issuedAt: '2026-07-13T17:36:00.973Z'
                         algorithm: ed25519
-                        signature: vzpykBuJhoy/2BdiR1x02KYZqMtKJu39olRJdzM5veSo9nYmoNSYQnt9HELlb2jlGWf07jPhP8ZXlrQnN4KQBA==
-                    createdAt: '2026-07-07T16:38:59.329Z'
-                    updatedAt: '2026-07-07T16:38:59.329Z'
-                    trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+                        signature: Pcr42EvbaUbLogvVhYiV3g7uuwvZr82HUJhVptnXRxmTtiEGiz2SCdz5Z80xRDvmvSxpOSG5OnvMAaRzJXncBg==
+                    createdAt: '2026-07-13T17:36:00.971Z'
+                    updatedAt: '2026-07-13T17:36:00.971Z'
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
                     signature:
                       algorithm: ed25519
                       keyId: default
-                      value: l41lr6nCUbrzEfoil/3+gkXd4zEQ9TR1qFaSwLuE70L/9U6cVz3VXdM1lPsDfELKh6RO4qcDrFWF/S3k4CAxAQ==
-                      signedAt: '2026-07-07T16:38:59.330Z'
+                      value: gjDYmHUBKIrv7bT3uwAkt3wHeoSwz5uANXQV5MfsFgbUIh83KiufZwxht3F3Een+7K/ZW9SRn0F0J7ACJRLbAg==
+                      signedAt: '2026-07-13T17:36:00.972Z'
 
         '400':
           description: businessTransactionId missing/malformed, or a Business Transaction trust-chain invariant failed (BusinessTransactionValidationError).
@@ -327,7 +390,7 @@ paths:
                 $ref: '../schemas/common/error.schema.json'
               examples:
                 badUuid:
-                  summary: Real captured response — malformed businessTransactionId
+                  summary: Real captured response, malformed businessTransactionId
                   value:
                     error: businessTransactionId must be a valid UUID.
 
@@ -335,7 +398,7 @@ paths:
           description: >-
             transaction.policy.name/version does not match any published
             Policy (PolicyNotFoundError, thrown by PolicyRouter.load during
-            Runtime execution — reachable identically from POST /transactions,
+            Runtime execution, reachable identically from POST /transactions,
             since both share the same application.execute() pipeline).
           content:
             application/json:
@@ -343,7 +406,7 @@ paths:
                 $ref: '../schemas/common/error.schema.json'
               examples:
                 policyNotFound:
-                  summary: Real captured response — unknown policy referenced by the transaction
+                  summary: Real captured response, unknown policy referenced by the transaction
                   value:
                     error: "Policy 'does-not-exist' version '9.9.9' was not found."
 
@@ -361,38 +424,54 @@ paths:
 
         '500':
           description: >-
-            Uncategorized failure. Covers three distinct, verified conditions —
+            Uncategorized failure. Covers three distinct, verified conditions:
             a policy REJECTED decision (RuntimeError, no explicit status,
-            defaulting to 500), no Connector registered for the request's
-            action (also a RuntimeError, see createConnectorRoute.ts, the
-            default server registers only "payments:execute"), and a
-            structurally incomplete request body (a valid-UUID
-            businessTransactionId but missing required nested fields, e.g.
-            metadata), which throws an uncaught TypeError inside
-            BusinessTransactionValidator.validate before it ever reaches a
-            typed error class, and is caught only by the generic 500 handler.
-            The third case does not carry a code field — see the
-            malformedBody example below.
+            defaulting to 500, carries code RUNTIME_ERROR), no Connector
+            registered for the request's action, and a structurally incomplete
+            request body (a valid-UUID businessTransactionId but missing
+            required nested fields, e.g. metadata).
+
+
+            **Regression, re-verified this pass:** the "no Connector
+            registered" case previously reached the client as a coded
+            RuntimeError (`{"error":"No connector registered for action:
+            <action>.","code":"RUNTIME_ERROR"}`). Live-triggered against the
+            current server it no longer does. `ConnectorSdkRegistry.resolveCapability`
+            (packages/connector-sdk/src/ConnectorRegistry.ts) now throws a raw,
+            uncaught `Error: No connector registered for capability '<action>'.`
+            that the shared error handler's `instanceof RuntimeError` check does
+            not match, so it falls through to the generic 500 branch: the caller
+            sees only `{"error":"Internal Server Error"}`, no code, and the real
+            message and capability name are visible only in the server's own
+            log. This is the same failure shape as the structurally-incomplete-body
+            case below, not the previously documented one. See the
+            noConnectorRegistered example, and the accompanying report: this is
+            listed as a product regression to fix in
+            packages/connector-sdk/execution-control, not something this docs
+            pass changes in code.
           content:
             application/json:
               schema:
                 $ref: '../schemas/common/error.schema.json'
               examples:
                 policyRejected:
-                  summary: Real captured response — policy REJECTED the transaction
+                  summary: Real captured response, policy REJECTED the transaction
                   value:
                     error: >-
                       Execution rejected: Vendor payment rejected because the
                       assessed payment risk exceeds the maximum permitted threshold.
                     code: RUNTIME_ERROR
                 noConnectorRegistered:
-                  summary: Real captured response — action has no registered Connector
+                  summary: >-
+                    Real captured response, action has no registered Connector.
+                    Regression: previously a coded RuntimeError, now an uncaught
+                    error collapsed into the generic 500 handler, see the
+                    description above.
                   value:
-                    error: "No connector registered for action: vendor-payment."
-                    code: RUNTIME_ERROR
+                    error: Internal Server Error
                 malformedBody:
                   summary: >-
-                    Real captured response — valid UUID but missing required
+                    Real captured response, valid UUID but missing required
                     nested fields (e.g. metadata); no code field, this is the
                     generic 500 handler, not a typed RuntimeError
                   value:
@@ -406,7 +485,7 @@ paths:
       operationId: createTransaction
       description: >
         A second, independent entry point into the identical
-        application.execute() pipeline as POST /execute — see
+        application.execute() pipeline as POST /execute. See
         packages/api/src/routes/transactions.ts. Constructs the Business
         Transaction identically to POST /execute: businessTransactionId must
         be a valid UUID (v1-v5) or the request fails before any persistence
@@ -426,7 +505,7 @@ paths:
             examples:
               vendor-payment-flow-transactions-endpoint:
                 summary: >-
-                  Real captured request (vendor-payment 2.0.0, APPROVED) —
+                  Real captured request (vendor-payment 2.0.0, APPROVED),
                   includes a client-supplied status and an unrecognized
                   top-level field to demonstrate both are rejected/dropped,
                   never persisted (see the 201 response below)
@@ -472,8 +551,10 @@ paths:
                   status: APPROVED
                   unexpectedField: should-not-be-persisted
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '201':
-          description: Execution Trust pipeline completed (see POST /execute — identical pipeline, different entry point and status code).
+          description: Execution Trust pipeline completed (see POST /execute, identical pipeline, different entry point and status code).
           content:
             application/json:
               schema:
@@ -481,41 +562,41 @@ paths:
               examples:
                 vendor-payment-flow-transactions-endpoint:
                   summary: >-
-                    Real captured response — the client-supplied status
+                    Real captured response, the client-supplied status
                     (APPROVED) and unexpectedField from the request example
                     above are both absent: status is server-set to RECEIVED
                     and the unrecognized field was silently dropped
                   value:
-                    trustRecordId: e8573fda-0bc9-4987-9f59-4f873b0a8173
-                    businessTransactionId: ffe803db-fb24-498a-9826-47ddc7e7167d
+                    trustRecordId: d2111a67-86bb-4d5f-952c-a5a44d5e5144
+                    businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
                     transaction:
-                      businessTransactionId: ffe803db-fb24-498a-9826-47ddc7e7167d
+                      businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
                       metadata:
-                        businessTransactionId: ffe803db-fb24-498a-9826-47ddc7e7167d
-                        correlationId: 303003bf-3939-407d-855d-ffb338532d6d
+                        businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                        correlationId: a6ea6a80-d032-4749-9872-1843efaac04c
                         sourceSystem: vendor-payment-service
                         submittedBy: ap-automation
-                        submittedAt: '2026-07-08T03:54:34.783Z'
+                        submittedAt: '2026-07-13T17:36:20.390Z'
                       authority:
-                        authorityId: 05ff9e2e-e5dd-40aa-9964-02c2574396c9
+                        authorityId: a9c3938d-de22-454a-a75c-1666f3c1693d
                         authorityType: SERVICE
                         principalId: ap-automation-svc
                         displayName: Accounts Payable Automation
-                        issuedAt: '2026-07-08T03:54:34.784Z'
+                        issuedAt: '2026-07-13T17:36:20.390Z'
                       authorization:
-                        authorizationId: 5fb16a24-6688-4f6f-98ee-53a117f0f2c9
-                        authorityId: 05ff9e2e-e5dd-40aa-9964-02c2574396c9
+                        authorizationId: b45f2e89-6c0b-4534-8047-9a75734ccecf
+                        authorityId: a9c3938d-de22-454a-a75c-1666f3c1693d
                         purpose: Authorize vendor payment disbursement
-                        issuedAt: '2026-07-08T03:54:34.784Z'
+                        issuedAt: '2026-07-13T17:36:20.390Z'
                       intent:
-                        intentId: 023fbdd4-f206-4a42-b7dd-d5f865fd2c74
-                        authorizationId: 5fb16a24-6688-4f6f-98ee-53a117f0f2c9
-                        action: "payments:execute"
-                        target: vendor/V-300
+                        intentId: 578850fb-277a-4bb7-99dd-6761961e10e1
+                        authorizationId: b45f2e89-6c0b-4534-8047-9a75734ccecf
+                        action: payments:execute
+                        target: vendor/V-700
                         parameters:
                           amount: 3300
                           currency: USD
-                        createdAt: '2026-07-08T03:54:34.784Z'
+                        createdAt: '2026-07-13T17:36:20.390Z'
                       policy:
                         name: vendor-payment
                         version: 2.0.0
@@ -528,14 +609,14 @@ paths:
                         paymentAmount: 3300
                         riskScore: 9
                       status: RECEIVED
-                      createdAt: '2026-07-08T03:54:34.810Z'
+                      createdAt: '2026-07-13T17:36:20.483Z'
                     overrides: []
                     executions:
-                      - executionId: 2b7e9434-aa75-437f-a40c-ca77a9c37b31
-                        businessTransactionId: ffe803db-fb24-498a-9826-47ddc7e7167d
+                      - executionId: 028cdd7b-d04a-400f-ad1a-08eedc69e31e
+                        businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
                         decision:
-                          decisionId: b398c74e-e71d-47c9-95d7-5b1f35f63bef
-                          intentId: 023fbdd4-f206-4a42-b7dd-d5f865fd2c74
+                          decisionId: d70f66bd-2674-4c07-8c2f-f9a19f8f5fd2
+                          intentId: 578850fb-277a-4bb7-99dd-6761961e10e1
                           policy:
                             name: vendor-payment
                             version: 2.0.0
@@ -548,56 +629,72 @@ paths:
                             paymentAmount: 3300
                             riskScore: 9
                           outcome: APPROVED
-                          reason: >-
-                            Vendor payment authorized. Vendor verification, invoice
-                            verification, payment approval, funding, and risk
-                            assessment requirements were satisfied.
-                          evaluatedAt: '2026-07-08T03:54:37.087Z'
+                          reason: Vendor payment authorized. Vendor verification, invoice verification, payment approval, funding, and risk assessment requirements were satisfied.
+                          evaluatedAt: '2026-07-13T17:36:20.484Z'
                         status: COMPLETED
                         mode: SYNC
-                        startedAt: '2026-07-08T03:54:37.366Z'
+                        startedAt: '2026-07-13T17:36:20.485Z'
                         metadata:
-                          authorizationId: 9189f64e-8888-4cb8-8690-46eec6d6ced5
+                          authorizationId: 3a71d9ab-5f36-42b0-ba5b-214179fde2d9
                         evidence:
-                          businessTransactionId: ffe803db-fb24-498a-9826-47ddc7e7167d
-                          action: "payments:execute"
-                          target: vendor/V-300
+                          businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                          action: payments:execute
+                          target: vendor/V-700
                           parameters:
                             amount: 3300
                             currency: USD
                           success: true
-                          executedAt: '2026-07-08T03:54:37.868Z'
-                          attributes: {}
-                        completedAt: '2026-07-08T03:54:38.301Z'
+                          executedAt: '2026-07-13T17:36:20.486Z'
+                          attributes:
+                            connector:
+                              connectorId: vendor-payment
+                              connectorVersion: 1.0.0
+                              capability: payments:execute
+                              sanitizedEndpoint: vendor/V-700
+                              credentialProviderId: environment
+                              requestSummary:
+                                businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                                action: payments:execute
+                                target: vendor/V-700
+                                parameters:
+                                  amount: 3300
+                                  currency: USD
+                              responseSummary:
+                                success: true
+                                metadata: {}
+                              startedAt: '2026-07-13T17:36:20.486Z'
+                              completedAt: '2026-07-13T17:36:20.486Z'
+                              connectorEvidenceHash: d172eee9244766ced4e30678711bdb3093250cf3a93adb4b0ab41914b2da36c6
+                        completedAt: '2026-07-13T17:36:20.486Z'
                     verifications:
-                      - verificationId: d3a69076-95ee-4580-aa5f-2191e096e2cf
-                        businessTransactionId: ffe803db-fb24-498a-9826-47ddc7e7167d
+                      - verificationId: 39a20fd1-50a9-4b3a-a38b-7d261c616f41
+                        businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
                         status: VERIFIED
                         message: Execution Trust Record verified successfully.
-                        verifiedAt: '2026-07-08T03:54:40.332Z'
-                        trustRecordHash: 67a238040509626e930045db1ec776450c1b988481aa217d5a4315cb11508dcf
+                        verifiedAt: '2026-07-13T17:36:20.487Z'
+                        trustRecordHash: 20f53f013d8fb7a93666bdeca0fc6015b009406e4ae686e74244a626a66dd781
                     receipts:
-                      - receiptId: ae23ba46-5a02-4d76-aca0-07648db92ef2
-                        businessTransactionId: ffe803db-fb24-498a-9826-47ddc7e7167d
-                        trustRecordHash: 67a238040509626e930045db1ec776450c1b988481aa217d5a4315cb11508dcf
-                        receiptHash: c7e91d4f2371b665fdd9b8aba4b82297452f53af454188a0e5bb63b141f06417
-                        issuedAt: '2026-07-08T03:54:41.754Z'
+                      - receiptId: 7bd6d010-a9c1-440f-9823-501fc116e64f
+                        businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                        trustRecordHash: 20f53f013d8fb7a93666bdeca0fc6015b009406e4ae686e74244a626a66dd781
+                        receiptHash: fa267b72b5fdce8e4ab5e3273f788f08ffaadb27c7af47c34b94aa872b37ca40
+                        issuedAt: '2026-07-13T17:36:20.487Z'
                         algorithm: ed25519
-                        signature: DDYcQxCnmzap1MKlv6O+QFe4e46bI0bpUsPkfU0oE1DSAmUJFYyzpo4xYP3lud0BNk+WLrBZw6BogbXsX+YUBA==
-                    createdAt: '2026-07-08T03:54:39.073Z'
-                    updatedAt: '2026-07-08T03:54:41.957Z'
-                    trustRecordHash: 67a238040509626e930045db1ec776450c1b988481aa217d5a4315cb11508dcf
+                        signature: XZ4/ADgeML5fI7iWhTECN+dA642KROMjSLkMJdHGITNBXkryK+NWKkzzw9VGorBlBynrPHPF70OhgbNtrxqgAg==
+                    createdAt: '2026-07-13T17:36:20.486Z'
+                    updatedAt: '2026-07-13T17:36:20.486Z'
+                    trustRecordHash: 20f53f013d8fb7a93666bdeca0fc6015b009406e4ae686e74244a626a66dd781
                     signature:
                       algorithm: ed25519
                       keyId: default
-                      value: Wb4P/hCASf4YpNC3pH3+fGb10PI8OGVHISt1iVyWWy8wB+U2CtjBE9ONGsXVNOemeFVakInA2Z3i4h1Nt7AvCg==
-                      signedAt: '2026-07-08T03:54:39.075Z'
+                      value: teph6TYn3Q0s+/hjz3TQr4uNmaRrGaPsozXkbiEkf0MjfPDIEChYa2pBjrQktLFwXW8X8cnih8/z3Sd8vjasDA==
+                      signedAt: '2026-07-13T17:36:20.487Z'
 
         '400':
           description: >-
             businessTransactionId missing/malformed, or a Business
             Transaction trust-chain invariant failed
-            (BusinessTransactionValidationError) — identical checks and
+            (BusinessTransactionValidationError), identical checks and
             treatment to POST /execute.
           content:
             application/json:
@@ -605,18 +702,18 @@ paths:
                 $ref: '../schemas/common/error.schema.json'
               examples:
                 badUuid:
-                  summary: Real captured response — malformed businessTransactionId
+                  summary: Real captured response, malformed businessTransactionId
                   value:
                     error: businessTransactionId must be a valid UUID.
                 invariantMismatch:
-                  summary: Real captured response — authorization.authorityId does not match authority.authorityId
+                  summary: Real captured response, authorization.authorityId does not match authority.authorityId
                   value:
                     error: authorization.authorityId must match authority.authorityId.
 
         '404':
           description: >-
             transaction.policy.name/version does not match any published
-            Policy (PolicyNotFoundError) — see POST /execute, identical
+            Policy (PolicyNotFoundError). See POST /execute, identical
             pipeline.
           content:
             application/json:
@@ -624,7 +721,7 @@ paths:
                 $ref: '../schemas/common/error.schema.json'
               examples:
                 policyNotFound:
-                  summary: Real captured response — unknown policy referenced by the transaction
+                  summary: Real captured response, unknown policy referenced by the transaction
                   value:
                     error: "Policy 'does-not-exist' version '9.9.9' was not found."
 
@@ -644,7 +741,7 @@ paths:
           description: >-
             Uncategorized failure, INCLUDING a policy REJECTED decision, no
             Connector registered for the request's action, and a
-            structurally incomplete body throwing an uncaught TypeError — see
+            structurally incomplete body throwing an uncaught TypeError. See
             the fuller description and all three examples on POST /execute,
             same pipeline, not independently re-verified on this route in
             this pass.
@@ -654,7 +751,7 @@ paths:
                 $ref: '../schemas/common/error.schema.json'
               examples:
                 policyRejected:
-                  summary: Real captured response — policy REJECTED the transaction
+                  summary: Real captured response, policy REJECTED the transaction
                   value:
                     error: >-
                       Execution rejected: Vendor payment rejected because the
@@ -669,8 +766,8 @@ paths:
       description: >
         Returns every accepted Business Transaction. page and pageSize are
         accepted and forwarded to the storage provider, but the response is a
-        bare array with no pagination metadata (no page/pageSize/totalItems) —
-        see the response schema description.
+        bare array with no pagination metadata (no page/pageSize/totalItems).
+        See the response schema description.
       parameters:
         - name: page
           in: query
@@ -687,6 +784,8 @@ paths:
             minimum: 1
             default: 25
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
           description: Every accepted Business Transaction on the requested page.
           content:
@@ -695,35 +794,35 @@ paths:
                 $ref: '../schemas/responses/transactions-list-response.schema.json'
               examples:
                 vendor-payment-flow:
-                  summary: Real captured response (two transactions accepted so far)
+                  summary: Real captured response (three transactions accepted so far)
                   value:
-                    - businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                    - businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                       metadata:
-                        businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                        correlationId: 6b97caca-1605-4711-bf00-7e5a65434d93
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        correlationId: cc1ca975-4935-4e9a-a591-8897af6b56fb
                         sourceSystem: vendor-payment-service
                         submittedBy: ap-automation
-                        submittedAt: '2026-07-07T16:38:59.285Z'
+                        submittedAt: '2026-07-13T17:36:00.835Z'
                       authority:
-                        authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+                        authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
                         authorityType: SERVICE
                         principalId: ap-automation-svc
                         displayName: Accounts Payable Automation
-                        issuedAt: '2026-07-07T16:38:59.285Z'
+                        issuedAt: '2026-07-13T17:36:00.835Z'
                       authorization:
-                        authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
-                        authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+                        authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                        authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
                         purpose: Authorize vendor payment disbursement
-                        issuedAt: '2026-07-07T16:38:59.285Z'
+                        issuedAt: '2026-07-13T17:36:00.835Z'
                       intent:
-                        intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
-                        authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
-                        action: "payments:execute"
-                        target: vendor/V-100
+                        intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+                        authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                        action: payments:execute
+                        target: vendor/V-500
                         parameters:
-                          amount: 4500
+                          amount: 5000
                           currency: USD
-                        createdAt: '2026-07-07T16:38:59.285Z'
+                        createdAt: '2026-07-13T17:36:00.835Z'
                       policy:
                         name: vendor-payment
                         version: 2.0.0
@@ -733,37 +832,37 @@ paths:
                         invoiceVerified: true
                         paymentApproved: true
                         sufficientFunds: true
-                        paymentAmount: 4500
-                        riskScore: 10
+                        paymentAmount: 5000
+                        riskScore: 12
                       status: RECEIVED
-                      createdAt: '2026-07-07T16:38:59.325Z'
-                    - businessTransactionId: 5f4a0e48-43ce-4fa8-af0c-a7620858740f
+                      createdAt: '2026-07-13T17:36:00.965Z'
+                    - businessTransactionId: f0a91005-de49-4f50-b6b0-c89f6b0cabb8
                       metadata:
-                        businessTransactionId: 5f4a0e48-43ce-4fa8-af0c-a7620858740f
-                        correlationId: cac46549-ecaa-45d0-8f8d-061dd358e037
+                        businessTransactionId: f0a91005-de49-4f50-b6b0-c89f6b0cabb8
+                        correlationId: e24cb9aa-c5a6-475c-9a1b-4203a68d053a
                         sourceSystem: vendor-payment-service
                         submittedBy: ap-automation
-                        submittedAt: '2026-07-07T16:40:21.772Z'
+                        submittedAt: '2026-07-13T17:36:01.524Z'
                       authority:
-                        authorityId: 54e1f541-7f7a-42e4-835c-a44cedeed0e0
+                        authorityId: e494f79a-a93d-492d-816f-96ed0624195b
                         authorityType: SERVICE
                         principalId: ap-automation-svc
                         displayName: Accounts Payable Automation
-                        issuedAt: '2026-07-07T16:40:21.772Z'
+                        issuedAt: '2026-07-13T17:36:01.524Z'
                       authorization:
-                        authorizationId: ce7d2d10-191f-421d-8f17-4d23f94f7c87
-                        authorityId: 54e1f541-7f7a-42e4-835c-a44cedeed0e0
+                        authorizationId: 5802dbf2-13a6-4bf2-b515-0df13b5472c0
+                        authorityId: e494f79a-a93d-492d-816f-96ed0624195b
                         purpose: Authorize vendor payment disbursement
-                        issuedAt: '2026-07-07T16:40:21.772Z'
+                        issuedAt: '2026-07-13T17:36:01.524Z'
                       intent:
-                        intentId: 95d1607c-cfb7-49b0-b1ce-de217b5e0799
-                        authorizationId: ce7d2d10-191f-421d-8f17-4d23f94f7c87
-                        action: "payments:execute"
-                        target: vendor/V-200
+                        intentId: 5707cd17-8b5a-455a-a6ee-50bebc619ebb
+                        authorizationId: 5802dbf2-13a6-4bf2-b515-0df13b5472c0
+                        action: payments:execute
+                        target: vendor/V-600
                         parameters:
-                          amount: 2200
+                          amount: 6000
                           currency: USD
-                        createdAt: '2026-07-07T16:40:21.772Z'
+                        createdAt: '2026-07-13T17:36:01.524Z'
                       policy:
                         name: vendor-payment
                         version: 2.0.0
@@ -773,10 +872,50 @@ paths:
                         invoiceVerified: true
                         paymentApproved: true
                         sufficientFunds: true
-                        paymentAmount: 2200
-                        riskScore: 8
-                      createdAt: '2026-07-07T16:40:21.772Z'
+                        paymentAmount: 6000
+                        riskScore: 15
                       status: RECEIVED
+                      createdAt: '2026-07-13T17:36:01.629Z'
+                    - businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                      metadata:
+                        businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                        correlationId: a6ea6a80-d032-4749-9872-1843efaac04c
+                        sourceSystem: vendor-payment-service
+                        submittedBy: ap-automation
+                        submittedAt: '2026-07-13T17:36:20.390Z'
+                      authority:
+                        authorityId: a9c3938d-de22-454a-a75c-1666f3c1693d
+                        authorityType: SERVICE
+                        principalId: ap-automation-svc
+                        displayName: Accounts Payable Automation
+                        issuedAt: '2026-07-13T17:36:20.390Z'
+                      authorization:
+                        authorizationId: b45f2e89-6c0b-4534-8047-9a75734ccecf
+                        authorityId: a9c3938d-de22-454a-a75c-1666f3c1693d
+                        purpose: Authorize vendor payment disbursement
+                        issuedAt: '2026-07-13T17:36:20.390Z'
+                      intent:
+                        intentId: 578850fb-277a-4bb7-99dd-6761961e10e1
+                        authorizationId: b45f2e89-6c0b-4534-8047-9a75734ccecf
+                        action: payments:execute
+                        target: vendor/V-700
+                        parameters:
+                          amount: 3300
+                          currency: USD
+                        createdAt: '2026-07-13T17:36:20.390Z'
+                      policy:
+                        name: vendor-payment
+                        version: 2.0.0
+                        schemaVersion: 1.0.0
+                      signals:
+                        vendorVerified: true
+                        invoiceVerified: true
+                        paymentApproved: true
+                        sufficientFunds: true
+                        paymentAmount: 3300
+                        riskScore: 9
+                      status: RECEIVED
+                      createdAt: '2026-07-13T17:36:20.483Z'
 
   /transactions/{businessTransactionId}:
     get:
@@ -793,6 +932,8 @@ paths:
           schema:
             type: string
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
           description: Business Transaction found.
           content:
@@ -803,33 +944,33 @@ paths:
                 vendor-payment-flow-transactions-endpoint:
                   summary: Real captured response
                   value:
-                    businessTransactionId: 5f4a0e48-43ce-4fa8-af0c-a7620858740f
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                     metadata:
-                      businessTransactionId: 5f4a0e48-43ce-4fa8-af0c-a7620858740f
-                      correlationId: cac46549-ecaa-45d0-8f8d-061dd358e037
+                      businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                      correlationId: cc1ca975-4935-4e9a-a591-8897af6b56fb
                       sourceSystem: vendor-payment-service
                       submittedBy: ap-automation
-                      submittedAt: '2026-07-07T16:40:21.772Z'
+                      submittedAt: '2026-07-13T17:36:00.835Z'
                     authority:
-                      authorityId: 54e1f541-7f7a-42e4-835c-a44cedeed0e0
+                      authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
                       authorityType: SERVICE
                       principalId: ap-automation-svc
                       displayName: Accounts Payable Automation
-                      issuedAt: '2026-07-07T16:40:21.772Z'
+                      issuedAt: '2026-07-13T17:36:00.835Z'
                     authorization:
-                      authorizationId: ce7d2d10-191f-421d-8f17-4d23f94f7c87
-                      authorityId: 54e1f541-7f7a-42e4-835c-a44cedeed0e0
+                      authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                      authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
                       purpose: Authorize vendor payment disbursement
-                      issuedAt: '2026-07-07T16:40:21.772Z'
+                      issuedAt: '2026-07-13T17:36:00.835Z'
                     intent:
-                      intentId: 95d1607c-cfb7-49b0-b1ce-de217b5e0799
-                      authorizationId: ce7d2d10-191f-421d-8f17-4d23f94f7c87
-                      action: "payments:execute"
-                      target: vendor/V-200
+                      intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+                      authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                      action: payments:execute
+                      target: vendor/V-500
                       parameters:
-                        amount: 2200
+                        amount: 5000
                         currency: USD
-                      createdAt: '2026-07-07T16:40:21.772Z'
+                      createdAt: '2026-07-13T17:36:00.835Z'
                     policy:
                       name: vendor-payment
                       version: 2.0.0
@@ -839,10 +980,10 @@ paths:
                       invoiceVerified: true
                       paymentApproved: true
                       sufficientFunds: true
-                      paymentAmount: 2200
-                      riskScore: 8
-                    createdAt: '2026-07-07T16:40:21.772Z'
+                      paymentAmount: 5000
+                      riskScore: 12
                     status: RECEIVED
+                    createdAt: '2026-07-13T17:36:00.965Z'
 
         '404':
           description: Business Transaction not found.
@@ -878,10 +1019,12 @@ paths:
               vendor-payment-flow:
                 summary: Real captured request
                 value:
-                  businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                  businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
-          description: Verification completed (status VERIFIED or FAILED — see the response schema; a 200 does not by itself mean verification succeeded).
+          description: Verification completed (status VERIFIED or FAILED, see the response schema; a 200 does not by itself mean verification succeeded).
           content:
             application/json:
               schema:
@@ -890,12 +1033,12 @@ paths:
                 vendor-payment-flow:
                   summary: Real captured response
                   value:
-                    verificationId: 0ad69d3f-7fd0-4507-ab38-e386146757ae
-                    businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                    verificationId: 63aac300-e0a8-47e9-9bb1-fd4b7d6cfdce
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                     status: VERIFIED
                     message: Execution Trust Record verified successfully.
-                    verifiedAt: '2026-07-07T16:38:59.344Z'
-                    trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+                    verifiedAt: '2026-07-13T17:42:11.002Z'
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
 
         '400':
           description: businessTransactionId missing or not a valid UUID.
@@ -910,7 +1053,7 @@ paths:
                     error: businessTransactionId must be a valid UUID.
 
         '404':
-          description: Execution Trust Record not found (VerificationFailedError, mapped through the generic RuntimeError branch — carries a code field, unlike most other 404s in this API).
+          description: Execution Trust Record not found (VerificationFailedError, mapped through the generic RuntimeError branch, carries a code field, unlike most other 404s in this API).
           content:
             application/json:
               schema:
@@ -932,7 +1075,7 @@ paths:
         Returns the most recent Verification for the Execution Trust Record
         identified by businessTransactionId. Registered from
         packages/api/src/routes/verify-get.ts, whose own internal comment
-        (misleadingly) says "GET /verify/:id" — the real mounted path, per
+        (misleadingly) says "GET /verify/:id"; the real mounted path, per
         packages/api/src/app.ts, is /verification/:id.
       parameters:
         - name: businessTransactionId
@@ -941,6 +1084,8 @@ paths:
           schema:
             type: string
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
           description: Verification found.
           content:
@@ -951,17 +1096,17 @@ paths:
                 vendor-payment-flow:
                   summary: Real captured response
                   value:
-                    verificationId: 0ad69d3f-7fd0-4507-ab38-e386146757ae
-                    businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                    verificationId: 63aac300-e0a8-47e9-9bb1-fd4b7d6cfdce
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                     status: VERIFIED
                     message: Execution Trust Record verified successfully.
-                    verifiedAt: '2026-07-07T16:38:59.344Z'
-                    trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+                    verifiedAt: '2026-07-13T17:42:11.002Z'
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
 
         '404':
           description: >-
             Execution Trust Record not found, OR found but has no Verification
-            yet — both return this exact shape ("Execution Trust Record not
+            yet; both return this exact shape ("Execution Trust Record not
             found." / "Verification not found.", no code field, unlike POST /verify's 404).
           content:
             application/json:
@@ -996,8 +1141,10 @@ paths:
               vendor-payment-flow:
                 summary: Real captured request
                 value:
-                  businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                  businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
           description: Receipt generated.
           content:
@@ -1008,13 +1155,13 @@ paths:
                 vendor-payment-flow:
                   summary: Real captured response
                   value:
-                    receiptId: 312ce65d-8ec4-4978-ac50-aeb0062ad7be
-                    businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                    trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
-                    receiptHash: 2cc963456dd71e0e85f2d2fe743d4475072997287356ac1b9c6a9314b189ea8b
-                    issuedAt: '2026-07-07T16:38:59.350Z'
+                    receiptId: ec0e71e6-e5af-4e14-8f65-13949fca9c6d
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                    receiptHash: d443df31a6ad94e8d9758d5143afd0859984b935f3209c35a7d93aaf8cd9f0d0
+                    issuedAt: '2026-07-13T17:42:11.094Z'
                     algorithm: ed25519
-                    signature: 2Z49nDSXubFNTpy0ovPwguGW3IpgvdJuiusCAadMNPS4cqmjRUthZmrfN3kZUO5m7Ku5v/poeLxtjsFKvXe9DA==
+                    signature: uchgXRFJnByGu3F+NZSoq1Hwt6bBr3rRJjQGpLOULKJ7jR4NfE/P4g7loD4L5aADdYxUqLh6Yn7ngfnz2peCCA==
 
         '400':
           description: businessTransactionId missing or not a valid UUID.
@@ -1069,7 +1216,7 @@ paths:
         Returns the most recent Receipt for the Execution Trust Record
         identified by businessTransactionId. Registered from
         packages/api/src/routes/receipt-get.ts, whose own internal comment
-        (misleadingly) says "GET /receipt/:id" — the real mounted path, per
+        (misleadingly) says "GET /receipt/:id"; the real mounted path, per
         packages/api/src/app.ts, is /receipt/latest/:id.
       parameters:
         - name: businessTransactionId
@@ -1078,6 +1225,8 @@ paths:
           schema:
             type: string
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
           description: Receipt found.
           content:
@@ -1088,18 +1237,18 @@ paths:
                 vendor-payment-flow:
                   summary: Real captured response
                   value:
-                    receiptId: 312ce65d-8ec4-4978-ac50-aeb0062ad7be
-                    businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                    trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
-                    receiptHash: 2cc963456dd71e0e85f2d2fe743d4475072997287356ac1b9c6a9314b189ea8b
-                    issuedAt: '2026-07-07T16:38:59.350Z'
+                    receiptId: ec0e71e6-e5af-4e14-8f65-13949fca9c6d
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                    receiptHash: d443df31a6ad94e8d9758d5143afd0859984b935f3209c35a7d93aaf8cd9f0d0
+                    issuedAt: '2026-07-13T17:42:11.094Z'
                     algorithm: ed25519
-                    signature: 2Z49nDSXubFNTpy0ovPwguGW3IpgvdJuiusCAadMNPS4cqmjRUthZmrfN3kZUO5m7Ku5v/poeLxtjsFKvXe9DA==
+                    signature: uchgXRFJnByGu3F+NZSoq1Hwt6bBr3rRJjQGpLOULKJ7jR4NfE/P4g7loD4L5aADdYxUqLh6Yn7ngfnz2peCCA==
 
         '404':
           description: >-
-            Execution Trust Record not found, OR found but has no Receipt yet
-            — both return this exact shape ("Execution Trust Record not found."
+            Execution Trust Record not found, OR found but has no Receipt yet;
+            both return this exact shape ("Execution Trust Record not found."
             / "Receipt not found.").
           content:
             application/json:
@@ -1119,7 +1268,7 @@ paths:
       operationId: getTrustRecord
       description: >
         Returns the complete Execution Trust Record for businessTransactionId
-        (looked up by Business Transaction ID, despite the path segment name —
+        (looked up by Business Transaction ID, despite the path segment name;
         there is no separate trustRecordId lookup).
       parameters:
         - name: businessTransactionId
@@ -1129,6 +1278,8 @@ paths:
           schema:
             type: string
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
           description: Execution Trust Record found.
           content:
@@ -1139,36 +1290,36 @@ paths:
                 vendor-payment-flow:
                   summary: Real captured response
                   value:
-                    trustRecordId: 759e916e-66d2-48c3-8869-55d557acf155
-                    businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                    trustRecordId: 65fee934-532c-4feb-88d9-72c0cd912a81
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                     transaction:
-                      businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                      businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                       metadata:
-                        businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                        correlationId: 6b97caca-1605-4711-bf00-7e5a65434d93
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        correlationId: cc1ca975-4935-4e9a-a591-8897af6b56fb
                         sourceSystem: vendor-payment-service
                         submittedBy: ap-automation
-                        submittedAt: '2026-07-07T16:38:59.285Z'
+                        submittedAt: '2026-07-13T17:36:00.835Z'
                       authority:
-                        authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+                        authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
                         authorityType: SERVICE
                         principalId: ap-automation-svc
                         displayName: Accounts Payable Automation
-                        issuedAt: '2026-07-07T16:38:59.285Z'
+                        issuedAt: '2026-07-13T17:36:00.835Z'
                       authorization:
-                        authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
-                        authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+                        authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                        authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
                         purpose: Authorize vendor payment disbursement
-                        issuedAt: '2026-07-07T16:38:59.285Z'
+                        issuedAt: '2026-07-13T17:36:00.835Z'
                       intent:
-                        intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
-                        authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
-                        action: "payments:execute"
-                        target: vendor/V-100
+                        intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+                        authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                        action: payments:execute
+                        target: vendor/V-500
                         parameters:
-                          amount: 4500
+                          amount: 5000
                           currency: USD
-                        createdAt: '2026-07-07T16:38:59.285Z'
+                        createdAt: '2026-07-13T17:36:00.835Z'
                       policy:
                         name: vendor-payment
                         version: 2.0.0
@@ -1178,17 +1329,17 @@ paths:
                         invoiceVerified: true
                         paymentApproved: true
                         sufficientFunds: true
-                        paymentAmount: 4500
-                        riskScore: 10
+                        paymentAmount: 5000
+                        riskScore: 12
                       status: RECEIVED
-                      createdAt: '2026-07-07T16:38:59.325Z'
+                      createdAt: '2026-07-13T17:36:00.965Z'
                     overrides: []
                     executions:
-                      - executionId: 2be38c15-f93c-4621-9a1c-7570c130dea0
-                        businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                      - executionId: 90746492-7721-4228-b244-67bf8a45ca68
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                         decision:
-                          decisionId: 9d69dc0b-333a-4be3-b09f-358fece806f3
-                          intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
+                          decisionId: 8ec880cb-677a-4889-96f1-5a18a4edc1b5
+                          intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
                           policy:
                             name: vendor-payment
                             version: 2.0.0
@@ -1198,53 +1349,69 @@ paths:
                             invoiceVerified: true
                             paymentApproved: true
                             sufficientFunds: true
-                            paymentAmount: 4500
-                            riskScore: 10
+                            paymentAmount: 5000
+                            riskScore: 12
                           outcome: APPROVED
-                          reason: >-
-                            Vendor payment authorized. Vendor verification, invoice
-                            verification, payment approval, funding, and risk
-                            assessment requirements were satisfied.
-                          evaluatedAt: '2026-07-07T16:38:59.326Z'
+                          reason: Vendor payment authorized. Vendor verification, invoice verification, payment approval, funding, and risk assessment requirements were satisfied.
+                          evaluatedAt: '2026-07-13T17:36:00.967Z'
                         status: COMPLETED
                         mode: SYNC
-                        startedAt: '2026-07-07T16:38:59.328Z'
+                        startedAt: '2026-07-13T17:36:00.968Z'
                         metadata:
-                          authorizationId: 1dc2d137-fde2-4d9c-b298-79e9f8a0d03e
+                          authorizationId: dbc09266-2078-4d4e-93d0-f355eb7eebcc
                         evidence:
-                          businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                          action: "payments:execute"
-                          target: vendor/V-100
+                          businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                          action: payments:execute
+                          target: vendor/V-500
                           parameters:
-                            amount: 4500
+                            amount: 5000
                             currency: USD
                           success: true
-                          executedAt: '2026-07-07T16:38:59.328Z'
-                          attributes: {}
-                        completedAt: '2026-07-07T16:38:59.329Z'
+                          executedAt: '2026-07-13T17:36:00.970Z'
+                          attributes:
+                            connector:
+                              connectorId: vendor-payment
+                              connectorVersion: 1.0.0
+                              capability: payments:execute
+                              sanitizedEndpoint: vendor/V-500
+                              credentialProviderId: environment
+                              requestSummary:
+                                businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                                action: payments:execute
+                                target: vendor/V-500
+                                parameters:
+                                  amount: 5000
+                                  currency: USD
+                              responseSummary:
+                                success: true
+                                metadata: {}
+                              startedAt: '2026-07-13T17:36:00.970Z'
+                              completedAt: '2026-07-13T17:36:00.970Z'
+                              connectorEvidenceHash: c97411026a82b608d9b0f8b137a64e26d8af24bdda09310b639e527e08a9aada
+                        completedAt: '2026-07-13T17:36:00.970Z'
                     verifications:
-                      - verificationId: 0b96c8b4-9cd8-4162-81fc-086575cf0924
-                        businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                      - verificationId: e22354e0-7f22-49b2-bd2f-09e47881d788
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
                         status: VERIFIED
                         message: Execution Trust Record verified successfully.
-                        verifiedAt: '2026-07-07T16:38:59.331Z'
-                        trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+                        verifiedAt: '2026-07-13T17:36:00.973Z'
+                        trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
                     receipts:
-                      - receiptId: 3073a598-f927-4caf-8bb8-4f083f62b7e9
-                        businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                        trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
-                        receiptHash: 8a5a0e9255dafef5ec588f0834e3c5b81dc7feb98a59f8bfa7083438fa58e231
-                        issuedAt: '2026-07-07T16:38:59.331Z'
+                      - receiptId: 863947e6-9d36-492e-b9c9-78b0f3e9b6df
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                        receiptHash: c9666b08b42bb5ff77650b544c3c2183609f25e4d8dc09359b71a970c57ed3ce
+                        issuedAt: '2026-07-13T17:36:00.973Z'
                         algorithm: ed25519
-                        signature: vzpykBuJhoy/2BdiR1x02KYZqMtKJu39olRJdzM5veSo9nYmoNSYQnt9HELlb2jlGWf07jPhP8ZXlrQnN4KQBA==
-                    createdAt: '2026-07-07T16:38:59.329Z'
-                    updatedAt: '2026-07-07T16:38:59.329Z'
-                    trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+                        signature: Pcr42EvbaUbLogvVhYiV3g7uuwvZr82HUJhVptnXRxmTtiEGiz2SCdz5Z80xRDvmvSxpOSG5OnvMAaRzJXncBg==
+                    createdAt: '2026-07-13T17:36:00.971Z'
+                    updatedAt: '2026-07-13T17:36:00.971Z'
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
                     signature:
                       algorithm: ed25519
                       keyId: default
-                      value: l41lr6nCUbrzEfoil/3+gkXd4zEQ9TR1qFaSwLuE70L/9U6cVz3VXdM1lPsDfELKh6RO4qcDrFWF/S3k4CAxAQ==
-                      signedAt: '2026-07-07T16:38:59.330Z'
+                      value: gjDYmHUBKIrv7bT3uwAkt3wHeoSwz5uANXQV5MfsFgbUIh83KiufZwxht3F3Een+7K/ZW9SRn0F0J7ACJRLbAg==
+                      signedAt: '2026-07-13T17:36:00.972Z'
 
         '404':
           description: Execution Trust Record not found.
@@ -1267,12 +1434,12 @@ paths:
       description: >
         Re-verifies the stored signature on the Execution Trust Record for
         businessTransactionId and returns its hash alongside the verification
-        result. Does not re-run Policy evaluation or re-execute anything — see
+        result. Does not re-run Policy evaluation or re-execute anything. See
         ExecutionTrustApplication.replay. When businessTransactionId does not
         correspond to any Execution Trust Record, this throws
         VerificationFailedError (the same not-found error used by POST
         /verify), which the shared error handler maps to a 404 naming the
-        missing resource — see the 404 response and its notFound example.
+        missing resource. See the 404 response and its notFound example.
       requestBody:
         required: true
         content:
@@ -1283,8 +1450,10 @@ paths:
               vendor-payment-flow:
                 summary: Real captured request
                 value:
-                  businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                  businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
           description: Replay completed.
           content:
@@ -1295,8 +1464,8 @@ paths:
                 vendor-payment-flow:
                   summary: Real captured response
                   value:
-                    businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-                    trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
                     verified: true
 
         '400':
@@ -1336,10 +1505,13 @@ paths:
       description: >
         Checks that policies/{policyId}/{policyVersion}/policy.json exists and
         parses. Does NOT use the shared Error envelope for its failure
-        responses — every status code (200, 400, 404) returns the same
+        responses: every status code (200, 400, 404) returns the same
         {valid, errors} shape. Field checks run in order: policyId first, then
         policyVersion; the first missing/empty field short-circuits with its
-        own message.
+        own message. The one exception is 401: caller authentication runs in
+        middleware, before this handler is ever reached, so a rejected caller
+        gets the shared Error envelope ({"error": "authentication required"}),
+        not {valid, errors}.
       requestBody:
         required: true
         content:
@@ -1353,11 +1525,13 @@ paths:
                   policyId: vendor-payment
                   policyVersion: 2.0.0
               notFound:
-                summary: Real captured request — unknown policy
+                summary: Real captured request, unknown policy
                 value:
                   policyId: does-not-exist
                   policyVersion: 9.9.9
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '200':
           description: Policy exists and is readable.
           content:
@@ -1386,7 +1560,7 @@ paths:
                       - policyVersion is required.
 
         '404':
-          description: No policy.json exists at the requested name/version (PolicyNotFoundError, caught locally and re-shaped — not routed through the shared error handler).
+          description: No policy.json exists at the requested name/version (PolicyNotFoundError, caught locally and re-shaped, not routed through the shared error handler).
           content:
             application/json:
               schema:
@@ -1403,3 +1577,29 @@ components:
   schemas:
     Error:
       $ref: '../schemas/common/error.schema.json'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: >
+        Caller API key issued by scripts/generate-api-key.ts. Sent as
+        Authorization: Bearer <key>. Verified against a stored SHA-256 hash
+        in constant time by packages/api/src/auth/StaticKeyAuthenticator.ts.
+        Required on every route except GET /health. See
+        /api-reference/authentication.
+
+  responses:
+    Unauthorized:
+      description: >-
+        Missing or invalid caller credential (StaticKeyAuthenticator returned
+        no identity). Real captured response, packages/api/src/middleware/caller-auth.ts.
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/common/error.schema.json'
+          examples:
+            authRequired:
+              summary: Real captured response, missing or invalid Authorization header
+              value:
+                error: authentication required

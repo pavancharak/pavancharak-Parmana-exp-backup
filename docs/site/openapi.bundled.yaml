@@ -1,0 +1,2463 @@
+openapi: 3.1.0
+info:
+  title: Parmana API
+  version: 1.0.0
+  description: |
+    Parmana is an Execution Trust Infrastructure that ensures there is no gap between what humans decide and what AI systems do. The API enables creation, execution, verification, replay, and auditing of Business Transactions through cryptographically verifiable Execution Trust Records.
+
+    **Every route requires a caller bearer key, except GET /health.** Send `Authorization: Bearer <key>` on every other request. Keys are issued by `scripts/generate-api-key.ts` and configured server-side via `PARMANA_API_KEYS`; only a hash of each key is ever held by the server, verified in constant time. A missing or invalid credential returns 401 before a Business Transaction is even constructed, independent of Policy evaluation and gateway attestation, see `packages/api/src/middleware/caller-auth.ts` and [Authentication](/api-reference/authentication). Local development may set `PARMANA_AUTH_DISABLED=true` to skip this middleware entirely; that flag must never be set in a real deployment.
+  contact:
+    name: Parmana
+    email: support@parmana.ai
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+servers:
+  - url: http://localhost:3000
+    description: Local (packages/api, PORT env var, default 3000)
+security:
+  - bearerAuth: []
+tags:
+  - name: Execution
+    description: Executes a Business Transaction through the complete Execution Trust pipeline
+  - name: Transactions
+    description: Business Transaction creation and retrieval
+  - name: Verification
+    description: Deterministic verification of an Execution Trust Record
+  - name: Receipts
+    description: Cryptographically signed Execution Trust Receipts
+  - name: Trust Records
+    description: Execution Trust Record retrieval
+  - name: Replay
+    description: Deterministic replay of a recorded Execution Trust Record
+  - name: Policies
+    description: Policy existence/readability check
+  - name: System
+    description: Operational endpoints
+paths:
+  /:
+    get:
+      tags:
+        - System
+      summary: Root
+      operationId: getRoot
+      description: |
+        Minimal liveness response. Not registered under any router file, defined directly in packages/api/src/app.ts, ahead of every mounted route. Requires caller authentication, like every route except GET /health. See the security scheme above.
+      responses:
+        '200':
+          description: Service is responding.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/root-response.schema'
+              examples:
+                root:
+                  summary: Real captured response
+                  value:
+                    name: Parmana
+                    status: UP
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      operationId: getHealth
+      description: |
+        Returns the operational health of the Parmana service. Always returns status: "UP" unconditionally. See the response schema description for exactly what this endpoint does and does not check.
+
+        **One of two routes exempt from caller authentication** (the other is GET /openapi.yaml). Liveness probes must be able to reach it with no credential, see packages/api/src/app.ts (mounted ahead of the caller-auth middleware).
+      security: []
+      responses:
+        '200':
+          description: Service health information.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/health-response.schema'
+              examples:
+                health:
+                  summary: Real captured response
+                  value:
+                    status: UP
+  /openapi.yaml:
+    get:
+      tags:
+        - System
+      summary: Get the OpenAPI spec
+      operationId: getOpenApiSpec
+      description: |
+        Serves the bundled, self-contained OpenAPI document (openapi/openapi.bundled.yaml, produced by `npm run bundle:openapi` from openapi/openapi.yaml + schemas/*.json) as a static file, see packages/api/src/routes/openapi.ts. Exempt from caller authentication for the same reason GET /health is: a caller cannot discover how to get a key from a spec it isn't allowed to read. See [Deploy patterns](/guides/deploy-patterns#the-openapi-spec-endpoint) for the tradeoff of exposing this in production versus disabling it.
+      security: []
+      responses:
+        '200':
+          description: The complete OpenAPI 3.1 document, YAML, self-contained (no external $ref).
+          content:
+            application/yaml:
+              schema:
+                type: string
+  /version:
+    get:
+      tags:
+        - System
+      summary: Service version
+      operationId: getVersion
+      description: |
+        Returns hardcoded deployment identifiers. See the response schema description: these three literals are not read from package.json, environment variables, or build metadata. Requires caller authentication, like every route except GET /health.
+      responses:
+        '200':
+          description: Service version information.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/version-response.schema'
+              examples:
+                version:
+                  summary: Real captured response
+                  value:
+                    name: Parmana
+                    version: 0.4.0
+                    api: v1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /execute:
+    post:
+      tags:
+        - Execution
+      summary: Execute a Business Transaction
+      operationId: executeTransaction
+      description: |
+        Runs the complete Execution Trust pipeline synchronously: accepts the Business Transaction, executes it through the Runtime, verifies the resulting Execution Trust Record, generates a Receipt, then returns the complete, updated Execution Trust Record. businessTransactionId must be a valid UUID (v1-v5) or the request fails before any persistence with a 400. See BusinessTransactionMapper.fromRequest and isValidBusinessTransactionId in packages/api/src/routes/execute.ts. The mapper reconstructs the transaction field by field, so status and createdAt supplied by the client are always ignored (Parmana assigns RECEIVED and the current time), and any top-level field not in the request schema is silently dropped. POST /transactions applies the identical UUID check and mapper. See that endpoint below.
+
+        If Policy evaluation REJECTs the transaction, this endpoint currently responds 500 with a RUNTIME_ERROR-coded error envelope naming the rejection reason. See the 500 response below and the executeRejected example. This is real, observed behavior, not a designed contract; it is documented here because the spec must describe the API as implemented.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/transaction-create-request.schema'
+            examples:
+              vendor-payment-flow:
+                summary: Real captured request (vendor-payment 2.0.0, APPROVED)
+                value:
+                  businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                  metadata:
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    correlationId: cc1ca975-4935-4e9a-a591-8897af6b56fb
+                    sourceSystem: vendor-payment-service
+                    submittedBy: ap-automation
+                    submittedAt: '2026-07-13T17:36:00.835Z'
+                  authority:
+                    authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
+                    authorityType: SERVICE
+                    principalId: ap-automation-svc
+                    displayName: Accounts Payable Automation
+                    issuedAt: '2026-07-13T17:36:00.835Z'
+                  authorization:
+                    authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                    authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
+                    purpose: Authorize vendor payment disbursement
+                    issuedAt: '2026-07-13T17:36:00.835Z'
+                  intent:
+                    intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+                    authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                    action: payments:execute
+                    target: vendor/V-500
+                    parameters:
+                      amount: 5000
+                      currency: USD
+                    createdAt: '2026-07-13T17:36:00.835Z'
+                  policy:
+                    name: vendor-payment
+                    version: 2.0.0
+                    schemaVersion: 1.0.0
+                  signals:
+                    vendorVerified: true
+                    invoiceVerified: true
+                    paymentApproved: true
+                    sufficientFunds: true
+                    paymentAmount: 5000
+                    riskScore: 12
+      responses:
+        '200':
+          description: Execution Trust pipeline completed. The Execution Trust Record reflects whatever the Decision outcome was. This status code does not by itself mean the payment was approved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/execution-trust-record.schema'
+              examples:
+                vendor-payment-flow:
+                  summary: Real captured response
+                  value:
+                    trustRecordId: 65fee934-532c-4feb-88d9-72c0cd912a81
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    transaction:
+                      businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                      metadata:
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        correlationId: cc1ca975-4935-4e9a-a591-8897af6b56fb
+                        sourceSystem: vendor-payment-service
+                        submittedBy: ap-automation
+                        submittedAt: '2026-07-13T17:36:00.835Z'
+                      authority:
+                        authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
+                        authorityType: SERVICE
+                        principalId: ap-automation-svc
+                        displayName: Accounts Payable Automation
+                        issuedAt: '2026-07-13T17:36:00.835Z'
+                      authorization:
+                        authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                        authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
+                        purpose: Authorize vendor payment disbursement
+                        issuedAt: '2026-07-13T17:36:00.835Z'
+                      intent:
+                        intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+                        authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                        action: payments:execute
+                        target: vendor/V-500
+                        parameters:
+                          amount: 5000
+                          currency: USD
+                        createdAt: '2026-07-13T17:36:00.835Z'
+                      policy:
+                        name: vendor-payment
+                        version: 2.0.0
+                        schemaVersion: 1.0.0
+                      signals:
+                        vendorVerified: true
+                        invoiceVerified: true
+                        paymentApproved: true
+                        sufficientFunds: true
+                        paymentAmount: 5000
+                        riskScore: 12
+                      status: RECEIVED
+                      createdAt: '2026-07-13T17:36:00.965Z'
+                    overrides: []
+                    executions:
+                      - executionId: 90746492-7721-4228-b244-67bf8a45ca68
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        decision:
+                          decisionId: 8ec880cb-677a-4889-96f1-5a18a4edc1b5
+                          intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+                          policy:
+                            name: vendor-payment
+                            version: 2.0.0
+                            schemaVersion: 1.0.0
+                          signals:
+                            vendorVerified: true
+                            invoiceVerified: true
+                            paymentApproved: true
+                            sufficientFunds: true
+                            paymentAmount: 5000
+                            riskScore: 12
+                          outcome: APPROVED
+                          reason: Vendor payment authorized. Vendor verification, invoice verification, payment approval, funding, and risk assessment requirements were satisfied.
+                          evaluatedAt: '2026-07-13T17:36:00.967Z'
+                        status: COMPLETED
+                        mode: SYNC
+                        startedAt: '2026-07-13T17:36:00.968Z'
+                        metadata:
+                          authorizationId: dbc09266-2078-4d4e-93d0-f355eb7eebcc
+                        evidence:
+                          businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                          action: payments:execute
+                          target: vendor/V-500
+                          parameters:
+                            amount: 5000
+                            currency: USD
+                          success: true
+                          executedAt: '2026-07-13T17:36:00.970Z'
+                          attributes:
+                            connector:
+                              connectorId: vendor-payment
+                              connectorVersion: 1.0.0
+                              capability: payments:execute
+                              sanitizedEndpoint: vendor/V-500
+                              credentialProviderId: environment
+                              requestSummary:
+                                businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                                action: payments:execute
+                                target: vendor/V-500
+                                parameters:
+                                  amount: 5000
+                                  currency: USD
+                              responseSummary:
+                                success: true
+                                metadata: {}
+                              startedAt: '2026-07-13T17:36:00.970Z'
+                              completedAt: '2026-07-13T17:36:00.970Z'
+                              connectorEvidenceHash: c97411026a82b608d9b0f8b137a64e26d8af24bdda09310b639e527e08a9aada
+                        completedAt: '2026-07-13T17:36:00.970Z'
+                    verifications:
+                      - verificationId: e22354e0-7f22-49b2-bd2f-09e47881d788
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        status: VERIFIED
+                        message: Execution Trust Record verified successfully.
+                        verifiedAt: '2026-07-13T17:36:00.973Z'
+                        trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                    receipts:
+                      - receiptId: 863947e6-9d36-492e-b9c9-78b0f3e9b6df
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                        receiptHash: c9666b08b42bb5ff77650b544c3c2183609f25e4d8dc09359b71a970c57ed3ce
+                        issuedAt: '2026-07-13T17:36:00.973Z'
+                        algorithm: ed25519
+                        signature: Pcr42EvbaUbLogvVhYiV3g7uuwvZr82HUJhVptnXRxmTtiEGiz2SCdz5Z80xRDvmvSxpOSG5OnvMAaRzJXncBg==
+                    createdAt: '2026-07-13T17:36:00.971Z'
+                    updatedAt: '2026-07-13T17:36:00.971Z'
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                    signature:
+                      algorithm: ed25519
+                      keyId: default
+                      value: gjDYmHUBKIrv7bT3uwAkt3wHeoSwz5uANXQV5MfsFgbUIh83KiufZwxht3F3Een+7K/ZW9SRn0F0J7ACJRLbAg==
+                      signedAt: '2026-07-13T17:36:00.972Z'
+        '400':
+          description: businessTransactionId missing/malformed, or a Business Transaction trust-chain invariant failed (BusinessTransactionValidationError).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                badUuid:
+                  summary: Real captured response, malformed businessTransactionId
+                  value:
+                    error: businessTransactionId must be a valid UUID.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: transaction.policy.name/version does not match any published Policy (PolicyNotFoundError, thrown by PolicyRouter.load during Runtime execution, reachable identically from POST /transactions, since both share the same application.execute() pipeline).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                policyNotFound:
+                  summary: Real captured response, unknown policy referenced by the transaction
+                  value:
+                    error: Policy 'does-not-exist' version '9.9.9' was not found.
+        '409':
+          description: A Business Transaction with this businessTransactionId already exists (DuplicateBusinessTransactionError).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                duplicate:
+                  summary: Real captured response
+                  value:
+                    error: Business Transaction 'eed2a972-1bf5-4166-8472-761f76fbf1b2' already exists.
+        '500':
+          description: |-
+            Uncategorized failure. Covers three distinct, verified conditions: a policy REJECTED decision (RuntimeError, no explicit status, defaulting to 500, carries code RUNTIME_ERROR), no Connector registered for the request's action, and a structurally incomplete request body (a valid-UUID businessTransactionId but missing required nested fields, e.g. metadata).
+
+            **Regression, re-verified this pass:** the "no Connector registered" case previously reached the client as a coded RuntimeError (`{"error":"No connector registered for action: <action>.","code":"RUNTIME_ERROR"}`). Live-triggered against the current server it no longer does. `ConnectorSdkRegistry.resolveCapability` (packages/connector-sdk/src/ConnectorRegistry.ts) now throws a raw, uncaught `Error: No connector registered for capability '<action>'.` that the shared error handler's `instanceof RuntimeError` check does not match, so it falls through to the generic 500 branch: the caller sees only `{"error":"Internal Server Error"}`, no code, and the real message and capability name are visible only in the server's own log. This is the same failure shape as the structurally-incomplete-body case below, not the previously documented one. See the noConnectorRegistered example, and the accompanying report: this is listed as a product regression to fix in packages/connector-sdk/execution-control, not something this docs pass changes in code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                policyRejected:
+                  summary: Real captured response, policy REJECTED the transaction
+                  value:
+                    error: 'Execution rejected: Vendor payment rejected because the assessed payment risk exceeds the maximum permitted threshold.'
+                    code: RUNTIME_ERROR
+                noConnectorRegistered:
+                  summary: 'Real captured response, action has no registered Connector. Regression: previously a coded RuntimeError, now an uncaught error collapsed into the generic 500 handler, see the description above.'
+                  value:
+                    error: Internal Server Error
+                malformedBody:
+                  summary: Real captured response, valid UUID but missing required nested fields (e.g. metadata); no code field, this is the generic 500 handler, not a typed RuntimeError
+                  value:
+                    error: Internal Server Error
+  /transactions:
+    post:
+      tags:
+        - Transactions
+      summary: Create (execute) a Business Transaction
+      operationId: createTransaction
+      description: |
+        A second, independent entry point into the identical application.execute() pipeline as POST /execute. See packages/api/src/routes/transactions.ts. Constructs the Business Transaction identically to POST /execute: businessTransactionId must be a valid UUID (v1-v5) or the request fails before any persistence with a 400, and BusinessTransactionMapper.fromRequest rebuilds the transaction field by field, so status and createdAt supplied by the client are always ignored (Parmana assigns RECEIVED and the current time) and any top-level field not in the request schema is silently dropped. The only behavioral difference from POST /execute is the success status code: 201, not 200. The response body shape is otherwise identical to POST /execute.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/transaction-create-request.schema'
+            examples:
+              vendor-payment-flow-transactions-endpoint:
+                summary: Real captured request (vendor-payment 2.0.0, APPROVED), includes a client-supplied status and an unrecognized top-level field to demonstrate both are rejected/dropped, never persisted (see the 201 response below)
+                value:
+                  businessTransactionId: ffe803db-fb24-498a-9826-47ddc7e7167d
+                  metadata:
+                    businessTransactionId: ffe803db-fb24-498a-9826-47ddc7e7167d
+                    correlationId: 303003bf-3939-407d-855d-ffb338532d6d
+                    sourceSystem: vendor-payment-service
+                    submittedBy: ap-automation
+                    submittedAt: '2026-07-08T03:54:34.783Z'
+                  authority:
+                    authorityId: 05ff9e2e-e5dd-40aa-9964-02c2574396c9
+                    authorityType: SERVICE
+                    principalId: ap-automation-svc
+                    displayName: Accounts Payable Automation
+                    issuedAt: '2026-07-08T03:54:34.784Z'
+                  authorization:
+                    authorizationId: 5fb16a24-6688-4f6f-98ee-53a117f0f2c9
+                    authorityId: 05ff9e2e-e5dd-40aa-9964-02c2574396c9
+                    purpose: Authorize vendor payment disbursement
+                    issuedAt: '2026-07-08T03:54:34.784Z'
+                  intent:
+                    intentId: 023fbdd4-f206-4a42-b7dd-d5f865fd2c74
+                    authorizationId: 5fb16a24-6688-4f6f-98ee-53a117f0f2c9
+                    action: payments:execute
+                    target: vendor/V-300
+                    parameters:
+                      amount: 3300
+                      currency: USD
+                    createdAt: '2026-07-08T03:54:34.784Z'
+                  policy:
+                    name: vendor-payment
+                    version: 2.0.0
+                    schemaVersion: 1.0.0
+                  signals:
+                    vendorVerified: true
+                    invoiceVerified: true
+                    paymentApproved: true
+                    sufficientFunds: true
+                    paymentAmount: 3300
+                    riskScore: 9
+                  status: APPROVED
+                  unexpectedField: should-not-be-persisted
+      responses:
+        '201':
+          description: Execution Trust pipeline completed (see POST /execute, identical pipeline, different entry point and status code).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/execution-trust-record.schema'
+              examples:
+                vendor-payment-flow-transactions-endpoint:
+                  summary: 'Real captured response, the client-supplied status (APPROVED) and unexpectedField from the request example above are both absent: status is server-set to RECEIVED and the unrecognized field was silently dropped'
+                  value:
+                    trustRecordId: d2111a67-86bb-4d5f-952c-a5a44d5e5144
+                    businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                    transaction:
+                      businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                      metadata:
+                        businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                        correlationId: a6ea6a80-d032-4749-9872-1843efaac04c
+                        sourceSystem: vendor-payment-service
+                        submittedBy: ap-automation
+                        submittedAt: '2026-07-13T17:36:20.390Z'
+                      authority:
+                        authorityId: a9c3938d-de22-454a-a75c-1666f3c1693d
+                        authorityType: SERVICE
+                        principalId: ap-automation-svc
+                        displayName: Accounts Payable Automation
+                        issuedAt: '2026-07-13T17:36:20.390Z'
+                      authorization:
+                        authorizationId: b45f2e89-6c0b-4534-8047-9a75734ccecf
+                        authorityId: a9c3938d-de22-454a-a75c-1666f3c1693d
+                        purpose: Authorize vendor payment disbursement
+                        issuedAt: '2026-07-13T17:36:20.390Z'
+                      intent:
+                        intentId: 578850fb-277a-4bb7-99dd-6761961e10e1
+                        authorizationId: b45f2e89-6c0b-4534-8047-9a75734ccecf
+                        action: payments:execute
+                        target: vendor/V-700
+                        parameters:
+                          amount: 3300
+                          currency: USD
+                        createdAt: '2026-07-13T17:36:20.390Z'
+                      policy:
+                        name: vendor-payment
+                        version: 2.0.0
+                        schemaVersion: 1.0.0
+                      signals:
+                        vendorVerified: true
+                        invoiceVerified: true
+                        paymentApproved: true
+                        sufficientFunds: true
+                        paymentAmount: 3300
+                        riskScore: 9
+                      status: RECEIVED
+                      createdAt: '2026-07-13T17:36:20.483Z'
+                    overrides: []
+                    executions:
+                      - executionId: 028cdd7b-d04a-400f-ad1a-08eedc69e31e
+                        businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                        decision:
+                          decisionId: d70f66bd-2674-4c07-8c2f-f9a19f8f5fd2
+                          intentId: 578850fb-277a-4bb7-99dd-6761961e10e1
+                          policy:
+                            name: vendor-payment
+                            version: 2.0.0
+                            schemaVersion: 1.0.0
+                          signals:
+                            vendorVerified: true
+                            invoiceVerified: true
+                            paymentApproved: true
+                            sufficientFunds: true
+                            paymentAmount: 3300
+                            riskScore: 9
+                          outcome: APPROVED
+                          reason: Vendor payment authorized. Vendor verification, invoice verification, payment approval, funding, and risk assessment requirements were satisfied.
+                          evaluatedAt: '2026-07-13T17:36:20.484Z'
+                        status: COMPLETED
+                        mode: SYNC
+                        startedAt: '2026-07-13T17:36:20.485Z'
+                        metadata:
+                          authorizationId: 3a71d9ab-5f36-42b0-ba5b-214179fde2d9
+                        evidence:
+                          businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                          action: payments:execute
+                          target: vendor/V-700
+                          parameters:
+                            amount: 3300
+                            currency: USD
+                          success: true
+                          executedAt: '2026-07-13T17:36:20.486Z'
+                          attributes:
+                            connector:
+                              connectorId: vendor-payment
+                              connectorVersion: 1.0.0
+                              capability: payments:execute
+                              sanitizedEndpoint: vendor/V-700
+                              credentialProviderId: environment
+                              requestSummary:
+                                businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                                action: payments:execute
+                                target: vendor/V-700
+                                parameters:
+                                  amount: 3300
+                                  currency: USD
+                              responseSummary:
+                                success: true
+                                metadata: {}
+                              startedAt: '2026-07-13T17:36:20.486Z'
+                              completedAt: '2026-07-13T17:36:20.486Z'
+                              connectorEvidenceHash: d172eee9244766ced4e30678711bdb3093250cf3a93adb4b0ab41914b2da36c6
+                        completedAt: '2026-07-13T17:36:20.486Z'
+                    verifications:
+                      - verificationId: 39a20fd1-50a9-4b3a-a38b-7d261c616f41
+                        businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                        status: VERIFIED
+                        message: Execution Trust Record verified successfully.
+                        verifiedAt: '2026-07-13T17:36:20.487Z'
+                        trustRecordHash: 20f53f013d8fb7a93666bdeca0fc6015b009406e4ae686e74244a626a66dd781
+                    receipts:
+                      - receiptId: 7bd6d010-a9c1-440f-9823-501fc116e64f
+                        businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                        trustRecordHash: 20f53f013d8fb7a93666bdeca0fc6015b009406e4ae686e74244a626a66dd781
+                        receiptHash: fa267b72b5fdce8e4ab5e3273f788f08ffaadb27c7af47c34b94aa872b37ca40
+                        issuedAt: '2026-07-13T17:36:20.487Z'
+                        algorithm: ed25519
+                        signature: XZ4/ADgeML5fI7iWhTECN+dA642KROMjSLkMJdHGITNBXkryK+NWKkzzw9VGorBlBynrPHPF70OhgbNtrxqgAg==
+                    createdAt: '2026-07-13T17:36:20.486Z'
+                    updatedAt: '2026-07-13T17:36:20.486Z'
+                    trustRecordHash: 20f53f013d8fb7a93666bdeca0fc6015b009406e4ae686e74244a626a66dd781
+                    signature:
+                      algorithm: ed25519
+                      keyId: default
+                      value: teph6TYn3Q0s+/hjz3TQr4uNmaRrGaPsozXkbiEkf0MjfPDIEChYa2pBjrQktLFwXW8X8cnih8/z3Sd8vjasDA==
+                      signedAt: '2026-07-13T17:36:20.487Z'
+        '400':
+          description: businessTransactionId missing/malformed, or a Business Transaction trust-chain invariant failed (BusinessTransactionValidationError), identical checks and treatment to POST /execute.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                badUuid:
+                  summary: Real captured response, malformed businessTransactionId
+                  value:
+                    error: businessTransactionId must be a valid UUID.
+                invariantMismatch:
+                  summary: Real captured response, authorization.authorityId does not match authority.authorityId
+                  value:
+                    error: authorization.authorityId must match authority.authorityId.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: transaction.policy.name/version does not match any published Policy (PolicyNotFoundError). See POST /execute, identical pipeline.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                policyNotFound:
+                  summary: Real captured response, unknown policy referenced by the transaction
+                  value:
+                    error: Policy 'does-not-exist' version '9.9.9' was not found.
+        '409':
+          description: A Business Transaction with this businessTransactionId already exists (DuplicateBusinessTransactionError).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                duplicate:
+                  summary: Real captured response
+                  value:
+                    error: Business Transaction '1a341e62-18de-408e-9b34-89aec901dae5' already exists.
+        '500':
+          description: Uncategorized failure, INCLUDING a policy REJECTED decision, no Connector registered for the request's action, and a structurally incomplete body throwing an uncaught TypeError. See the fuller description and all three examples on POST /execute, same pipeline, not independently re-verified on this route in this pass.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                policyRejected:
+                  summary: Real captured response, policy REJECTED the transaction
+                  value:
+                    error: 'Execution rejected: Vendor payment rejected because the assessed payment risk exceeds the maximum permitted threshold.'
+                    code: RUNTIME_ERROR
+    get:
+      tags:
+        - Transactions
+      summary: List Business Transactions
+      operationId: listTransactions
+      description: |
+        Returns every accepted Business Transaction. page and pageSize are accepted and forwarded to the storage provider, but the response is a bare array with no pagination metadata (no page/pageSize/totalItems). See the response schema description.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 25
+      responses:
+        '200':
+          description: Every accepted Business Transaction on the requested page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/transactions-list-response.schema'
+              examples:
+                vendor-payment-flow:
+                  summary: Real captured response (three transactions accepted so far)
+                  value:
+                    - businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                      metadata:
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        correlationId: cc1ca975-4935-4e9a-a591-8897af6b56fb
+                        sourceSystem: vendor-payment-service
+                        submittedBy: ap-automation
+                        submittedAt: '2026-07-13T17:36:00.835Z'
+                      authority:
+                        authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
+                        authorityType: SERVICE
+                        principalId: ap-automation-svc
+                        displayName: Accounts Payable Automation
+                        issuedAt: '2026-07-13T17:36:00.835Z'
+                      authorization:
+                        authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                        authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
+                        purpose: Authorize vendor payment disbursement
+                        issuedAt: '2026-07-13T17:36:00.835Z'
+                      intent:
+                        intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+                        authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                        action: payments:execute
+                        target: vendor/V-500
+                        parameters:
+                          amount: 5000
+                          currency: USD
+                        createdAt: '2026-07-13T17:36:00.835Z'
+                      policy:
+                        name: vendor-payment
+                        version: 2.0.0
+                        schemaVersion: 1.0.0
+                      signals:
+                        vendorVerified: true
+                        invoiceVerified: true
+                        paymentApproved: true
+                        sufficientFunds: true
+                        paymentAmount: 5000
+                        riskScore: 12
+                      status: RECEIVED
+                      createdAt: '2026-07-13T17:36:00.965Z'
+                    - businessTransactionId: f0a91005-de49-4f50-b6b0-c89f6b0cabb8
+                      metadata:
+                        businessTransactionId: f0a91005-de49-4f50-b6b0-c89f6b0cabb8
+                        correlationId: e24cb9aa-c5a6-475c-9a1b-4203a68d053a
+                        sourceSystem: vendor-payment-service
+                        submittedBy: ap-automation
+                        submittedAt: '2026-07-13T17:36:01.524Z'
+                      authority:
+                        authorityId: e494f79a-a93d-492d-816f-96ed0624195b
+                        authorityType: SERVICE
+                        principalId: ap-automation-svc
+                        displayName: Accounts Payable Automation
+                        issuedAt: '2026-07-13T17:36:01.524Z'
+                      authorization:
+                        authorizationId: 5802dbf2-13a6-4bf2-b515-0df13b5472c0
+                        authorityId: e494f79a-a93d-492d-816f-96ed0624195b
+                        purpose: Authorize vendor payment disbursement
+                        issuedAt: '2026-07-13T17:36:01.524Z'
+                      intent:
+                        intentId: 5707cd17-8b5a-455a-a6ee-50bebc619ebb
+                        authorizationId: 5802dbf2-13a6-4bf2-b515-0df13b5472c0
+                        action: payments:execute
+                        target: vendor/V-600
+                        parameters:
+                          amount: 6000
+                          currency: USD
+                        createdAt: '2026-07-13T17:36:01.524Z'
+                      policy:
+                        name: vendor-payment
+                        version: 2.0.0
+                        schemaVersion: 1.0.0
+                      signals:
+                        vendorVerified: true
+                        invoiceVerified: true
+                        paymentApproved: true
+                        sufficientFunds: true
+                        paymentAmount: 6000
+                        riskScore: 15
+                      status: RECEIVED
+                      createdAt: '2026-07-13T17:36:01.629Z'
+                    - businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                      metadata:
+                        businessTransactionId: a0477e25-db8d-447d-9dbe-633e4705275f
+                        correlationId: a6ea6a80-d032-4749-9872-1843efaac04c
+                        sourceSystem: vendor-payment-service
+                        submittedBy: ap-automation
+                        submittedAt: '2026-07-13T17:36:20.390Z'
+                      authority:
+                        authorityId: a9c3938d-de22-454a-a75c-1666f3c1693d
+                        authorityType: SERVICE
+                        principalId: ap-automation-svc
+                        displayName: Accounts Payable Automation
+                        issuedAt: '2026-07-13T17:36:20.390Z'
+                      authorization:
+                        authorizationId: b45f2e89-6c0b-4534-8047-9a75734ccecf
+                        authorityId: a9c3938d-de22-454a-a75c-1666f3c1693d
+                        purpose: Authorize vendor payment disbursement
+                        issuedAt: '2026-07-13T17:36:20.390Z'
+                      intent:
+                        intentId: 578850fb-277a-4bb7-99dd-6761961e10e1
+                        authorizationId: b45f2e89-6c0b-4534-8047-9a75734ccecf
+                        action: payments:execute
+                        target: vendor/V-700
+                        parameters:
+                          amount: 3300
+                          currency: USD
+                        createdAt: '2026-07-13T17:36:20.390Z'
+                      policy:
+                        name: vendor-payment
+                        version: 2.0.0
+                        schemaVersion: 1.0.0
+                      signals:
+                        vendorVerified: true
+                        invoiceVerified: true
+                        paymentApproved: true
+                        sufficientFunds: true
+                        paymentAmount: 3300
+                        riskScore: 9
+                      status: RECEIVED
+                      createdAt: '2026-07-13T17:36:20.483Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /transactions/{businessTransactionId}:
+    get:
+      tags:
+        - Transactions
+      summary: Get Business Transaction
+      operationId: getTransaction
+      description: Returns a bare Business Transaction by ID. No format validation is applied to the path parameter.
+      parameters:
+        - name: businessTransactionId
+          in: path
+          required: true
+          description: Unique Business Transaction identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Business Transaction found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/business-transaction.schema'
+              examples:
+                vendor-payment-flow-transactions-endpoint:
+                  summary: Real captured response
+                  value:
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    metadata:
+                      businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                      correlationId: cc1ca975-4935-4e9a-a591-8897af6b56fb
+                      sourceSystem: vendor-payment-service
+                      submittedBy: ap-automation
+                      submittedAt: '2026-07-13T17:36:00.835Z'
+                    authority:
+                      authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
+                      authorityType: SERVICE
+                      principalId: ap-automation-svc
+                      displayName: Accounts Payable Automation
+                      issuedAt: '2026-07-13T17:36:00.835Z'
+                    authorization:
+                      authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                      authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
+                      purpose: Authorize vendor payment disbursement
+                      issuedAt: '2026-07-13T17:36:00.835Z'
+                    intent:
+                      intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+                      authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                      action: payments:execute
+                      target: vendor/V-500
+                      parameters:
+                        amount: 5000
+                        currency: USD
+                      createdAt: '2026-07-13T17:36:00.835Z'
+                    policy:
+                      name: vendor-payment
+                      version: 2.0.0
+                      schemaVersion: 1.0.0
+                    signals:
+                      vendorVerified: true
+                      invoiceVerified: true
+                      paymentApproved: true
+                      sufficientFunds: true
+                      paymentAmount: 5000
+                      riskScore: 12
+                    status: RECEIVED
+                    createdAt: '2026-07-13T17:36:00.965Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Business Transaction not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                notFound:
+                  summary: Real captured response
+                  value:
+                    error: Business Transaction not found.
+  /verify:
+    post:
+      tags:
+        - Verification
+      summary: Verify an Execution Trust Record
+      operationId: verifyTransaction
+      description: |
+        Deterministically re-validates the complete Execution Trust Record for businessTransactionId: recomputed hash vs. stored hash, signature verification, and authorization binding on every APPROVED Execution. All checks always run; failures are joined into one message. Appends a new immutable Verification to the record.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/verification-request.schema'
+            examples:
+              vendor-payment-flow:
+                summary: Real captured request
+                value:
+                  businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+      responses:
+        '200':
+          description: Verification completed (status VERIFIED or FAILED, see the response schema; a 200 does not by itself mean verification succeeded).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/verification.schema'
+              examples:
+                vendor-payment-flow:
+                  summary: Real captured response
+                  value:
+                    verificationId: 63aac300-e0a8-47e9-9bb1-fd4b7d6cfdce
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    status: VERIFIED
+                    message: Execution Trust Record verified successfully.
+                    verifiedAt: '2026-07-13T17:42:11.002Z'
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+        '400':
+          description: businessTransactionId missing or not a valid UUID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                badUuid:
+                  summary: Real captured response
+                  value:
+                    error: businessTransactionId must be a valid UUID.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Execution Trust Record not found (VerificationFailedError, mapped through the generic RuntimeError branch, carries a code field, unlike most other 404s in this API).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                notFound:
+                  summary: Real captured response
+                  value:
+                    error: Execution Trust Record not found.
+                    code: VERIFICATION_FAILED
+  /verification/{businessTransactionId}:
+    get:
+      tags:
+        - Verification
+      summary: Get latest Verification
+      operationId: getLatestVerification
+      description: |
+        Returns the most recent Verification for the Execution Trust Record identified by businessTransactionId. Registered from packages/api/src/routes/verify-get.ts, whose own internal comment (misleadingly) says "GET /verify/:id"; the real mounted path, per packages/api/src/app.ts, is /verification/:id.
+      parameters:
+        - name: businessTransactionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Verification found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/verification.schema'
+              examples:
+                vendor-payment-flow:
+                  summary: Real captured response
+                  value:
+                    verificationId: 63aac300-e0a8-47e9-9bb1-fd4b7d6cfdce
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    status: VERIFIED
+                    message: Execution Trust Record verified successfully.
+                    verifiedAt: '2026-07-13T17:42:11.002Z'
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Execution Trust Record not found, OR found but has no Verification yet; both return this exact shape ("Execution Trust Record not found." / "Verification not found.", no code field, unlike POST /verify's 404).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                trustRecordNotFound:
+                  summary: Real captured response
+                  value:
+                    error: Execution Trust Record not found.
+  /receipt:
+    post:
+      tags:
+        - Receipts
+      summary: Generate a Receipt
+      operationId: generateReceipt
+      description: |
+        Generates a cryptographically signed Receipt for businessTransactionId. If no Execution Trust Record exists for businessTransactionId, this fails with a 404 (VerificationFailedError, the same not-found error used by POST /verify and POST /replay). If the record exists but its latest Verification does not have status VERIFIED, this fails with a 409 (ReceiptGenerationError) instead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/receipt-request.schema'
+            examples:
+              vendor-payment-flow:
+                summary: Real captured request
+                value:
+                  businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+      responses:
+        '200':
+          description: Receipt generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/receipt.schema'
+              examples:
+                vendor-payment-flow:
+                  summary: Real captured response
+                  value:
+                    receiptId: ec0e71e6-e5af-4e14-8f65-13949fca9c6d
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                    receiptHash: d443df31a6ad94e8d9758d5143afd0859984b935f3209c35a7d93aaf8cd9f0d0
+                    issuedAt: '2026-07-13T17:42:11.094Z'
+                    algorithm: ed25519
+                    signature: uchgXRFJnByGu3F+NZSoq1Hwt6bBr3rRJjQGpLOULKJ7jR4NfE/P4g7loD4L5aADdYxUqLh6Yn7ngfnz2peCCA==
+        '400':
+          description: businessTransactionId missing or not a valid UUID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                badUuid:
+                  summary: Real captured response
+                  value:
+                    error: businessTransactionId must be a valid UUID.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: businessTransactionId does not correspond to any Execution Trust Record (VerificationFailedError, the same not-found error used by POST /verify and POST /replay).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                notFound:
+                  summary: Real captured response
+                  value:
+                    error: Execution Trust Record not found.
+                    code: VERIFICATION_FAILED
+        '409':
+          description: The Execution Trust Record exists but its latest Verification does not have status VERIFIED (ReceiptGenerationError).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                notYetVerified:
+                  summary: Real captured response
+                  value:
+                    error: Execution Trust Record must be successfully verified before a Receipt can be generated.
+                    code: RECEIPT_GENERATION_FAILED
+  /receipt/latest/{businessTransactionId}:
+    get:
+      tags:
+        - Receipts
+      summary: Get latest Receipt
+      operationId: getLatestReceipt
+      description: |
+        Returns the most recent Receipt for the Execution Trust Record identified by businessTransactionId. Registered from packages/api/src/routes/receipt-get.ts, whose own internal comment (misleadingly) says "GET /receipt/:id"; the real mounted path, per packages/api/src/app.ts, is /receipt/latest/:id.
+      parameters:
+        - name: businessTransactionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Receipt found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/receipt.schema'
+              examples:
+                vendor-payment-flow:
+                  summary: Real captured response
+                  value:
+                    receiptId: ec0e71e6-e5af-4e14-8f65-13949fca9c6d
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                    receiptHash: d443df31a6ad94e8d9758d5143afd0859984b935f3209c35a7d93aaf8cd9f0d0
+                    issuedAt: '2026-07-13T17:42:11.094Z'
+                    algorithm: ed25519
+                    signature: uchgXRFJnByGu3F+NZSoq1Hwt6bBr3rRJjQGpLOULKJ7jR4NfE/P4g7loD4L5aADdYxUqLh6Yn7ngfnz2peCCA==
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Execution Trust Record not found, OR found but has no Receipt yet; both return this exact shape ("Execution Trust Record not found." / "Receipt not found.").
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                trustRecordNotFound:
+                  summary: Real captured response
+                  value:
+                    error: Execution Trust Record not found.
+  /trust-records/{businessTransactionId}:
+    get:
+      tags:
+        - Trust Records
+      summary: Get Execution Trust Record
+      operationId: getTrustRecord
+      description: |
+        Returns the complete Execution Trust Record for businessTransactionId (looked up by Business Transaction ID, despite the path segment name; there is no separate trustRecordId lookup).
+      parameters:
+        - name: businessTransactionId
+          in: path
+          required: true
+          description: Business Transaction identifier (not the Trust Record's own trustRecordId).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Execution Trust Record found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/execution-trust-record.schema'
+              examples:
+                vendor-payment-flow:
+                  summary: Real captured response
+                  value:
+                    trustRecordId: 65fee934-532c-4feb-88d9-72c0cd912a81
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    transaction:
+                      businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                      metadata:
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        correlationId: cc1ca975-4935-4e9a-a591-8897af6b56fb
+                        sourceSystem: vendor-payment-service
+                        submittedBy: ap-automation
+                        submittedAt: '2026-07-13T17:36:00.835Z'
+                      authority:
+                        authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
+                        authorityType: SERVICE
+                        principalId: ap-automation-svc
+                        displayName: Accounts Payable Automation
+                        issuedAt: '2026-07-13T17:36:00.835Z'
+                      authorization:
+                        authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                        authorityId: db5c5260-bb4c-40a2-a081-2928b5fe7720
+                        purpose: Authorize vendor payment disbursement
+                        issuedAt: '2026-07-13T17:36:00.835Z'
+                      intent:
+                        intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+                        authorizationId: 63bdc429-14e4-4ef4-8007-f3c0c9564261
+                        action: payments:execute
+                        target: vendor/V-500
+                        parameters:
+                          amount: 5000
+                          currency: USD
+                        createdAt: '2026-07-13T17:36:00.835Z'
+                      policy:
+                        name: vendor-payment
+                        version: 2.0.0
+                        schemaVersion: 1.0.0
+                      signals:
+                        vendorVerified: true
+                        invoiceVerified: true
+                        paymentApproved: true
+                        sufficientFunds: true
+                        paymentAmount: 5000
+                        riskScore: 12
+                      status: RECEIVED
+                      createdAt: '2026-07-13T17:36:00.965Z'
+                    overrides: []
+                    executions:
+                      - executionId: 90746492-7721-4228-b244-67bf8a45ca68
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        decision:
+                          decisionId: 8ec880cb-677a-4889-96f1-5a18a4edc1b5
+                          intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+                          policy:
+                            name: vendor-payment
+                            version: 2.0.0
+                            schemaVersion: 1.0.0
+                          signals:
+                            vendorVerified: true
+                            invoiceVerified: true
+                            paymentApproved: true
+                            sufficientFunds: true
+                            paymentAmount: 5000
+                            riskScore: 12
+                          outcome: APPROVED
+                          reason: Vendor payment authorized. Vendor verification, invoice verification, payment approval, funding, and risk assessment requirements were satisfied.
+                          evaluatedAt: '2026-07-13T17:36:00.967Z'
+                        status: COMPLETED
+                        mode: SYNC
+                        startedAt: '2026-07-13T17:36:00.968Z'
+                        metadata:
+                          authorizationId: dbc09266-2078-4d4e-93d0-f355eb7eebcc
+                        evidence:
+                          businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                          action: payments:execute
+                          target: vendor/V-500
+                          parameters:
+                            amount: 5000
+                            currency: USD
+                          success: true
+                          executedAt: '2026-07-13T17:36:00.970Z'
+                          attributes:
+                            connector:
+                              connectorId: vendor-payment
+                              connectorVersion: 1.0.0
+                              capability: payments:execute
+                              sanitizedEndpoint: vendor/V-500
+                              credentialProviderId: environment
+                              requestSummary:
+                                businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                                action: payments:execute
+                                target: vendor/V-500
+                                parameters:
+                                  amount: 5000
+                                  currency: USD
+                              responseSummary:
+                                success: true
+                                metadata: {}
+                              startedAt: '2026-07-13T17:36:00.970Z'
+                              completedAt: '2026-07-13T17:36:00.970Z'
+                              connectorEvidenceHash: c97411026a82b608d9b0f8b137a64e26d8af24bdda09310b639e527e08a9aada
+                        completedAt: '2026-07-13T17:36:00.970Z'
+                    verifications:
+                      - verificationId: e22354e0-7f22-49b2-bd2f-09e47881d788
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        status: VERIFIED
+                        message: Execution Trust Record verified successfully.
+                        verifiedAt: '2026-07-13T17:36:00.973Z'
+                        trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                    receipts:
+                      - receiptId: 863947e6-9d36-492e-b9c9-78b0f3e9b6df
+                        businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                        trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                        receiptHash: c9666b08b42bb5ff77650b544c3c2183609f25e4d8dc09359b71a970c57ed3ce
+                        issuedAt: '2026-07-13T17:36:00.973Z'
+                        algorithm: ed25519
+                        signature: Pcr42EvbaUbLogvVhYiV3g7uuwvZr82HUJhVptnXRxmTtiEGiz2SCdz5Z80xRDvmvSxpOSG5OnvMAaRzJXncBg==
+                    createdAt: '2026-07-13T17:36:00.971Z'
+                    updatedAt: '2026-07-13T17:36:00.971Z'
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                    signature:
+                      algorithm: ed25519
+                      keyId: default
+                      value: gjDYmHUBKIrv7bT3uwAkt3wHeoSwz5uANXQV5MfsFgbUIh83KiufZwxht3F3Een+7K/ZW9SRn0F0J7ACJRLbAg==
+                      signedAt: '2026-07-13T17:36:00.972Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Execution Trust Record not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                notFound:
+                  summary: Real captured response
+                  value:
+                    error: Execution Trust Record not found.
+  /replay:
+    post:
+      tags:
+        - Replay
+      summary: Replay an Execution Trust Record
+      operationId: replayTransaction
+      description: |
+        Re-verifies the stored signature on the Execution Trust Record for businessTransactionId and returns its hash alongside the verification result. Does not re-run Policy evaluation or re-execute anything. See ExecutionTrustApplication.replay. When businessTransactionId does not correspond to any Execution Trust Record, this throws VerificationFailedError (the same not-found error used by POST /verify), which the shared error handler maps to a 404 naming the missing resource. See the 404 response and its notFound example.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/replay-request.schema'
+            examples:
+              vendor-payment-flow:
+                summary: Real captured request
+                value:
+                  businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+      responses:
+        '200':
+          description: Replay completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/replay-response.schema'
+              examples:
+                vendor-payment-flow:
+                  summary: Real captured response
+                  value:
+                    businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                    trustRecordHash: e20a8861864f1a0a6c5fe00e64abca04de18a7d165a82ef9d7beb458c2096b3f
+                    verified: true
+        '400':
+          description: businessTransactionId missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                missingField:
+                  summary: Real captured response
+                  value:
+                    error: businessTransactionId is required.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: businessTransactionId does not correspond to any Execution Trust Record (VerificationFailedError, the same not-found error used by POST /verify).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error.schema'
+              examples:
+                notFound:
+                  summary: Real captured response
+                  value:
+                    error: Execution Trust Record not found.
+                    code: VERIFICATION_FAILED
+  /policies/validate:
+    post:
+      tags:
+        - Policies
+      summary: Validate that a Policy exists and is readable
+      operationId: validatePolicy
+      description: |
+        Checks that policies/{policyId}/{policyVersion}/policy.json exists and parses. Does NOT use the shared Error envelope for its failure responses: every status code (200, 400, 404) returns the same {valid, errors} shape. Field checks run in order: policyId first, then policyVersion; the first missing/empty field short-circuits with its own message. The one exception is 401: caller authentication runs in middleware, before this handler is ever reached, so a rejected caller gets the shared Error envelope ({"error": "authentication required"}), not {valid, errors}.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/policy-validate-request.schema'
+            examples:
+              vendor-payment:
+                summary: Real captured request
+                value:
+                  policyId: vendor-payment
+                  policyVersion: 2.0.0
+              notFound:
+                summary: Real captured request, unknown policy
+                value:
+                  policyId: does-not-exist
+                  policyVersion: 9.9.9
+      responses:
+        '200':
+          description: Policy exists and is readable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/policy-validate-response.schema'
+              examples:
+                vendor-payment:
+                  summary: Real captured response
+                  value:
+                    valid: true
+                    errors: []
+        '400':
+          description: policyId or policyVersion missing/empty.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/policy-validate-response.schema'
+              examples:
+                missingField:
+                  summary: Real captured response
+                  value:
+                    valid: false
+                    errors:
+                      - policyVersion is required.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No policy.json exists at the requested name/version (PolicyNotFoundError, caught locally and re-shaped, not routed through the shared error handler).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/policy-validate-response.schema'
+              examples:
+                notFound:
+                  summary: Real captured response
+                  value:
+                    valid: false
+                    errors:
+                      - Policy 'does-not-exist' version '9.9.9' was not found.
+components:
+  schemas:
+    Error:
+      $ref: '#/components/schemas/error.schema'
+    root-response.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/responses/root-response.schema.json
+      title: Root Response
+      description: Response returned by GET / (packages/api/src/app.ts). Distinct from, and simpler than, GET /health and GET /version; it is not registered under any router file.
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - status
+      properties:
+        name:
+          type: string
+          enum:
+            - Parmana
+        status:
+          type: string
+          enum:
+            - UP
+      examples:
+        - name: Parmana
+          status: UP
+    error.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/error.schema.json
+      title: Error Response
+      description: Shared error envelope produced by packages/api/src/middleware/error-handler.ts and by every route's inline validation checks. error is always a plain human-readable string (never a nested object). code is present only when the failure was a RuntimeError subclass reaching the centralized error handler (VerificationFailedError, ReceiptGenerationError, or an uncategorized RuntimeError); it is absent from every inline route-level check (businessTransactionId format/required checks) and from BusinessTransactionValidationError, PolicyValidationError, SignalValidationError, PolicyNotFoundError, DuplicateBusinessTransactionError, and the generic 500 fallback. POST /policies/validate does NOT use this envelope at all. See its own response schema. For the triggering condition and recommended caller action behind any specific error/code/status combination, see the Error catalog at /api-reference/error-catalog.
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+        code:
+          type: string
+          description: Stable machine-readable error code. Only present for errors that reach the handler as a RuntimeError.
+          examples:
+            - RUNTIME_ERROR
+            - VERIFICATION_FAILED
+            - RECEIPT_GENERATION_FAILED
+      examples:
+        - error: businessTransactionId must be a valid UUID.
+        - error: Business Transaction 'eed2a972-1bf5-4166-8472-761f76fbf1b2' already exists.
+        - error: 'Execution rejected: Vendor payment rejected because the assessed payment risk exceeds the maximum permitted threshold.'
+          code: RUNTIME_ERROR
+    health-response.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/responses/health-response.schema.json
+      title: Health Response
+      description: 'Response returned by GET /health. The route unconditionally returns status: "UP"; it does not check storage, policy, or any dependent component; a 200 response means only that the Express process is handling requests.'
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - UP
+      examples:
+        - status: UP
+    version-response.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/responses/version-response.schema.json
+      title: Version Response
+      description: Response returned by GET /version. All three fields are hardcoded literals in packages/api/src/routes/version.ts, not read from package.json or any build metadata.
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - version
+        - api
+      properties:
+        name:
+          type: string
+          enum:
+            - Parmana
+        version:
+          type: string
+          description: Hardcoded running service version string.
+        api:
+          type: string
+          enum:
+            - v1
+      examples:
+        - name: Parmana
+          version: 0.4.0
+          api: v1
+    metadata.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/metadata.schema.json
+      title: Metadata
+      description: Immutable Business Transaction metadata supplied by the calling application. Not evaluated by Policy. businessTransactionId is the only required field; it must match the top-level businessTransactionId. Parmana rejects a mismatch with a 400.
+      type: object
+      additionalProperties: true
+      required:
+        - businessTransactionId
+      properties:
+        businessTransactionId:
+          type: string
+          format: uuid
+          description: Unique Business Transaction identifier. Must be a valid UUID.
+        correlationId:
+          type: string
+          description: Optional correlation identifier used by the calling application.
+        tenantId:
+          type: string
+          description: Optional tenant identifier for multi-tenant deployments.
+        sourceSystem:
+          type: string
+          description: Originating application or service.
+        submittedBy:
+          type: string
+          description: Identity of the calling application or principal.
+        submittedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the Business Transaction was submitted.
+      examples:
+        - businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+          correlationId: 6b97caca-1605-4711-bf00-7e5a65434d93
+          sourceSystem: vendor-payment-service
+          submittedBy: ap-automation
+          submittedAt: '2026-07-07T16:38:59.285Z'
+    authority.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/authority.schema.json
+      title: Authority
+      description: Entity empowered to authorize execution within a trust domain. Immutable once issued.
+      type: object
+      additionalProperties: true
+      required:
+        - authorityId
+        - authorityType
+        - principalId
+        - issuedAt
+      properties:
+        authorityId:
+          type: string
+          description: Unique Authority identifier.
+        authorityType:
+          type: string
+          description: Type of authority.
+          enum:
+            - USER
+            - ROLE
+            - SERVICE
+            - ORGANIZATION
+        principalId:
+          type: string
+          description: Principal identifier.
+        displayName:
+          type: string
+          description: Human-readable display name.
+        issuedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when Authority became effective.
+      examples:
+        - authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+          authorityType: SERVICE
+          principalId: ap-automation-svc
+          displayName: Accounts Payable Automation
+          issuedAt: '2026-07-07T16:38:59.285Z'
+    authorization.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/authorization.schema.json
+      title: Authorization
+      description: Immutable trust artifact proving that an Authority granted approval for an intended execution.
+      type: object
+      additionalProperties: true
+      required:
+        - authorizationId
+        - authorityId
+        - purpose
+        - issuedAt
+      properties:
+        authorizationId:
+          type: string
+          description: Unique Authorization identifier.
+        authorityId:
+          type: string
+          description: Authority issuing this Authorization. Must match authority.authorityId. Parmana rejects a mismatch with a 400.
+        purpose:
+          type: string
+          description: Business purpose for which the Authorization was granted.
+        issuedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the Authorization was issued.
+        expiresAt:
+          type: string
+          format: date-time
+          description: Optional expiration timestamp. After this time the Authorization is no longer valid.
+      examples:
+        - authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
+          authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+          purpose: Authorize vendor payment disbursement
+          issuedAt: '2026-07-07T16:38:59.285Z'
+    intent.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/intent.schema.json
+      title: Intent
+      description: Immutable declaration of the action an Authority intends to be executed under an Authorization.
+      type: object
+      additionalProperties: true
+      required:
+        - intentId
+        - authorizationId
+        - action
+        - target
+        - parameters
+        - createdAt
+      properties:
+        intentId:
+          type: string
+          description: Unique Intent identifier.
+        authorizationId:
+          type: string
+          description: Authorization under which this Intent was created. Must match authorization.authorizationId. Parmana rejects a mismatch with a 400.
+        action:
+          type: string
+          description: Business action being requested. Required and non-empty. Parmana rejects an empty action with a 400.
+          examples:
+            - VendorPayment
+            - TransferFunds
+            - DeployApplication
+        target:
+          type: string
+          description: Target of the intended action.
+          examples:
+            - vendor/V-100
+            - account/12345
+        parameters:
+          type: object
+          description: Immutable business parameters describing the intended action. Not evaluated by policy, see signals.
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the Intent was created.
+      examples:
+        - intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
+          authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
+          action: payments:execute
+          target: vendor/V-100
+          parameters:
+            amount: 4500
+            currency: USD
+          createdAt: '2026-07-07T16:38:59.285Z'
+    policy.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/policy.schema.json
+      title: Policy Reference
+      description: Exact Policy to evaluate. The client explicitly supplies name, version, and schemaVersion; Parmana does not automatically discover or select a policy. If no matching policy file exists at policies/{name}/{version}/policy.json, the request fails with a 404 (policyId/policyVersion on POST /policies/validate) or a RUNTIME_ERROR (name/version elsewhere, from PolicyNotFoundError not otherwise mapped by the shared error handler in every route, see the error envelope note).
+      type: object
+      additionalProperties: true
+      required:
+        - name
+        - version
+        - schemaVersion
+      properties:
+        name:
+          type: string
+          description: Policy name. Required and non-empty. Parmana rejects an empty name with a 400.
+          minLength: 1
+        version:
+          type: string
+          description: Business policy version. Required and non-empty. Parmana rejects an empty version with a 400.
+          minLength: 1
+          examples:
+            - 2.0.0
+            - 1.0.0
+        schemaVersion:
+          type: string
+          description: Signals schema version expected by the policy.
+          examples:
+            - 1.0.0
+      examples:
+        - name: vendor-payment
+          version: 2.0.0
+          schemaVersion: 1.0.0
+    signals.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/signals.schema.json
+      title: Signals
+      description: Opaque runtime facts evaluated by the resolved Policy's rules. Parmana assigns no business meaning to these values and does not statically validate them beyond the Policy's own signalsSchema declaration (see policies/{name}/{version}/policy.json). Scaled integers, not floats, for numeric signals such as amounts (house convention across every reference policy).
+      type: object
+      additionalProperties: true
+      examples:
+        - vendorVerified: true
+          invoiceVerified: true
+          paymentApproved: true
+          sufficientFunds: true
+          paymentAmount: 4500
+          riskScore: 10
+    transaction-create-request.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/requests/transaction-create-request.schema.json
+      title: Transaction Create Request
+      description: 'Request payload for POST /execute and POST /transactions. status and createdAt are assigned by Parmana and must not be supplied by the client. Validation performed identically by both endpoints (each has its own inline businessTransactionId UUID check, then shares BusinessTransactionMapper.fromRequest and BusinessTransactionValidator): metadata.businessTransactionId must equal businessTransactionId; authorization.authorityId must equal authority.authorityId; intent.authorizationId must equal authorization.authorizationId; policy.name, policy.version, and intent.action must each be non-empty. No other structural validation is performed: authority, authorization, intent, policy, and signals objects are otherwise passed through as supplied, including any additional properties.'
+      type: object
+      additionalProperties: true
+      required:
+        - businessTransactionId
+        - metadata
+        - authority
+        - authorization
+        - intent
+        - policy
+        - signals
+      properties:
+        businessTransactionId:
+          type: string
+          format: uuid
+          description: Unique Business Transaction identifier. Must be a valid UUID on both POST /execute and POST /transactions (rejected with 400 otherwise).
+        metadata:
+          $ref: '#/components/schemas/metadata.schema'
+        authority:
+          $ref: '#/components/schemas/authority.schema'
+        authorization:
+          $ref: '#/components/schemas/authorization.schema'
+        intent:
+          $ref: '#/components/schemas/intent.schema'
+        policy:
+          $ref: '#/components/schemas/policy.schema'
+        signals:
+          $ref: '#/components/schemas/signals.schema'
+      examples:
+        - businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+          metadata:
+            businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+            correlationId: 6b97caca-1605-4711-bf00-7e5a65434d93
+            sourceSystem: vendor-payment-service
+            submittedBy: ap-automation
+            submittedAt: '2026-07-07T16:38:59.285Z'
+          authority:
+            authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+            authorityType: SERVICE
+            principalId: ap-automation-svc
+            displayName: Accounts Payable Automation
+            issuedAt: '2026-07-07T16:38:59.285Z'
+          authorization:
+            authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
+            authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+            purpose: Authorize vendor payment disbursement
+            issuedAt: '2026-07-07T16:38:59.285Z'
+          intent:
+            intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
+            authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
+            action: payments:execute
+            target: vendor/V-100
+            parameters:
+              amount: 4500
+              currency: USD
+            createdAt: '2026-07-07T16:38:59.285Z'
+          policy:
+            name: vendor-payment
+            version: 2.0.0
+            schemaVersion: 1.0.0
+          signals:
+            vendorVerified: true
+            invoiceVerified: true
+            paymentApproved: true
+            sufficientFunds: true
+            paymentAmount: 4500
+            riskScore: 10
+    business-transaction.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/business-transaction.schema.json
+      title: Business Transaction
+      description: 'Canonical immutable business context accepted by Parmana for execution: Authority -> Authorization -> Intent -> Business Transaction -> Policy. Every Business Transaction produces exactly one Decision, one Execution, and one Execution Trust Record.'
+      type: object
+      additionalProperties: true
+      required:
+        - businessTransactionId
+        - metadata
+        - authority
+        - authorization
+        - intent
+        - policy
+        - signals
+        - status
+        - createdAt
+      properties:
+        businessTransactionId:
+          type: string
+          format: uuid
+          description: Unique Business Transaction identifier. Same value as metadata.businessTransactionId. Must be a valid UUID on both POST /execute and POST /transactions (rejected with a 400 otherwise).
+        metadata:
+          $ref: '#/components/schemas/metadata.schema'
+        authority:
+          $ref: '#/components/schemas/authority.schema'
+        authorization:
+          $ref: '#/components/schemas/authorization.schema'
+        intent:
+          $ref: '#/components/schemas/intent.schema'
+        policy:
+          $ref: '#/components/schemas/policy.schema'
+        signals:
+          $ref: '#/components/schemas/signals.schema'
+        status:
+          type: string
+          description: Current Business Transaction lifecycle state. Always RECEIVED at creation on both POST /execute and POST /transactions. Parmana sets this field via BusinessTransactionMapper.fromRequest and ignores any status the client sends.
+          enum:
+            - RECEIVED
+            - POLICY_EVALUATED
+            - APPROVED
+            - REJECTED
+            - OVERRIDDEN
+            - EXECUTING
+            - EXECUTED
+            - FAILED
+            - VERIFIED
+        createdAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the Business Transaction was accepted by Parmana.
+      examples:
+        - businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+          metadata:
+            businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+            correlationId: 6b97caca-1605-4711-bf00-7e5a65434d93
+            sourceSystem: vendor-payment-service
+            submittedBy: ap-automation
+            submittedAt: '2026-07-07T16:38:59.285Z'
+          authority:
+            authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+            authorityType: SERVICE
+            principalId: ap-automation-svc
+            displayName: Accounts Payable Automation
+            issuedAt: '2026-07-07T16:38:59.285Z'
+          authorization:
+            authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
+            authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+            purpose: Authorize vendor payment disbursement
+            issuedAt: '2026-07-07T16:38:59.285Z'
+          intent:
+            intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
+            authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
+            action: payments:execute
+            target: vendor/V-100
+            parameters:
+              amount: 4500
+              currency: USD
+            createdAt: '2026-07-07T16:38:59.285Z'
+          policy:
+            name: vendor-payment
+            version: 2.0.0
+            schemaVersion: 1.0.0
+          signals:
+            vendorVerified: true
+            invoiceVerified: true
+            paymentApproved: true
+            sufficientFunds: true
+            paymentAmount: 4500
+            riskScore: 10
+          status: RECEIVED
+          createdAt: '2026-07-07T16:38:59.325Z'
+    override.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/override.schema.json
+      title: Override
+      description: Immutable trust artifact recording an authorized human override for a Business Transaction. No API route in this repository currently creates an Override; this schema exists only because ExecutionTrustRecord.overrides is part of the append-only Trust Record shape; every captured example has an empty overrides array.
+      type: object
+      additionalProperties: true
+      required:
+        - overrideId
+        - businessTransactionId
+        - approvedBy
+        - reason
+        - approvedAt
+      properties:
+        overrideId:
+          type: string
+          description: Unique Override identifier.
+        businessTransactionId:
+          type: string
+          description: Business Transaction to which this Override belongs.
+        approvedBy:
+          type: string
+          description: Authorized user or system that approved the Override.
+        reason:
+          type: string
+          description: Human-readable reason for the Override.
+        justification:
+          type: string
+          description: Optional business justification.
+        approvedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the Override was approved.
+    decision.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/decision.schema.json
+      title: Decision
+      description: Immutable result of evaluating an Intent against a Policy. Decision does not create authority, grant authorization, or modify Intent; it only records the outcome of deterministic Policy evaluation.
+      type: object
+      additionalProperties: true
+      required:
+        - decisionId
+        - intentId
+        - policy
+        - signals
+        - outcome
+        - evaluatedAt
+      properties:
+        decisionId:
+          type: string
+          description: Unique Decision identifier.
+        intentId:
+          type: string
+          description: Intent evaluated by this Decision.
+        policy:
+          $ref: '#/components/schemas/policy.schema'
+        signals:
+          $ref: '#/components/schemas/signals.schema'
+        outcome:
+          type: string
+          description: 'Policy evaluation outcome. There are no intermediate states: a Decision is always exactly one of these two values.'
+          enum:
+            - APPROVED
+            - REJECTED
+        reason:
+          type: string
+          description: Human-readable explanation, taken from the matching Policy rule's outcome.reason.
+        evaluatedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when policy evaluation completed.
+      examples:
+        - decisionId: 9d69dc0b-333a-4be3-b09f-358fece806f3
+          intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
+          policy:
+            name: vendor-payment
+            version: 2.0.0
+            schemaVersion: 1.0.0
+          signals:
+            vendorVerified: true
+            invoiceVerified: true
+            paymentApproved: true
+            sufficientFunds: true
+            paymentAmount: 4500
+            riskScore: 10
+          outcome: APPROVED
+          reason: Vendor payment authorized. Vendor verification, invoice verification, payment approval, funding, and risk assessment requirements were satisfied.
+          evaluatedAt: '2026-07-07T16:38:59.326Z'
+    execution.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/execution.schema.json
+      title: Execution
+      description: Immutable trust artifact recording what actually happened while processing a Business Transaction. Every Execution records exactly one Decision produced by deterministic Policy evaluation.
+      type: object
+      additionalProperties: true
+      required:
+        - executionId
+        - businessTransactionId
+        - decision
+        - status
+        - mode
+        - startedAt
+      properties:
+        executionId:
+          type: string
+          description: Unique Execution identifier.
+        businessTransactionId:
+          type: string
+          description: Business Transaction to which this Execution belongs.
+        decision:
+          $ref: '#/components/schemas/decision.schema'
+        status:
+          type: string
+          description: Execution lifecycle state.
+          enum:
+            - PROCESSING
+            - COMPLETED
+            - FAILED
+        mode:
+          type: string
+          description: Execution mode.
+          enum:
+            - SYNC
+            - ASYNC
+        startedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when execution started.
+        completedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when execution completed. Present only for terminal executions.
+        evidence:
+          type: object
+          description: 'Immutable execution evidence: businessTransactionId, action, target, parameters, success, executedAt, and an optional attributes bag for execution-system-specific evidence (for example Connector SDK evidence, when a Connector executed this Execution).'
+          additionalProperties: true
+        metadata:
+          type: object
+          description: Execution-specific metadata. Currently populated with authorizationId when the Execution is APPROVED.
+          additionalProperties: true
+      examples:
+        - executionId: 90746492-7721-4228-b244-67bf8a45ca68
+          businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+          decision:
+            decisionId: 8ec880cb-677a-4889-96f1-5a18a4edc1b5
+            intentId: 1e77d0b3-2e57-4e31-b780-03abc92f1b69
+            policy:
+              name: vendor-payment
+              version: 2.0.0
+              schemaVersion: 1.0.0
+            signals:
+              vendorVerified: true
+              invoiceVerified: true
+              paymentApproved: true
+              sufficientFunds: true
+              paymentAmount: 5000
+              riskScore: 12
+            outcome: APPROVED
+            reason: Vendor payment authorized. Vendor verification, invoice verification, payment approval, funding, and risk assessment requirements were satisfied.
+            evaluatedAt: '2026-07-13T17:36:00.967Z'
+          status: COMPLETED
+          mode: SYNC
+          startedAt: '2026-07-13T17:36:00.968Z'
+          metadata:
+            authorizationId: dbc09266-2078-4d4e-93d0-f355eb7eebcc
+          evidence:
+            businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+            action: payments:execute
+            target: vendor/V-500
+            parameters:
+              amount: 5000
+              currency: USD
+            success: true
+            executedAt: '2026-07-13T17:36:00.970Z'
+            attributes:
+              connector:
+                connectorId: vendor-payment
+                connectorVersion: 1.0.0
+                capability: payments:execute
+                sanitizedEndpoint: vendor/V-500
+                credentialProviderId: environment
+                requestSummary:
+                  businessTransactionId: 44b34a79-e0f2-49d7-a48e-e52fff88182e
+                  action: payments:execute
+                  target: vendor/V-500
+                  parameters:
+                    amount: 5000
+                    currency: USD
+                responseSummary:
+                  success: true
+                  metadata: {}
+                startedAt: '2026-07-13T17:36:00.970Z'
+                completedAt: '2026-07-13T17:36:00.970Z'
+                connectorEvidenceHash: c97411026a82b608d9b0f8b137a64e26d8af24bdda09310b639e527e08a9aada
+          completedAt: '2026-07-13T17:36:00.970Z'
+    verification.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/verification.schema.json
+      title: Verification
+      description: 'Immutable result of verifying an entire Execution Trust Record: recomputed hash matches the stored hash, signature verifies, and every APPROVED Execution carries a non-empty authorizationId. All checks always run and are reported together in message; a failure in one does not skip the others.'
+      type: object
+      additionalProperties: true
+      required:
+        - verificationId
+        - businessTransactionId
+        - status
+        - verifiedAt
+        - trustRecordHash
+      properties:
+        verificationId:
+          type: string
+          description: Unique Verification identifier.
+        businessTransactionId:
+          type: string
+          description: Business Transaction being verified.
+        status:
+          type: string
+          description: Verification result.
+          enum:
+            - VERIFIED
+            - FAILED
+        message:
+          type: string
+          description: 'Human-readable verification summary: either the success message, or every failed check''s message joined with "; ".'
+        verifiedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when verification completed.
+        trustRecordHash:
+          type: string
+          description: Hash of the verified Execution Trust Record, proving exactly which record was verified.
+      examples:
+        - verificationId: 0ad69d3f-7fd0-4507-ab38-e386146757ae
+          businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+          status: VERIFIED
+          message: Execution Trust Record verified successfully.
+          verifiedAt: '2026-07-07T16:38:59.344Z'
+          trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+    receipt.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/receipt.schema.json
+      title: Receipt
+      description: Cryptographically signed, immutable Execution Trust Receipt proving the outcome of an Execution Trust Record at the time it was issued.
+      type: object
+      additionalProperties: true
+      required:
+        - receiptId
+        - businessTransactionId
+        - trustRecordHash
+        - receiptHash
+        - signature
+        - algorithm
+        - issuedAt
+      properties:
+        receiptId:
+          type: string
+          description: Unique Receipt identifier.
+        businessTransactionId:
+          type: string
+          description: Business Transaction represented by this Receipt.
+        executionId:
+          type: string
+          description: Execution represented by this Receipt. Absent when the Receipt represents the latest transaction state; every Receipt currently produced by ReceiptService omits this field.
+        trustRecordHash:
+          type: string
+          description: Canonical hash of the Execution Trust Record, used for independent verification.
+        receiptHash:
+          type: string
+          description: Hash of this Receipt.
+        signature:
+          type: string
+          description: Base64-encoded digital signature over the Receipt.
+        algorithm:
+          type: string
+          description: Signing algorithm.
+          examples:
+            - ed25519
+        issuedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the Receipt was generated.
+      examples:
+        - receiptId: 312ce65d-8ec4-4978-ac50-aeb0062ad7be
+          businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+          trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+          receiptHash: 2cc963456dd71e0e85f2d2fe743d4475072997287356ac1b9c6a9314b189ea8b
+          issuedAt: '2026-07-07T16:38:59.350Z'
+          algorithm: ed25519
+          signature: 2Z49nDSXubFNTpy0ovPwguGW3IpgvdJuiusCAadMNPS4cqmjRUthZmrfN3kZUO5m7Ku5v/poeLxtjsFKvXe9DA==
+    execution-trust-record.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/common/execution-trust-record.schema.json
+      title: Execution Trust Record
+      description: 'Canonical immutable record representing everything Parmana knows about a Business Transaction: the authoritative source for replay, verification, audit, and receipt generation. One Execution Trust Record exists per Business Transaction. overrides, executions, verifications, and receipts are append-only: existing entries are never modified or removed.'
+      type: object
+      additionalProperties: true
+      required:
+        - trustRecordId
+        - businessTransactionId
+        - transaction
+        - overrides
+        - executions
+        - verifications
+        - receipts
+        - trustRecordHash
+        - signature
+        - createdAt
+        - updatedAt
+      properties:
+        trustRecordId:
+          type: string
+          description: Unique Execution Trust Record identifier.
+        businessTransactionId:
+          type: string
+          description: Business Transaction identifier.
+        transaction:
+          $ref: '#/components/schemas/business-transaction.schema'
+        overrides:
+          type: array
+          description: Override history. Append-only; empty on every transaction in this repository today (no route creates an Override).
+          items:
+            $ref: '#/components/schemas/override.schema'
+        executions:
+          type: array
+          description: Execution history. Append-only.
+          items:
+            $ref: '#/components/schemas/execution.schema'
+        verifications:
+          type: array
+          description: Verification history. Append-only.
+          items:
+            $ref: '#/components/schemas/verification.schema'
+        receipts:
+          type: array
+          description: Receipt history. Append-only.
+          items:
+            $ref: '#/components/schemas/receipt.schema'
+        trustRecordHash:
+          type: string
+          description: Canonical hash of the Execution Trust Record, computed over its canonical serialized form.
+        signature:
+          type: object
+          description: Cryptographic signature over the canonical Execution Trust Record, proving it was produced by Parmana and has not been modified since signing.
+          additionalProperties: true
+          required:
+            - algorithm
+            - keyId
+            - value
+            - signedAt
+          properties:
+            algorithm:
+              type: string
+              examples:
+                - ed25519
+            keyId:
+              type: string
+              description: Identifier of the signing key.
+            value:
+              type: string
+              description: Base64-encoded signature value.
+            signedAt:
+              type: string
+              format: date-time
+        createdAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the Execution Trust Record was first created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the Execution Trust Record was last extended with a new immutable artifact.
+      examples:
+        - trustRecordId: 759e916e-66d2-48c3-8869-55d557acf155
+          businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+          transaction:
+            businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+            metadata:
+              businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+              correlationId: 6b97caca-1605-4711-bf00-7e5a65434d93
+              sourceSystem: vendor-payment-service
+              submittedBy: ap-automation
+              submittedAt: '2026-07-07T16:38:59.285Z'
+            authority:
+              authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+              authorityType: SERVICE
+              principalId: ap-automation-svc
+              displayName: Accounts Payable Automation
+              issuedAt: '2026-07-07T16:38:59.285Z'
+            authorization:
+              authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
+              authorityId: c0c01c23-04a2-45f2-a821-ef24bfca02d3
+              purpose: Authorize vendor payment disbursement
+              issuedAt: '2026-07-07T16:38:59.285Z'
+            intent:
+              intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
+              authorizationId: 6e9d6aa6-6d20-40a8-b05d-383516365cc7
+              action: payments:execute
+              target: vendor/V-100
+              parameters:
+                amount: 4500
+                currency: USD
+              createdAt: '2026-07-07T16:38:59.285Z'
+            policy:
+              name: vendor-payment
+              version: 2.0.0
+              schemaVersion: 1.0.0
+            signals:
+              vendorVerified: true
+              invoiceVerified: true
+              paymentApproved: true
+              sufficientFunds: true
+              paymentAmount: 4500
+              riskScore: 10
+            status: RECEIVED
+            createdAt: '2026-07-07T16:38:59.325Z'
+          overrides: []
+          executions:
+            - executionId: 2be38c15-f93c-4621-9a1c-7570c130dea0
+              businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+              decision:
+                decisionId: 9d69dc0b-333a-4be3-b09f-358fece806f3
+                intentId: ae5865f6-181b-409a-90ec-1b4b8b8414ba
+                policy:
+                  name: vendor-payment
+                  version: 2.0.0
+                  schemaVersion: 1.0.0
+                signals:
+                  vendorVerified: true
+                  invoiceVerified: true
+                  paymentApproved: true
+                  sufficientFunds: true
+                  paymentAmount: 4500
+                  riskScore: 10
+                outcome: APPROVED
+                reason: Vendor payment authorized. Vendor verification, invoice verification, payment approval, funding, and risk assessment requirements were satisfied.
+                evaluatedAt: '2026-07-07T16:38:59.326Z'
+              status: COMPLETED
+              mode: SYNC
+              startedAt: '2026-07-07T16:38:59.328Z'
+              metadata:
+                authorizationId: 1dc2d137-fde2-4d9c-b298-79e9f8a0d03e
+              evidence:
+                businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                action: payments:execute
+                target: vendor/V-100
+                parameters:
+                  amount: 4500
+                  currency: USD
+                success: true
+                executedAt: '2026-07-07T16:38:59.328Z'
+                attributes:
+                  connector:
+                    connectorId: vendor-payment
+                    connectorVersion: 1.0.0
+                    capability: payments:execute
+                    sanitizedEndpoint: vendor/V-100
+                    credentialProviderId: environment
+                    requestSummary:
+                      businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+                      action: payments:execute
+                      target: vendor/V-100
+                      parameters:
+                        amount: 4500
+                        currency: USD
+                    responseSummary:
+                      success: true
+                      metadata: {}
+                    startedAt: '2026-07-07T16:38:59.328Z'
+                    completedAt: '2026-07-07T16:38:59.328Z'
+                    connectorEvidenceHash: 7bcacb3e399a713e44a4f48aa2783de8060ae28591e4fc1256b504bd32cd7aea
+              completedAt: '2026-07-07T16:38:59.329Z'
+          verifications:
+            - verificationId: 0b96c8b4-9cd8-4162-81fc-086575cf0924
+              businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+              status: VERIFIED
+              message: Execution Trust Record verified successfully.
+              verifiedAt: '2026-07-07T16:38:59.331Z'
+              trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+          receipts:
+            - receiptId: 3073a598-f927-4caf-8bb8-4f083f62b7e9
+              businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+              trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+              receiptHash: 8a5a0e9255dafef5ec588f0834e3c5b81dc7feb98a59f8bfa7083438fa58e231
+              issuedAt: '2026-07-07T16:38:59.331Z'
+              algorithm: ed25519
+              signature: vzpykBuJhoy/2BdiR1x02KYZqMtKJu39olRJdzM5veSo9nYmoNSYQnt9HELlb2jlGWf07jPhP8ZXlrQnN4KQBA==
+          createdAt: '2026-07-07T16:38:59.329Z'
+          updatedAt: '2026-07-07T16:38:59.329Z'
+          trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+          signature:
+            algorithm: ed25519
+            keyId: default
+            value: l41lr6nCUbrzEfoil/3+gkXd4zEQ9TR1qFaSwLuE70L/9U6cVz3VXdM1lPsDfELKh6RO4qcDrFWF/S3k4CAxAQ==
+            signedAt: '2026-07-07T16:38:59.330Z'
+    transactions-list-response.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/responses/transactions-list-response.schema.json
+      title: Transactions List Response
+      description: Response returned by GET /transactions. A bare array, no pagination envelope (no page/pageSize/totalItems metadata), even though the endpoint accepts page and pageSize query parameters.
+      type: array
+      items:
+        $ref: '#/components/schemas/business-transaction.schema'
+    verification-request.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/requests/verification-request.schema.json
+      title: Verification Request
+      description: Request payload for POST /verify. businessTransactionId is required and must be a valid UUID; both are rejected with a 400, with distinct messages depending on which check fails.
+      type: object
+      additionalProperties: true
+      required:
+        - businessTransactionId
+      properties:
+        businessTransactionId:
+          type: string
+          format: uuid
+          description: Business Transaction to verify.
+      examples:
+        - businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+    receipt-request.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/requests/receipt-request.schema.json
+      title: Receipt Request
+      description: Request payload for POST /receipt. businessTransactionId is required and must be a valid UUID; both are rejected with a 400, with distinct messages depending on which check fails.
+      type: object
+      additionalProperties: true
+      required:
+        - businessTransactionId
+      properties:
+        businessTransactionId:
+          type: string
+          format: uuid
+          description: Business Transaction to generate a Receipt for. Its Execution Trust Record must already have a successful (VERIFIED) Verification, or the request fails with a 409.
+      examples:
+        - businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+    replay-request.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/requests/replay-request.schema.json
+      title: Replay Request
+      description: Request payload for POST /replay. businessTransactionId is required (rejected with a 400 if missing or empty), unlike POST /verify and POST /receipt, this route does not additionally validate UUID format.
+      type: object
+      additionalProperties: true
+      required:
+        - businessTransactionId
+      properties:
+        businessTransactionId:
+          type: string
+          description: Business Transaction to replay.
+      examples:
+        - businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+    replay-response.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/responses/replay-response.schema.json
+      title: Replay Response
+      description: 'Response returned by POST /replay. A deliberately small shape distinct from the Execution Trust Record it replays: it re-verifies the record''s stored signature via VerificationCrypto and reports only whether that succeeded, alongside the hash it checked.'
+      type: object
+      additionalProperties: false
+      required:
+        - businessTransactionId
+        - trustRecordHash
+        - verified
+      properties:
+        businessTransactionId:
+          type: string
+          description: Business Transaction that was replayed.
+        trustRecordHash:
+          type: string
+          description: Hash of the Execution Trust Record that was replayed.
+        verified:
+          type: boolean
+          description: Whether the Execution Trust Record's stored signature verified successfully.
+      examples:
+        - businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
+          trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
+          verified: true
+    policy-validate-request.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/requests/policy-validate-request.schema.json
+      title: Policy Validate Request
+      description: Request payload for POST /policies/validate. policyId and policyVersion are each required non-empty strings, checked in that order; each missing/empty field is rejected with its own 400 and a distinct message.
+      type: object
+      additionalProperties: true
+      required:
+        - policyId
+        - policyVersion
+      properties:
+        policyId:
+          type: string
+          minLength: 1
+          description: Policy name, matching the directory name under the configured policy directory.
+        policyVersion:
+          type: string
+          minLength: 1
+          description: Policy version, matching the version subdirectory.
+      examples:
+        - policyId: vendor-payment
+          policyVersion: 2.0.0
+    policy-validate-response.schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      $id: https://schemas.parmana.ai/responses/policy-validate-response.schema.json
+      title: Policy Validate Response
+      description: Response returned by POST /policies/validate on every status code (200, 400, and 404 all use this exact shape). This endpoint does NOT use the shared Error envelope (../common/error.schema.json) for its failure responses.
+      type: object
+      additionalProperties: false
+      required:
+        - valid
+        - errors
+      properties:
+        valid:
+          type: boolean
+          description: Whether the referenced policy exists and is readable.
+        errors:
+          type: array
+          description: Empty when valid is true; otherwise exactly one human-readable message.
+          items:
+            type: string
+      examples:
+        - valid: true
+          errors: []
+        - valid: false
+          errors:
+            - Policy 'does-not-exist' version '9.9.9' was not found.
+        - valid: false
+          errors:
+            - policyVersion is required.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Caller API key issued by scripts/generate-api-key.ts. Sent as Authorization: Bearer <key>. Verified against a stored SHA-256 hash in constant time by packages/api/src/auth/StaticKeyAuthenticator.ts. Required on every route except GET /health. See /api-reference/authentication.
+  responses:
+    Unauthorized:
+      description: Missing or invalid caller credential (StaticKeyAuthenticator returned no identity). Real captured response, packages/api/src/middleware/caller-auth.ts.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error.schema'
+          examples:
+            authRequired:
+              summary: Real captured response, missing or invalid Authorization header
+              value:
+                error: authentication required

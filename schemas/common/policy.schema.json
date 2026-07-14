@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.parmana.ai/common/policy.schema.json",
   "title": "Policy Reference",
-  "description": "Exact Policy to evaluate. The client explicitly supplies name, version, and schemaVersion — Parmana does not automatically discover or select a policy. If no matching policy file exists at policies/{name}/{version}/policy.json, the request fails with a 404 (policyId/policyVersion on POST /policies/validate) or a RUNTIME_ERROR (name/version elsewhere, from PolicyNotFoundError not otherwise mapped by the shared error handler in every route — see the error envelope note).",
+  "description": "Exact Policy to evaluate. The client explicitly supplies name, version, and schemaVersion; Parmana does not automatically discover or select a policy. If no matching policy file exists at policies/{name}/{version}/policy.json, the request fails with a 404 (policyId/policyVersion on POST /policies/validate) or a RUNTIME_ERROR (name/version elsewhere, from PolicyNotFoundError not otherwise mapped by the shared error handler in every route, see the error envelope note).",
   "type": "object",
   "additionalProperties": true,
   "required": [
@@ -13,12 +13,12 @@
   "properties": {
     "name": {
       "type": "string",
-      "description": "Policy name. Required and non-empty — Parmana rejects an empty name with a 400.",
+      "description": "Policy name. Required and non-empty. Parmana rejects an empty name with a 400.",
       "minLength": 1
     },
     "version": {
       "type": "string",
-      "description": "Business policy version. Required and non-empty — Parmana rejects an empty version with a 400.",
+      "description": "Business policy version. Required and non-empty. Parmana rejects an empty version with a 400.",
       "minLength": 1,
       "examples": [
         "2.0.0",

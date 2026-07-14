@@ -22,3 +22,4 @@ export * from "./HttpConnector.js";
 export * from "./MockConnector.js";
 export * from "./CapabilityConnectorPolicy.js";
 export * from "./ConnectorRegistry.js";
+export * from "./connectors/razorpay/index.js";

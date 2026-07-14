@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.parmana.ai/responses/policy-validate-response.schema.json",
   "title": "Policy Validate Response",
-  "description": "Response returned by POST /policies/validate on every status code (200, 400, and 404 all use this exact shape) — this endpoint does NOT use the shared Error envelope (../common/error.schema.json) for its failure responses.",
+  "description": "Response returned by POST /policies/validate on every status code (200, 400, and 404 all use this exact shape). This endpoint does NOT use the shared Error envelope (../common/error.schema.json) for its failure responses.",
   "type": "object",
   "additionalProperties": false,
   "required": [
