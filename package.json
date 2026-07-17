@@ -10,10 +10,12 @@
     "examples"
   ],
   "scripts": {
-    "build": "tsc -b",
+    "build": "npm run openapi && tsc -b",
     "build:verbose": "tsc -b --verbose",
     "build:force": "tsc -b --force --verbose",
     "clean": "tsc -b --clean",
+  
+    "openapi": "npm run lint:openapi && npm run bundle:openapi",
     "rebuild": "npm run clean && npm run build:force",
     "dev": "tsx packages/api/src/server.ts",
     "generate:gateway-keys": "tsx scripts/generate-keypair.ts --algorithm ed25519 --key-id gateway",
@@ -49,5 +51,8 @@
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.62.0",
     "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
   }
 }

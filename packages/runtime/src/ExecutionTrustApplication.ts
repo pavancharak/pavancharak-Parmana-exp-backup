@@ -51,8 +51,7 @@ export class ExecutionTrustApplication {
   async execute(
     transaction: BusinessTransaction,
   ): Promise<ExecutionTrustRecord> {
-  ;
-
+  
     //
     // Accept Business Transaction
     //
