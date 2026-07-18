@@ -12,40 +12,39 @@ export function createTrustRecordsRouter(
 ): Router {
   const router = Router();
 
-/**
- * GET /trust-records/:id
- *
- * Returns an Execution Trust Record.
- */
-router.get(
-  "/:id",
-  async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const record =
-        await application.getTrustRecord(
-          String(req.params.id),
-        );
+  /**
+   * GET /trust-records/:businessTransactionId
+   *
+   * Returns the Execution Trust Record for a Business Transaction.
+   */
+  router.get(
+    "/:businessTransactionId",
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        const record =
+          await application.getTrustRecord(
+            req.params.businessTransactionId,
+          );
 
-      if (!record) {
-        res.status(404).json({
-          error:
-            "Execution Trust Record not found.",
-        });
+        if (!record) {
+          res.status(404).json({
+            error: "Execution Trust Record not found.",
+          });
+          return;
+        }
+
+        res.json(record);
+        return;
+      } catch (error) {
+        next(error);
         return;
       }
+    },
+  );
 
-      res.json(record);
-      return;
-    } catch (error) {
-      next(error);
-      return;
-    }
-  },
-);
-
-return router;
+  return router;
 }

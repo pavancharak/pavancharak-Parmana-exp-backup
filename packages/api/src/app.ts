@@ -1,4 +1,5 @@
 import express from "express";
+import documentationRoutes from "./routes/documentation.js";
 
 import { errorHandler } from "./middleware/error-handler.js";
 import { createCallerAuthMiddleware } from "./middleware/caller-auth.js";
@@ -65,6 +66,7 @@ app.use(express.json());
  */
 app.use("/health", healthRoutes);
 app.use("/openapi.yaml", openapiRoutes);
+app.use("/documentation", documentationRoutes);
 
 if (options.callerAuth !== "disabled") {
   app.use(
@@ -74,7 +76,6 @@ if (options.callerAuth !== "disabled") {
     ),
   );
 }
-
 app.get("/", (_req, res) => {
   res.json({
     name: "Parmana",

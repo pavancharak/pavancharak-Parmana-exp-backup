@@ -100,12 +100,16 @@ export function createCallerAuthMiddleware(
 
       if (!recorded) return;
 
-      res.status(401).json({
-        error: "authentication required",
-      });
+    res.setHeader(
+  "WWW-Authenticate",
+  'Bearer realm="Parmana"',
+);
 
-      return;
-    }
+res.status(401).json({
+  error: "authentication required",
+});
+
+return;
 
     req.callerId = identity.callerId;
 

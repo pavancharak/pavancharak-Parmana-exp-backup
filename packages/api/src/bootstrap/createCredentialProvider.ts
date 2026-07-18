@@ -7,14 +7,21 @@ import {
 /**
  * Creates the credential provider.
  *
- * Production uses environment variables.
- * Tests use an in-memory credential.
+ * Production:
+ *   - Credentials are loaded from environment variables.
+ *
+ * Test:
+ *   - Uses an in-memory static credential provider.
+ *   - Credentials can be overridden via TEST_* environment variables.
+ *   - Safe defaults keep tests deterministic.
  */
 export function createCredentialProvider(): CredentialProvider {
   if (process.env.NODE_ENV === "test") {
     return new StaticCredentialProvider({
       "vendor-payment": {
-        token: "integration-test-token",
+        token:
+          process.env.TEST_VENDOR_PAYMENT_TOKEN ??
+          "integration-test-token",
       },
     });
   }
