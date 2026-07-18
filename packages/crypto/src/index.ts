@@ -65,3 +65,9 @@ export * from "./providers/ProviderFactory.js";
 // -----------------------------------------------------------------------------
 
 export * from "./errors/CryptoError.js";
+
+// -----------------------------------------------------------------------------
+// Runtime capability detection
+// -----------------------------------------------------------------------------
+
+export * from "./support/MlDsaSupport.js";

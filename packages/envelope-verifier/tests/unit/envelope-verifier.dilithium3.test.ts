@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   AuthorizationSigner,
   CryptoBootstrap,
+  isMlDsa65Supported,
+  ML_DSA_65_SKIP_REASON,
 } from "@parmana/crypto";
 
 import type {
@@ -66,7 +68,9 @@ async function signAuthorization(
   );
 }
 
-describe("EnvelopeVerifier (dilithium3)", () => {
+describe.skipIf(!isMlDsa65Supported())(
+  `EnvelopeVerifier (dilithium3)${isMlDsa65Supported() ? "" : ` [SKIPPED: ${ML_DSA_65_SKIP_REASON}]`}`,
+  () => {
   it("accepts a valid first-use envelope", async () => {
     const { privateKey, publicKey } = generateKeyPair();
     const signed = await signAuthorization(privateKey);

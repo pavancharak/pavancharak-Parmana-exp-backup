@@ -7,17 +7,11 @@ beforeAll(() => {
 
 import app from "../test-app.js";
 import { createBusinessTransaction } from "../fixtures/business-transaction.js";
-import { hasSupabaseConfig } from "../helpers/supabase-availability.js";
+import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
 
-const supabaseConfigured = hasSupabaseConfig();
-
-if (!supabaseConfigured) {
-  console.log(
-    "[SKIP] Transactions API (persistence cases): SUPABASE_URL / " +
-      "SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) not set. " +
-      "See packages/api/README.md to enable this suite.",
-  );
-}
+const supabaseConfigured = resolveSupabaseGate(
+  "Transactions API (persistence cases)",
+);
 
 describe("GET /transactions", () => {
   it("returns the list of Business Transactions", async () => {

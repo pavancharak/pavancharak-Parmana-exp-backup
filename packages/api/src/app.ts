@@ -25,23 +25,28 @@ import versionRoutes from "./routes/version.js";
 import type { CallerAuthenticator } from "./auth/CallerAuthenticator.js";
 import type { CallerAuditSink } from "./auth/CallerAuditSink.js";
 
+/**
+ * Every call site must state its caller-auth choice explicitly:
+ * either a real authenticator/auditSink pair, or the literal
+ * string "disabled" to mount the app with no caller-auth
+ * middleware at all. There is no default — silently omitting
+ * this option is exactly the failure mode this type exists to
+ * rule out (see docs/CLAIMS.md and the July 2026 audit closeout).
+ */
+export type CallerAuthOption =
+  | "disabled"
+  | {
+      readonly authenticator: CallerAuthenticator;
+      readonly auditSink: CallerAuditSink;
+    };
+
 export interface CreateAppOptions {
-  /**
-   * When provided, every route except /health requires a
-   * valid caller credential. When omitted, no caller-auth
-   * middleware is mounted at all, which is what every
-   * pre-existing test in this package relies on. Production
-   * (server.ts) always provides this.
-   */
-  readonly callerAuth?: {
-    readonly authenticator: CallerAuthenticator;
-    readonly auditSink: CallerAuditSink;
-  };
+  readonly callerAuth: CallerAuthOption;
 }
 
 export function createApp(
   application: ExecutionTrustApplication,
-  options: CreateAppOptions = {},
+  options: CreateAppOptions,
 ) {
   const app = express();
 
@@ -61,7 +66,7 @@ app.use(express.json());
 app.use("/health", healthRoutes);
 app.use("/openapi.yaml", openapiRoutes);
 
-if (options.callerAuth) {
+if (options.callerAuth !== "disabled") {
   app.use(
     createCallerAuthMiddleware(
       options.callerAuth.authenticator,

@@ -494,5 +494,5 @@ The Key Management subsystem provides a single abstraction for the lifecycle of 
 
 
 
-It is responsible for managing keys, while signing, verification, hashing, and execution governance remain separate concerns.
+It is responsible for managing keys, while signing, verification, hashing, and execution authorization remain separate concerns.
 

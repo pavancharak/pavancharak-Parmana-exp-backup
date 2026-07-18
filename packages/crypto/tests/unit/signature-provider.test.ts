@@ -5,11 +5,17 @@ import { describe, expect, it } from "vitest";
 import { CryptoError } from "../../src/errors/CryptoError.js";
 import { Dilithium3SignatureProvider } from "../../src/providers/signature/Dilithium3SignatureProvider.js";
 import { Ed25519SignatureProvider } from "../../src/providers/signature/Ed25519SignatureProvider.js";
+import {
+  isMlDsa65Supported,
+  ML_DSA_65_SKIP_REASON,
+} from "../../src/support/MlDsaSupport.js";
 
 const data = Buffer.from("payload bytes to sign");
 
 describe("SignatureProvider key/algorithm binding (R8)", () => {
-  it("Ed25519SignatureProvider.sign() rejects a dilithium3 (ml-dsa-65) key", async () => {
+  it.skipIf(!isMlDsa65Supported())(
+    `Ed25519SignatureProvider.sign() rejects a dilithium3 (ml-dsa-65) key${isMlDsa65Supported() ? "" : ` [SKIPPED: ${ML_DSA_65_SKIP_REASON}]`}`,
+    async () => {
     const provider = new Ed25519SignatureProvider();
     const { privateKey } = generateKeyPairSync("ml-dsa-65");
 
@@ -22,7 +28,9 @@ describe("SignatureProvider key/algorithm binding (R8)", () => {
     );
   });
 
-  it("Ed25519SignatureProvider.verify() rejects a dilithium3 (ml-dsa-65) key", async () => {
+  it.skipIf(!isMlDsa65Supported())(
+    `Ed25519SignatureProvider.verify() rejects a dilithium3 (ml-dsa-65) key${isMlDsa65Supported() ? "" : ` [SKIPPED: ${ML_DSA_65_SKIP_REASON}]`}`,
+    async () => {
     const provider = new Ed25519SignatureProvider();
     const { publicKey } = generateKeyPairSync("ml-dsa-65");
 

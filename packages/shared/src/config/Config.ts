@@ -87,6 +87,28 @@ if (envFile) {
 }
 
 /**
+ * Fail-closed by design, same discipline as caller authentication
+ * (see createCallerAuthenticator.ts): refuses to start rather than let
+ * an unset policy directory surface later as a raw filesystem error
+ * (ERR_INVALID_ARG_TYPE from path.join(undefined, ...)) inside
+ * FilePolicyRepository.load at request time.
+ */
+function requirePolicyDirectory(): string {
+  const directory = process.env.PARMANA_POLICY_DIR;
+
+  if (directory === undefined || directory.trim() === "") {
+    throw new Error(
+      "PARMANA_POLICY_DIR is not set. Refusing to start without a " +
+        "configured policy directory; the server cannot load or evaluate " +
+        "policies without it. Set PARMANA_POLICY_DIR to the directory " +
+        "containing policy files (e.g. ./policies).",
+    );
+  }
+
+  return directory;
+}
+
+/**
  * Parmana Configuration.
  *
  * Centralized immutable configuration.
@@ -331,7 +353,7 @@ export function loadConfig():
     }),
 policy: Object.freeze({
   directory:
-    process.env.PARMANA_POLICY_DIR!,
+    requirePolicyDirectory(),
 }),
 
     trust: Object.freeze({

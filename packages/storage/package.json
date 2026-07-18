@@ -1,6 +1,7 @@
 {
   "name": "@parmana/storage",
   "version": "0.1.0",
+  "private": true,
   "description": "Parmana Storage Engine - Append-only execution ledger system",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,6 +23,7 @@
     "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
+    "@parmana/envelope-verifier": "0.1.0",
     "@parmana/shared": "0.1.0",
     "@supabase/supabase-js": "^2.108.2",
     "express": "^5.2.1",
@@ -42,5 +44,5 @@
   "engines": {
     "node": ">=22"
   },
-  "license": "Apache-2.0"
+  "license": "SEE LICENSE IN LICENSE"
 }

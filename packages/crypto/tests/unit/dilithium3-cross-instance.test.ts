@@ -8,6 +8,11 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  isMlDsa65Supported,
+  ML_DSA_65_SKIP_REASON,
+} from "../../src/support/MlDsaSupport.js";
+
 /**
  * Proves that two INDEPENDENTLY constructed bootstrap stacks
  * (separate CryptoBootstrap singletons, separate FileKeyProvider
@@ -21,7 +26,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * otherwise the second "instance" would just reuse the first's
  * cached provider and the test would prove nothing.
  */
-describe("Dilithium3 cross-instance signing (R6)", () => {
+describe.skipIf(!isMlDsa65Supported())(
+  `Dilithium3 cross-instance signing (R6)${isMlDsa65Supported() ? "" : ` [SKIPPED: ${ML_DSA_65_SKIP_REASON}]`}`,
+  () => {
   let keyDir: string;
   let previousPrimarySignatureProvider: string | undefined;
   let previousKeyDir: string | undefined;

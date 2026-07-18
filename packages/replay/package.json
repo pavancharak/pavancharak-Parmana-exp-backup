@@ -1,6 +1,7 @@
 {
   "name": "@parmana/replay",
   "version": "0.1.0",
+  "private": true,
   "description": "Parmana Replay Engine - Deterministic execution reconstruction system",
   "type": "module",
   "main": "./dist/index.js",
@@ -41,5 +42,5 @@
   "engines": {
     "node": ">=22"
   },
-  "license": "Apache-2.0"
+  "license": "SEE LICENSE IN LICENSE"
 }

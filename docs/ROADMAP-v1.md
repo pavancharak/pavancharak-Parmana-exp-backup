@@ -283,7 +283,7 @@ citations, cosmetic), G-11 (undocumented env vars, cosmetic).
 | **G-15** | pre-production | The `ExecutionTrustRecord`/`ExecutionTrustAttestation` naming collision (Phase 0, D4) is a readability and onboarding hazard: two types with the words "Execution Trust" in their name, only one of which is real, and the commit that introduced the second one described it as a rename of the first. |  Phase 0, D4 |
 | **G-16** | cosmetic | `examples/archive/` (90 directories, effectively empty) is unreferenced dead scaffolding. | O4 |
 | **G-17** | cosmetic, but flagged against a locked principle | Trademark symbols ("™") remain in `README.md` and tutorials 53-56, violating the explicit "no trademark symbols anywhere in code or docs" architecture principle. | O7 |
-| **G-18** | cosmetic | Stray "Execution Governance" category-example value in `docs/specifications/reference-policies.md`, outside the already-deferred legacy tree, missed by the terminology sweep. | O8 |
+| **G-18** | cosmetic | Stray "Execution Governance" category-example value in `docs/specifications/reference-policies.md`, outside the already-deferred legacy tree, missed by the terminology sweep. **RESOLVED 2026-07-17** — see `docs/VERIFICATION-GAPS.md`, "Gaps closed in the 2026-07-17 audit closeout session," item 19; the stray value was replaced with "AI Execution Authorization." | O8 |
 | **G-19** | pre-production | `@parmana/replay` (O3) is a real, tested capability with zero HTTP entry point and zero wiring into `packages/api`/`packages/runtime`. Directly relevant because "verifiable records" is a named success criterion for the shadow pilot this roadmap targets. | O3 |
 
 **Not in VERIFICATION-GAPS.md at all, surfaced only in CLAIMS.md Section 4, elevated here
@@ -425,6 +425,9 @@ Each entry: why, impact, breaking or non-breaking, estimated effort, dependencie
 - **Effort:** trivial, one line.
 - **Dependencies:** none.
 - **Branch:** bundle with R5, same category of fix.
+- **Status: RESOLVED 2026-07-17.** Fixed in the 2026-07-17 audit closeout session's
+  terminology sweep — see `docs/VERIFICATION-GAPS.md`, "Gaps closed in the 2026-07-17
+  audit closeout session," item 19.
 
 ### R7. Resolve the `ExecutionTrustRecord`/`ExecutionTrustAttestation` naming collision (G-15)
 - Subsumed by R3; whichever option is chosen there resolves this too. Not a separate piece of

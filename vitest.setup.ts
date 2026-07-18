@@ -1,9 +1,33 @@
 import { generateKeyPairSync } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import dotenv from "dotenv";
 
 import { afterAll } from "vitest";
+
+/**
+ * Deterministic, once-per-worker .env load (G-14).
+ *
+ * Every vitest worker gets its own snapshot of process.env, so whether a
+ * given test file "sees" SUPABASE_URL used to depend on whether that
+ * file's own import graph happened to transitively trigger the
+ * dotenv.config() side effect inside packages/shared/src/config/Config.ts
+ * — a coincidence of import order, not a real gate decision. Loading here
+ * instead, in the one file every worker always runs first, makes env
+ * visibility identical across all workers regardless of which test files
+ * they happen to execute. override:false matches Config.ts's own
+ * dotenv.config() call, so neither load can clobber the other or an
+ * already-set shell env var.
+ */
+const repoRoot = dirname(fileURLToPath(import.meta.url));
+
+dotenv.config({
+  path: join(repoRoot, ".env"),
+  override: false,
+});
 
 /**
  * Global hermetic key material.

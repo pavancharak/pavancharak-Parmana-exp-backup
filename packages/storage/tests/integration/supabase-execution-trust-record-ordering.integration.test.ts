@@ -8,7 +8,7 @@ import { SupabaseBusinessTransactionRepository } from "../../src/supabase/Supaba
 import { SupabaseClientFactory } from "../../src/supabase/SupabaseClientFactory.js";
 import { SupabaseExecutionTrustRecordRepository } from "../../src/supabase/SupabaseExecutionTrustRecordRepository.js";
 
-import { hasSupabaseConfig } from "../helpers/supabase-availability.js";
+import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
 
 import {
   buildBusinessTransaction,
@@ -17,14 +17,9 @@ import {
   buildVerificationPair,
 } from "../fixtures/multi-item-trust-record.js";
 
-const supabaseConfigured = hasSupabaseConfig();
-
-if (!supabaseConfigured) {
-  console.log(
-    "[SKIP] Supabase Execution Trust Record Ordering: SUPABASE_URL / " +
-      "SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) not set.",
-  );
-}
+const supabaseConfigured = resolveSupabaseGate(
+  "Supabase Execution Trust Record Ordering",
+);
 
 /**
  * Live-Supabase counterpart to the unconditional in-memory ordering test

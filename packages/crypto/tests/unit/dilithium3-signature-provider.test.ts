@@ -3,12 +3,18 @@ import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import { Dilithium3SignatureProvider } from "../../src/providers/signature/Dilithium3SignatureProvider.js";
+import {
+  isMlDsa65Supported,
+  ML_DSA_65_SKIP_REASON,
+} from "../../src/support/MlDsaSupport.js";
 
 function generateKeyPair() {
   return generateKeyPairSync("ml-dsa-65");
 }
 
-describe("Dilithium3SignatureProvider", () => {
+describe.skipIf(!isMlDsa65Supported())(
+  `Dilithium3SignatureProvider${isMlDsa65Supported() ? "" : ` [SKIPPED: ${ML_DSA_65_SKIP_REASON}]`}`,
+  () => {
   it("signs and verifies with caller-supplied keys", async () => {
     const provider = new Dilithium3SignatureProvider();
     const { privateKey, publicKey } = generateKeyPair();

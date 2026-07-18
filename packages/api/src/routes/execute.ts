@@ -61,12 +61,16 @@ export function createExecuteRouter(
             req.body,
           );
 
-        const result =
-          await application.execute(
-            transaction,
-          );
+console.log("[ROUTE] before execute");
 
-        res.json(result);
+const result =
+  await application.execute(
+    transaction,
+  );
+
+console.log("[ROUTE] after execute");
+
+res.json(result);
         return;
       } catch (error) {
         next(error);

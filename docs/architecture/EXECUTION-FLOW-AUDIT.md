@@ -18155,7 +18155,7 @@ The repository consistently separates:
 - Verification from receipt generation.
 
 These invariants collectively provide the foundation for reproducible,
-auditable, and cryptographically verifiable execution governance.
+auditable, and cryptographically verifiable execution authorization.
 
 Status
 
@@ -18880,7 +18880,7 @@ It identifies:
 
 This matrix provides the linkage between detailed component audits and
 the overall repository architecture, making it easier to trace how
-individual classes contribute to the end-to-end execution governance
+individual classes contribute to the end-to-end execution authorization
 pipeline.
 
 Status
@@ -18905,7 +18905,7 @@ Status
 
 # Architectural Overview
 
-The Parmana repository implements an execution governance platform that
+The Parmana repository implements an execution authorization platform that
 controls, authorizes, verifies, and records business operations through
 deterministic processing and cryptographically verifiable evidence.
 
@@ -19257,7 +19257,7 @@ Status
 
 # Overall Architectural Assessment
 
-The audited repository implements a modular execution governance
+The audited repository implements a modular execution authorization
 architecture centered on deterministic processing and cryptographically
 verifiable execution evidence.
 

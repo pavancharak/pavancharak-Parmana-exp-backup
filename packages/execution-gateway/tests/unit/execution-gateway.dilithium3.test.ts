@@ -10,6 +10,11 @@ import {
 
 import { MemoryNonceStore } from "@parmana/envelope-verifier";
 
+import {
+  isMlDsa65Supported,
+  ML_DSA_65_SKIP_REASON,
+} from "@parmana/crypto";
+
 import type { ExecutionRequest } from "@parmana/execution-system";
 
 import type {
@@ -99,7 +104,9 @@ function buildRequest(
   };
 }
 
-describe("ExecutionGateway (dilithium3)", () => {
+describe.skipIf(!isMlDsa65Supported())(
+  `ExecutionGateway (dilithium3)${isMlDsa65Supported() ? "" : ` [SKIPPED: ${ML_DSA_65_SKIP_REASON}]`}`,
+  () => {
   it("releases a valid request to the connector", async () => {
     const { privateKey, publicKey } = generateKeyPair();
     const authorization = await signAuthorization(privateKey);

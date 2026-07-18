@@ -1,8 +1,9 @@
 {
-  "name": "parmana",
+  "name": "@parmana/legacy-reference",
   "version": "1.0.0",
+  "private": true,
   "description": "Official Parmana TypeScript SDK",
-  "license": "Apache-2.0",
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

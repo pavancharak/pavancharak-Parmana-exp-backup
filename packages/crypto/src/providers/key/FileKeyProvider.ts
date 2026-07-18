@@ -18,6 +18,23 @@ import type {
   KeyProvider,
 } from "../../KeyProvider.js";
 
+import { CryptoError } from "../../errors/CryptoError.js";
+
+/**
+ * keyId becomes a path segment (`<keyId>.private.pem`); anything outside
+ * this set (path separators, `..`, null bytes, etc.) could otherwise walk
+ * out of the configured key directory.
+ */
+const VALID_KEY_ID = /^[A-Za-z0-9._-]+$/;
+
+function assertValidKeyId(keyId: string): void {
+  if (!VALID_KEY_ID.test(keyId)) {
+    throw new CryptoError(
+      `Invalid keyId: ${JSON.stringify(keyId)}. Must match ${VALID_KEY_ID}.`,
+    );
+  }
+}
+
 /**
  * File Key Provider.
  *
@@ -138,6 +155,8 @@ export class FileKeyProvider
   private privateKeyPath(
     keyId: string,
   ): string {
+    assertValidKeyId(keyId);
+
     return join(
       this.getKeyDirectory(),
       `${keyId}.private.pem`,
@@ -150,6 +169,8 @@ export class FileKeyProvider
   private publicKeyPath(
     keyId: string,
   ): string {
+    assertValidKeyId(keyId);
+
     return join(
       this.getKeyDirectory(),
       `${keyId}.public.pem`,

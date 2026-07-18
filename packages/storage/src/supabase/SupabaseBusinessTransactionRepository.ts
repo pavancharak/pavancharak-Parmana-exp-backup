@@ -1,9 +1,12 @@
-import type {
-  BusinessTransaction,
-  BusinessTransactionRepository,
+import {
+  DuplicateBusinessTransactionError,
+  type BusinessTransaction,
+  type BusinessTransactionRepository,
 } from "@parmana/shared";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { isUniqueViolation } from "../errors/PostgresErrorCodes.js";
 
 /**
  * Supabase implementation of BusinessTransactionRepository.
@@ -17,6 +20,15 @@ export class SupabaseBusinessTransactionRepository
 
   /**
    * Persist immutable BusinessTransaction.
+   *
+   * Closes G-1 (docs/VERIFICATION-GAPS.md): this table's
+   * `business_transaction_id TEXT PRIMARY KEY` constraint
+   * (supabase/migrations/20260629013035_initial_schema.sql) already
+   * made a duplicate insert atomic at the database — this method
+   * previously just never mapped the resulting 23505
+   * unique_violation to anything meaningful, rethrowing the raw
+   * Postgres error instead of the same DuplicateBusinessTransactionError
+   * the in-memory repository throws.
    */
   async create(
     transaction: BusinessTransaction,
@@ -53,6 +65,12 @@ export class SupabaseBusinessTransactionRepository
       });
 
     if (error) {
+      if (isUniqueViolation(error)) {
+        throw new DuplicateBusinessTransactionError(
+          transaction.businessTransactionId,
+        );
+      }
+
       throw error;
     }
 

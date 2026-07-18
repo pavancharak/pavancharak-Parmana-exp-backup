@@ -32,7 +32,7 @@ While AI models determine \*how\* to drive, organizations also need confidence t
 
 
 
-Parmana provides this execution governance through its \*\*Execution Trust Infrastructure\*\*.
+Parmana provides this execution authorization through its \*\*Execution Trust Infrastructure\*\*.
 
 
 
@@ -52,7 +52,7 @@ After completing this guide you will understand:
 
 
 
-\* Why autonomous systems require execution governance
+\* Why autonomous systems require execution authorization
 
 \* How Business Transactions represent driving operations
 
@@ -722,7 +722,7 @@ No external logs are required.
 
 
 
-Execution governance supports:
+Execution authorization supports:
 
 
 
@@ -870,7 +870,7 @@ In this guide you learned how Parmana governs autonomous vehicle execution by re
 
 
 
-This approach provides deterministic, replayable, independently verifiable execution governance for autonomous systems.
+This approach provides deterministic, replayable, independently verifiable execution authorization for autonomous systems.
 
 
 

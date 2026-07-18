@@ -7,17 +7,9 @@ beforeAll(() => {
 });
 
 import app from "../test-app.js";
-import { hasSupabaseConfig } from "../helpers/supabase-availability.js";
+import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
 
-const supabaseConfigured = hasSupabaseConfig();
-
-if (!supabaseConfigured) {
-  console.log(
-    "[SKIP] Trust Record GET Integration: SUPABASE_URL / " +
-      "SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) not set. " +
-      "See packages/api/README.md to enable this suite.",
-  );
-}
+const supabaseConfigured = resolveSupabaseGate("Trust Record GET Integration");
 
 describe.skipIf(!supabaseConfigured)("Trust Record GET Integration", () => {
   it("retrieves an existing Execution Trust Record", async () => {

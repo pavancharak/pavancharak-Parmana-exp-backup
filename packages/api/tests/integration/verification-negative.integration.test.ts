@@ -8,17 +8,9 @@ beforeAll(() => {
 import app from "../test-app.js";
 import { executionTrustRecordRepository } from "../../src/repositories.js";
 import { createBusinessTransaction } from "../fixtures/business-transaction.js";
-import { hasSupabaseConfig } from "../helpers/supabase-availability.js";
+import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
 
-const supabaseConfigured = hasSupabaseConfig();
-
-if (!supabaseConfigured) {
-  console.log(
-    "[SKIP] Verification Negative Integration: SUPABASE_URL / " +
-      "SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) not set. " +
-      "See packages/api/README.md to enable this suite.",
-  );
-}
+const supabaseConfigured = resolveSupabaseGate("Verification Negative Integration");
 
 describe.skipIf(!supabaseConfigured)("Verification Negative Integration", () => {
   it(

@@ -48,7 +48,7 @@ After completing this guide you will understand:
 
 
 
-\* Why healthcare requires execution governance
+\* Why healthcare requires execution authorization
 
 \* How clinical decisions become Business Transactions
 
@@ -766,7 +766,7 @@ The complete clinical workflow becomes independently reviewable.
 
 
 
-Execution governance provides:
+Execution authorization provides:
 
 
 

@@ -25,7 +25,7 @@ Traditional governance answers:
 * Who approved?
 * When was it approved?
 
-Execution governance answers:
+Execution authorization answers:
 
 * Who authorized execution?
 * What exactly was intended?

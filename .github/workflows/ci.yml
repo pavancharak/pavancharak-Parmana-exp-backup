@@ -1,0 +1,71 @@
+name: CI
+
+# Runs the TypeScript workspace's build and full vitest suite on every push
+# and pull request. Deliberately does not depend on any .env file: every
+# environment variable the app needs to start is provided explicitly below,
+# so this workflow also proves the repo is buildable/testable from a fresh
+# clone with no local secrets present.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      # Required at startup by packages/shared/src/config/Config.ts —
+      # points at the repo's own committed reference policies, not a
+      # separate fixtures directory.
+      PARMANA_POLICY_DIR: ./policies
+      # Explicit default; keeps Supabase-gated integration tests
+      # (packages/api/tests/helpers/supabase-availability.ts) skipped
+      # rather than silently reaching for SUPABASE_* vars that aren't set.
+      PARMANA_STORAGE: memory
+      KEY_PROVIDER: local
+      PRIMARY_SIGNATURE_PROVIDER: ed25519
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install workspace
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Guard against retired terminology
+        # Locked vocabulary is "execution authorization" / "AI Execution
+        # Authorization". A handful of paths are intentionally excluded:
+        # docs/ROADMAP-v1.md narrates the terminology sweep itself (quotes
+        # the retired term to describe the gap it closed); docs/site's two
+        # "Related work" notes cite an unrelated third-party academic
+        # framework that is actually named "Execution Governance" (Ku,
+        # 2026); docs/VERIFICATION-GAPS.md documents this repo's own
+        # terminology history. None of those are live product usage.
+        run: |
+          if grep -rIn \
+            --exclude-dir=node_modules \
+            --exclude-dir=.git \
+            --exclude-dir=dist \
+            --exclude-dir=coverage \
+            --exclude='ROADMAP-v1.md' \
+            --exclude='VERIFICATION-GAPS.md' \
+            --exclude='how-parmana-thinks.mdx' \
+            --exclude='execution-authorization.mdx' \
+            --exclude='ci.yml' \
+            -i "execution governance" .; then
+            echo "::error::Found retired term 'execution governance' — replace with 'execution authorization' / 'AI Execution Authorization'."
+            exit 1
+          fi
+
+      - name: Test
+        run: npm test

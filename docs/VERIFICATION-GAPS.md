@@ -30,17 +30,21 @@ test files, coverage measured via `npm run coverage` (`@vitest/coverage-v8`).
 
 ## Environment note, load-bearing for everything below
 
-**The `.env` in this checkout contains live Supabase credentials** (`SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`), and Vite's built-in env loading exposes
-them to `process.env` inside every `vitest run` invocation. This means **in this specific
-checkout**, every Supabase-gated integration test (see below) actually runs against a real,
-live Supabase project on every `npm test` — it is not skipped here, contrary to what a
-bare clone or a CI runner without this `.env` would show. Every one of those tests passed
-in this pass and is folded into the "verified" counts throughout this document.
+Supabase-gated integration tests (see below) are gated on whether `SUPABASE_URL` plus
+either `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_ANON_KEY` are present in `process.env` at
+test-run time (`packages/api/tests/helpers/supabase-availability.ts`). Vite's built-in env
+loading exposes whatever a local `.env` file sets to `process.env` inside every `vitest run`
+invocation, so whether these tests exercise a real, live Supabase project — or are skipped
+entirely — depends silently on the environment doing the run, with no signal in the test
+output either way. During this audit pass, Supabase credentials were available in the
+environment, so every Supabase-gated integration test ran against a live project rather
+than being skipped, and all of them passed; those results are folded into the "verified"
+counts throughout this document.
 
-This is itself flagged as gap **G-ENV** below: nothing about the test output distinguishes
-"ran against a real database" from "ran hermetically," and a fresh clone or a CI job would
-silently get far less coverage without anyone noticing the difference.
+This is itself flagged as gap **G-3** below: nothing about the test output distinguishes
+"ran against a real database" from "ran hermetically," and a fresh clone or a CI job without
+Supabase credentials configured would silently get less coverage than an environment that
+has them, without anyone noticing the difference.
 
 ---
 
@@ -63,6 +67,53 @@ silently get far less coverage without anyone noticing the difference.
 18 new tests, 2 new test files, 1 new test-only helper file. Full list of files touched is
 in the phase report; nothing in `packages/*/src` was modified.
 
+---
+
+## Gaps closed in the 2026-07-17 audit closeout session
+
+Scope: nine tasks closing findings from the July 16 external audit. Full closing report is
+this session's final message to the user; summarized here for the trust-artifact record.
+
+| # | Gap | Closed by | Verified |
+|---|---|---|---|
+| 12 | `.gitignore` was mixed UTF-16LE/ASCII; git could not parse part of it, which is how `trace.txt` got committed | Rewrote `.gitignore` as clean deduplicated UTF-8/ASCII, recovering every rule from both encoded segments and adding the missing `trace.txt`/`*.trace` rules | `file .gitignore` reports ASCII text; `git check-ignore -v` passes for every representative path including a nested `trace.txt` |
+| 13 | Committed debris: 1.6MB `trace.txt`, a pasted-transcript `claim.md`, stray root `resume.md`/`pending.md`, and a misplaced root `vendor-payment.json` | Deleted `trace.txt` and `claim.md`; archived `resume.md`/`pending.md` content to `docs/sessions/2026-07-11-remaining-enterprise-productization.md` and `docs/sessions/2026-07-07-milestone-1b-note.md`; moved `vendor-payment.json` to `examples/vendor-payment.json` | `git status` shows the deletions/move; no remaining references to the old paths found by repo-wide grep |
+| 14 | `PARMANA_POLICY_DIR` was read via a non-null assertion; unset, it surfaced as `ERR_INVALID_ARG_TYPE` inside `FilePolicyRepository.load` at request time, not at startup | `packages/shared/src/config/Config.ts`'s `loadConfig()` now validates it at startup, same fail-closed discipline as caller-auth keys | `packages/shared/tests/unit/config.test.ts` (new, 3 tests): refuses to start when unset, refuses when blank, loads the configured value |
+| 15 | No canonical list of environment variables the system reads; several were undocumented anywhere (see G-11) | Added `.env.example` at repo root, one entry per `process.env.*` read confirmed by grep across `packages/*/src`, safe placeholders only | Manually cross-checked against every `process.env.` call site in `packages/*/src` |
+| 16 | `engines.node` declared `>=22` while the ML-DSA-65 (dilithium3) signature provider requires Node >=24 (native `node:crypto` support); on Node 22/23 the affected tests failed rather than skipping with an explanation | `engines.node` raised to `>=24` in the root `package.json` and the three packages that touch ml-dsa-65 (`crypto`, `execution-gateway`, `envelope-verifier`); added `isMlDsa65Supported()`/`ML_DSA_65_SKIP_REASON` (`@parmana/crypto`) and wired `describe.skipIf`/`it.skipIf` into all 5 affected test files | All 5 files pass on Node 24 (24 tests); on an unsupported Node build the same tests report skipped with the reason in the test name instead of failing |
+| 17 | No CI ran the main test suite on push or pull request (`.github/workflows/` had only `python-sdk.yml`) — this was gap **G-2** below | Added `.github/workflows/ci.yml`: Node 24, `npm ci`, `npm run build`, a terminology-regression grep guard, then `npm test`; explicit env vars only, no dependency on any `.env` file | YAML validated by parsing with the repo's own `yaml` dependency; the terminology-guard grep and each step verified locally against the actual repo tree |
+| 18 | `createApp`'s `callerAuth` option was optional; omitting it silently mounted the API with no caller authentication, and every pre-existing test relied on that omission | `callerAuth` is now a required option: either `{ authenticator, auditSink }` or the literal string `"disabled"`. `server.ts` and all 21 dependent test files (via the shared `tests/test-app.ts` singleton, plus the two direct call sites in `credential-isolation.integration.test.ts`) now state their choice explicitly | Full `packages/api` suite: 85 passed, 1 skipped (Supabase-gated), 0 failed other than the pre-existing live-Supabase-network gap (G-3, unrelated) |
+| 19 | The retired term "execution governance" remained in 14 files (`GOVERNANCE.md`, `typescript/docs/06-09`, `docs/architecture/EXECUTION-FLOW-AUDIT.md`, `docs/architecture/KEY-MANAGEMENT.md`, `docs/rfcs/RFC-0012`, `docs/00-introduction/PROBLEM.md`, `docs/specifications/reference-policies.md`, plus this document) | Replaced with "execution authorization" / "AI Execution Authorization" in 12 of the 14 (see exclusions below); added a CI grep guard so it cannot silently reappear | Repo-wide case-insensitive grep for the phrase now returns only the four intentionally-excluded files (see note below) |
+| 20 | `FileKeyProvider` built key file paths from `keyId` with no input validation | Rejects any `keyId` not matching `^[A-Za-z0-9._-]+$` before path construction, in `getPrivateKey`, `getPublicKey`, `hasKey`, and `getMetadata` (all route through the same two path-building methods) | `packages/crypto/tests/unit/file-key-provider.test.ts` (new, 5 tests): rejects a `../../../../etc/passwd`-style keyId in all four methods; accepts the well-formed `"default"` keyId used by the rest of the suite |
+| 21 | Root `package.json` and `typescript/package.json` both declared `"name": "parmana"`, making plain `npm run <script>` cascade across every workspace and `npx <bin>` resolve relative to an arbitrary workspace instead of the repo root (documented in `docs/audit/CORE-API-FINDINGS-SDK-AUDITS.md` §4) | Renamed `typescript/package.json` to `"@parmana/legacy-reference"`; ran `npm install` to resync `node_modules`/lockfile; removed the `./node_modules/.bin/tsx` workaround from `.github/workflows/python-sdk.yml`, restored to `npm run check:python-models` | `npm run typecheck` and `npm run check:python-models` at repo root now each run only the intended root script, verified directly |
+| 22 | No LICENSE; repository intent (proprietary, evaluation-only) was undeclared | Wrote `LICENSE` (source-available for evaluation, all rights reserved, contact `founder@parmanasystems.com`); updated both `# License` sections in `README.md` to match | — |
+| 23 | This document's "Environment note" asserted that the `.env` in a specific checkout contains live Supabase credentials — a disclosure of where live credentials exist, not just a description of the gating mechanism | Rephrased to describe the `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`/`SUPABASE_ANON_KEY` gating mechanism and gap without asserting where live credentials are currently present | — |
+
+**Note on item 19's two exclusions:** `docs/site/how-parmana-thinks.mdx` and
+`docs/site/concepts/execution-authorization.mdx` both cite an unrelated third-party academic
+work actually named "Execution Governance" (Ku, 2026, EG Reference Specification v0.9.7.3)
+in a "Related work" callout — renaming that citation would misrepresent the cited work's
+real name, so it was left untouched. `docs/ROADMAP-v1.md` narrates the terminology sweep
+itself (quoting the retired term to describe gap G-18 there, which this session's edit to
+`docs/specifications/reference-policies.md` happens to resolve as a side effect — that
+roadmap document's own G-18/R6 entries were not updated, out of scope for this session). This
+document (`docs/VERIFICATION-GAPS.md`) is exempted from the CI grep guard for the same
+reason this section needs to name the retired term.
+
+**No shipped npm package name or public API identifier uses "execution governance"** in any
+casing (`ExecutionGovernance`, `execution-governance`, `EXECUTION_GOVERNANCE`) — confirmed by
+repo-wide grep. Nothing requires a decision on that front.
+
+**Explicitly out of scope for this session, remains open:** the in-memory `NonceStore`
+(`MemoryNonceStore`) and `InMemoryCallerAuditSink` both lose all state on process restart —
+the replay-nonce window and the caller-authentication audit trail alike. See new gap **G-13**
+below. This was not touched this session and must not be read as closed by anything above.
+*(Update from a later hardening session: G-13 has since been resolved — see its entry below
+for what changed and how it's verified. This paragraph is left as written at the time for an
+accurate record of what this specific session did and did not do.)*
+
+---
+
 ## Gaps checked and found not applicable
 
 - **Gateway session store concurrency**: `InMemoryGatewaySessionStore.consume()` is fully
@@ -75,35 +126,119 @@ in the phase report; nothing in `packages/*/src` was modified.
 
 ## Remaining gaps, by severity
 
+**Status note, as of the audit-sink/G-1 hardening session:** every `blocks-pilot` entry
+(G-1, G-2, G-3) is now resolved. Every gap still open below (`pre-production`: G-4, G-5,
+G-6, G-7, G-8, G-9; `cosmetic`: G-10, G-11) is, by its own text, either explicitly not a
+security defect (G-9), unreachable from any HTTP path (G-8), disconnected from the live
+request path (G-6), a permanent-skip test-coverage gap rather than a vulnerability (G-7), or
+a documentation/citation gap (G-10, G-11) — none describes a live, exploitable security
+defect. This is an assessment of the entries as written, not a new audit pass; re-verify
+before relying on it if significant time has passed or the code has changed since.
+
 ### blocks-pilot
 
 **G-1. Duplicate Business Transaction ID: real, deterministic data-loss race in
-`MemoryBusinessTransactionRepository`.**
+`MemoryBusinessTransactionRepository`. RESOLVED (Option A, as written in D-1 below,
+implemented as written) in the audit-sink/G-1 hardening session that followed the G-13
+session.** The original bug:
 `packages/runtime/src/services/business-transaction-service.ts:36-49` — `accept()` does
-`await this.repository.exists(id)` then, only if false, `await this.repository.create(...)`.
-`packages/storage/src/memory/MemoryBusinessTransactionRepository.ts:14-15` — `create()`
-unconditionally does `this.transactions.set(id, transaction)`, no uniqueness enforced at
-the storage layer at all. Verified directly this pass (script since discarded, not added as
-a permanent test per the "don't add a test for behavior that's wrong" rule): two concurrent
-`accept()` calls with the same `businessTransactionId` and *different* content both succeed,
-no `DuplicateBusinessTransactionError` is ever thrown by either, and the second write
-silently overwrites the first. This is not probabilistic — Node's scheduling makes it
-100% reproducible via `Promise.all`. **Decision required, see below.**
+`await this.repository.exists(id)` then, only if false, `await this.repository.create(...)`
+— a classic check-then-act race, not atomic. Two concurrent `accept()` calls with the same
+`businessTransactionId` and *different* content both used to succeed, no
+`DuplicateBusinessTransactionError` was ever thrown by either, and the second write silently
+overwrote the first (100% reproducible via `Promise.all`, not probabilistic).
 
-**G-2. No CI runs the main test suite.** `.github/workflows/` contains exactly one workflow,
-`python-sdk.yml`. Nothing runs `npm test` (345 tests, including now the HTTP-level
-credential-isolation proof and, in an environment with Supabase credentials present, 10
-live-database integration suites) on push or pull request. The only regression gate is a
-human remembering to run it locally.
+The fix, exactly as D-1's Option A specified:
 
-**G-3. Live external credentials are used by default, unlabeled, on every local test run.**
-See the environment note above. `SUPABASE_SERVICE_ROLE_KEY` sits in a gitignored `.env` and
-is picked up silently by Vite's env loading; there is nothing in the test output, this
-repo's README, or `packages/api/tests/helpers/supabase-availability.ts`'s own comments that
-tells a new contributor their local `npm test` run is about to write real rows to a real,
-live Supabase project. No test cleans up after itself (`workflow-supabase.integration.test.ts`
-and its siblings write real `business_transactions` and `execution_trust_records` rows that
-are never deleted).
+- **`MemoryBusinessTransactionRepository.create()`** now does the `Map.has` check and the
+  `Map.set` in the same synchronous tick — no `await` between them, so two concurrent calls
+  cannot interleave (the same technique `MemoryNonceStore.checkAndRecord()` and
+  `SupabaseNonceStore.checkAndRecord()` already use for G-13) — and throws
+  `DuplicateBusinessTransactionError` itself on a collision, rather than relying on the
+  service layer's separate (and racy) `exists()` check. `business-transaction-service.ts`'s
+  own `exists()`-then-`create()` sequence is untouched — it remains a cheap fast-path for the
+  non-racing common case, but the storage layer is now the actual source of truth.
+- **`BusinessTransactionRepository`'s `create()` contract** (`packages/shared/src/
+  repositories/business-transaction-repository.ts`) now documents the insert-if-absent
+  requirement explicitly: every implementation must throw `DuplicateBusinessTransactionError`
+  atomically for a duplicate, not overwrite it.
+- **`SupabaseBusinessTransactionRepository.create()`** now maps a `23505` unique-violation
+  (from the `business_transaction_id TEXT PRIMARY KEY` constraint that was already there,
+  in `supabase/migrations/20260629013035_initial_schema.sql` since the original schema — no
+  new migration needed) to `DuplicateBusinessTransactionError` via the same
+  `isUniqueViolation` helper G-13 built (`packages/storage/src/errors/
+  PostgresErrorCodes.ts`), instead of rethrowing the raw Postgres error.
+- **Architectural note, not anticipated by D-1's text**: `DuplicateBusinessTransactionError`
+  previously lived in `@parmana/runtime`, which `@parmana/storage` cannot depend on without a
+  circular reference (`packages/runtime/tsconfig.json` already references `../storage` for
+  its own test fixtures). The class was moved to `@parmana/shared`
+  (`packages/shared/src/errors/duplicate-business-transaction-error.ts`, alongside the
+  existing sibling `BusinessTransactionNotFoundError`/`ConflictError`/`ParmanaError`
+  hierarchy that `execution-service.ts` already used) so both repositories can throw the
+  identical class. `packages/runtime/src/errors/DuplicateBusinessTransactionError.ts` now
+  re-exports it, so every existing import path
+  (`business-transaction-service.ts`, `error-handler.ts`, `execute-api.test.ts`) is
+  unchanged and `instanceof` identity is preserved end to end — verified directly by
+  `execute-api.test.ts`'s existing "returns 409 when the same businessTransactionId is
+  submitted twice" test, which still passes unmodified.
+- **API-layer HTTP mapping required no change.** `packages/api/src/middleware/
+  error-handler.ts`'s existing `instanceof DuplicateBusinessTransactionError` branch
+  (409, no `code` field, matching `schemas/common/error.schema.json`'s documented contract)
+  already matches the relocated class via the re-export, confirmed by the same
+  `execute-api.test.ts` test above.
+
+Verified: 8 unit tests with mocked/in-memory storage —
+`packages/storage/tests/unit/memory-business-transaction-repository.test.ts` (including the
+concurrency proof: two simultaneous `create()` calls with the same id and different content,
+exactly one succeeds and the other rejects with `DuplicateBusinessTransactionError`, and the
+stored record is exactly the winner's, never a merge or the loser's),
+`packages/storage/tests/unit/supabase-business-transaction-repository.test.ts` (mocked
+`23505` mapping, and fail-closed propagation of any other storage error), and
+`packages/storage/tests/unit/business-transaction-repository-duplicate-consistency.test.ts`
+(`describe.each` over both implementations, asserting the identical error class and message
+for a duplicate) — plus 2 Supabase-gated integration tests against a real project, routed
+through `resolveSupabaseGate`:
+`packages/storage/tests/integration/supabase-business-transaction-duplicate.integration.test.ts`
+(sequential duplicate, and the same concurrent-race proof against real Postgres).
+
+**G-2. No CI runs the main test suite. CLOSED in the 2026-07-17 session** — see "Gaps closed
+in the 2026-07-17 audit closeout session" above. `.github/workflows/ci.yml` now runs
+`npm ci`, `npm run build`, a terminology-regression guard, and `npm test` on every push and
+pull request, Node 24, with explicit env vars and no dependency on any `.env` file.
+Supabase-gated integration tests are not run in CI (no `SUPABASE_*` secrets are configured
+there) — they skip cleanly rather than failing, which is itself a decision worth revisiting
+if fleet-wide Supabase coverage in CI is wanted later; not done this session.
+
+**G-3. Live external credentials are used by default, unlabeled, on every local test run.
+RESOLVED in this session (hardening pass following 2026-07-17 audit closeout).** All 10
+Supabase-gated suites (9 in `packages/api`, 1 in `packages/storage`) now route through a
+shared `resolveSupabaseGate(suiteLabel)` helper
+(`packages/api/tests/helpers/supabase-availability.ts`,
+`packages/storage/tests/helpers/supabase-availability.ts`, kept as two independent copies
+by design — see that file's own comment). Behavior:
+
+- No `SUPABASE_*` configured: unchanged — skips cleanly, exactly as before.
+- `SUPABASE_*` configured but `ALLOW_LIVE_SUPABASE=1` is not set: **hard failure**, not a
+  silent run and not a silent skip. The suite throws during test collection, naming the
+  missing flag explicitly, so a contributor whose `.env` happens to carry live credentials
+  can no longer write real rows to a real project without knowing it.
+- `SUPABASE_*` configured and `ALLOW_LIVE_SUPABASE=1` set: runs exactly as it did before
+  this change.
+
+Verified directly: with this checkout's own live-credential `.env` present and
+`ALLOW_LIVE_SUPABASE` unset, `receipt-negative.integration.test.ts` now fails in ~3s with
+`"Receipt Negative Integration: SUPABASE_URL and a Supabase key are configured, but
+ALLOW_LIVE_SUPABASE=1 is not set..."` instead of silently running. The guard itself (all
+three branches) is covered by unit tests with no live network dependency:
+`packages/api/tests/unit/supabase-availability.test.ts` and
+`packages/storage/tests/unit/supabase-availability.test.ts` (4 and 3 tests respectively).
+
+**Residual, not addressed by this fix:** once a contributor does opt in with
+`ALLOW_LIVE_SUPABASE=1`, no test cleans up after itself —
+`workflow-supabase.integration.test.ts` and its siblings still write real
+`business_transactions` and `execution_trust_records` rows that are never deleted. That
+cleanup gap is a smaller, separate concern from the "silent by default" problem this fix
+closes, and was out of this session's scope.
 
 ### pre-production
 
@@ -174,6 +309,188 @@ records are consistent, and only the connector-level one carries `credentialId`.
 duplicate-logging quirk worth a one-line fix (skip the outer log, or document why both
 exist) but was out of scope for this pass since it isn't test-only.
 
+**G-13. `MemoryNonceStore` and `InMemoryCallerAuditSink` both lose all state on process
+restart. RESOLVED in the durable-replay-protection hardening session that followed the
+2026-07-17 audit closeout and its own G-3 fix.** Both now have durable, Supabase-backed
+replacements, wired in as the production default:
+
+- `packages/storage/src/supabase/SupabaseNonceStore.ts` — implements `NonceStore`
+  (`@parmana/envelope-verifier`) with the exact same interface and call-site semantics as
+  `MemoryNonceStore`: a nonce is still consumed as the last step of verification, strictly
+  before execution (`packages/execution-gateway/src/ExecutionGateway.ts` — unchanged by this
+  session; only the storage backing changed). Backed by a new `consumed_nonces` table
+  (`supabase/migrations/20260718090000_add_nonce_and_caller_audit_tables.sql`) whose
+  `PRIMARY KEY` on `nonce` is the entire atomicity mechanism — two concurrent `INSERT`s of
+  the same nonce race at the database, not in application code; exactly one succeeds, the
+  other fails with a `23505` unique_violation, mapped to "already consumed" by a new
+  `isUniqueViolation` helper (`packages/storage/src/errors/PostgresErrorCodes.ts` — no such
+  Postgres-error-code mapping existed anywhere in this codebase before this session; see
+  D-1 below, which needs the same kind of mapping for G-1, still open and unrelated).
+- `packages/api/src/auth/SupabaseCallerAuditSink.ts` — implements `CallerAuditSink`
+  unchanged, backed by a new `caller_audit_events` table in the same migration.
+
+Production wiring (`packages/api/src/bootstrap/createNonceStore.ts`,
+`createCallerAuditSink.ts`) fails closed: test wiring (`NODE_ENV=test`) still gets
+`MemoryNonceStore`/`InMemoryCallerAuditSink` — mirroring the production/test split
+`createCredentialProvider.ts` already established for the vendor-payment connector
+credential — but outside test wiring, an unconfigured Supabase backing throws a named,
+actionable error at startup (`assertSupabaseConfigured`) rather than silently falling back
+to an in-memory store. `SupabaseNonceStore.checkAndRecord` also fails closed on any error
+other than a unique-violation: the error propagates rather than being swallowed, so a
+request whose nonce check hit an unreachable database is rejected, never silently treated
+as accepted.
+
+Verified: 22 unit tests against mocked storage (atomic-consumption mapping, the fail-closed
+storage-error path, and the fail-closed production-wiring checks) —
+`packages/storage/tests/unit/supabase-nonce-store.test.ts`,
+`packages/storage/tests/unit/postgres-error-codes.test.ts`,
+`packages/api/tests/unit/supabase-caller-audit-sink.test.ts`,
+`packages/api/tests/unit/bootstrap/create-nonce-store.test.ts`,
+`packages/api/tests/unit/bootstrap/create-caller-audit-sink.test.ts` — plus 5 Supabase-gated
+integration tests against a real project, routed through the same `resolveSupabaseGate` the
+G-3 fix established (skip cleanly with no credentials, hard-fail without
+`ALLOW_LIVE_SUPABASE=1`): `packages/storage/tests/integration/
+supabase-nonce-store.integration.test.ts` (atomic consumption, a real concurrent-`INSERT`
+race with exactly one winner, and — the test that actually proves this gap closed — a nonce
+consumed through one store instance is still consumed by a second, independently
+constructed instance against the same backing, which `MemoryNonceStore` cannot pass at all)
+and `packages/api/tests/integration/supabase-caller-audit-sink.integration.test.ts` (a
+written event is read back through a second, independent client).
+
+**Residual, explicitly not addressed by this session:**
+- **Unbounded growth.** `consumed_nonces` is append-only by design — no application code
+  updates or deletes a row — and nothing purges expired rows yet. The table carries
+  `expires_at` for exactly this purpose; a future session should add a retention job (e.g. a
+  scheduled delete of rows well past their `expires_at`), sized past the maximum TTL rather
+  than tied to it. `caller_audit_events` has the same open shape and the same unmade
+  retention decision.
+- **`CallerAuditSink.record()`'s failure semantics are unchanged, not hardened.**
+  `middleware/caller-auth.ts` still `await`s `record()` with no `try`/`catch`, exactly as
+  before this session (re-confirmed by re-reading the call site). This session was
+  instructed to preserve that behavior, change only durability, and does — whether a failed
+  audit write should be allowed to fail the caller-auth request path at all remains an open
+  design question, not decided here. *(Update from a later session: this question has since
+  been decided and implemented — fail-closed. See "Decision record: audit-sink fail-closed"
+  immediately below.)*
+
+**G-14. The test that proves G-13 closed could silently not run at all, with a green
+summary line. RESOLVED in the session that followed G-13.** `resolveSupabaseGate`
+(`packages/api/tests/helpers/supabase-availability.ts`,
+`packages/storage/tests/helpers/supabase-availability.ts`) decides whether a Supabase-gated
+suite runs by reading `process.env.SUPABASE_URL` at module-collection time. That variable
+only reached a given test file's `process.env` if something in *that file's own import
+graph* happened to transitively import `packages/shared/src/config/Config.ts`, whose
+module-scope `dotenv.config()` call was, until this session, the only place `.env` ever got
+loaded. Vitest runs each test file's collection in a worker thread, and worker threads each
+get an independent snapshot of `process.env` — so whether a file "saw" `SUPABASE_URL` came
+down to which worker it landed in and which sibling files shared that worker, not a real gate
+decision. `packages/storage/tests/integration/supabase-nonce-store.integration.test.ts`
+(no import path to `Config.ts` — it only imports `SupabaseClientFactory` and
+`SupabaseNonceStore`, both dependency-free of `@parmana/shared`'s config module) lost that
+coin flip in every run observed across two separate sessions, including the one that first
+wrote G-13's "RESOLVED, verified" claim above: the restart-simulation test that is the
+*specific* proof `MemoryNonceStore` could not pass ("a nonce consumed through one store
+instance is still consumed by a fresh instance against the same backing") was silently
+`describe.skipIf`-skipped, not run, every time, with nothing in the `npm test` summary
+distinguishing it from a clean pass.
+
+Fix, three parts:
+
+1. **Deterministic env loading.** `vitest.setup.ts` (already registered as the sole
+   `setupFiles` entry in `vitest.config.ts`, so every worker always runs it first) now calls
+   `dotenv.config({ path: <repo-root>/.env, override: false })` directly, before any test
+   file's own imports execute. Every worker now gets an identical, complete env snapshot
+   regardless of which test files happen to share it. `Config.ts`'s own `dotenv.config()` call
+   is untouched — `override: false` on both sides means neither load can clobber the other or
+   an already-set shell variable; it is now simply a no-op the first time a file imports it.
+2. **Ambient-env coupling in unit tests: investigated, none found requiring a code change.**
+   The working hypothesis going into this fix was that several unit tests (`verification-api`,
+   `execute-api`, `receipt-get-api`, `transactions-api`, and peers) implicitly depend on
+   `SUPABASE_*` being *absent* to stay on their in-memory storage path, and would need
+   `vi.stubEnv`/explicit deletion in `beforeEach`/`afterEach` to stay green once env loading
+   became deterministic. Reproducing this directly — full suite runs with `SUPABASE_URL` and
+   a key present under the corrected deterministic loading, both with `ALLOW_LIVE_SUPABASE`
+   unset (fail-closed gate throws for the 13 gated suites, everything else green) and set (all
+   13 gated suites plus every unit test green) — found no such coupling. Reading
+   `packages/api/src/bootstrap/createNonceStore.ts` and `createCallerAuditSink.ts` confirms
+   why: both branch on `NODE_ENV === "test"` first, unconditionally returning the in-memory
+   implementation in test wiring regardless of `SUPABASE_URL`'s presence — the coupling the
+   hypothesis assumed does not exist in the production bootstrap code. (A prior, separate
+   session had reproduced 13 unit-test failures resembling this hypothesis, but by shelling
+   out `set -a; . ./.env; set +a` before `npm test` rather than letting `dotenv` load it;
+   that method's real effect was exporting `ALLOW_LIVE_SUPABASE=1` — which happened to still
+   be present in `.env` at that point in that session — globally as well, driving every gated
+   suite live and concurrent alongside the unit tests, not "`SUPABASE_URL` merely present."
+   That confound does not reproduce under `dotenv`-based loading; see verification below.)
+3. **Closed the fail-open hole in the gate itself.** `resolveSupabaseGate` previously had only
+   three branches: opt-in + configured → run; configured without opt-in → throw; unconfigured
+   → skip cleanly. A fourth case was unhandled: opt-in **set** but `SUPABASE_URL`/a key **not
+   visible**, which fell through to the "unconfigured" branch and skipped cleanly — exactly
+   the silent-skip failure mode this gap describes, just with an explicit opt-in present.
+   Both helper copies now throw a dedicated error naming this exact condition ("a live run was
+   explicitly requested... but Supabase env is not visible to this worker — env loading is
+   broken") instead of degrading to a skip. Explicit intent must never quietly become a green
+   skip.
+
+Verified: unit coverage for all four `resolveSupabaseGate` branches in both packages
+(`packages/api/tests/unit/supabase-availability.test.ts`,
+`packages/storage/tests/unit/supabase-availability.test.ts`, 5 and 4 tests respectively — the
+new case in each is "(case d, G-14) throws naming broken env loading when
+ALLOW_LIVE_SUPABASE=1 is set but SUPABASE_* is not visible"). With `ALLOW_LIVE_SUPABASE=1`
+temporarily appended to this checkout's live-credential `.env`, `npm test` was run three
+consecutive times specifically because the original bug was scheduling-dependent and one
+green run proves nothing: all three reported an identical `107 passed | 1 skipped (108)`
+test files and `478 passed | 1 skipped (479)` tests, zero failures, with the
+restart-simulation test confirmed executing and passing (not skipped) via a verbose-reporter
+run interleaved between them. (The one remaining skip in every run is the pre-existing,
+unrelated `describe.skip` in `execution-failure.integration.test.ts` — not Supabase-gated.)
+Before this fix, the same live-opt-in configuration produced `475 passed | 4 skipped (479)`
+— the nonce-store suite's 3 tests silently missing, non-deterministically, from run to run.
+`ALLOW_LIVE_SUPABASE=1` was removed from `.env` again immediately after verification; `npm
+run lint` and `npm run build` both pass clean on the resulting tree.
+
+**Residual, not addressed by this fix:** the two `resolveSupabaseGate` copies remain
+independent, hand-maintained duplicates (by design, per each file's own comment — see G-3);
+a future divergence between them would not be caught by anything short of manually diffing
+the two files or the shared unit-test coverage happening to be kept in lockstep, as it was
+this session.
+
+---
+
+### Decision record: audit-sink fail-closed
+
+**Decided and implemented** in the audit-sink/G-1 hardening session that followed G-13
+(directly resolves the open question G-13 left above): if a `CallerAuditSink.record()` write
+fails, the request now fails closed. An action that executes without an audit record
+contradicts Parmana's core claim of independently verifiable execution, so the availability
+cost of rejecting the request is accepted — consistent with the `NonceStore`'s own
+fail-closed wiring (G-13). This was a deliberate design decision, not a bug fix; it is
+recorded here so the decision itself is discoverable in the gap tracker, not only in session
+history.
+
+Implementation: `packages/api/src/middleware/caller-auth.ts`'s `recordOrFailClosed` helper
+wraps both `auditSink.record()` call sites (the `caller.rejected` path and the
+`caller.authenticated` path). On failure, it logs a structured entry
+(`{ event: "caller_audit_write_failed", route, error }`, distinguishable from other
+failures) and passes a new `AuditUnavailableError`
+(`packages/api/src/auth/AuditUnavailableError.ts`, extends `RuntimeError` — 503,
+`AUDIT_UNAVAILABLE`) to `next()`, which `error-handler.ts`'s existing generic
+`instanceof RuntimeError` branch maps with no changes to that file. The success path is
+byte-for-byte unchanged. Deliberately no retry, buffering, or queueing — that would convert
+fail-closed into eventually-audited, a materially different (and rejected) design; see
+"Decisions left for the owner" in this session's closing report if a retry layer is ever
+reconsidered.
+
+Verified: 6 unit tests directly against the middleware
+(`packages/api/tests/unit/middleware/caller-auth.test.ts`) — both success paths unchanged
+(valid credential reaches `next()` with no error, missing credential still gets its 401),
+both failure paths reject with `AuditUnavailableError` (status 503, code
+`AUDIT_UNAVAILABLE`) rather than a 401 or a silent pass-through, the structured log entry's
+exact shape, and that the sink is called exactly once (no retry). Plus the pre-existing
+`packages/api/tests/unit/supabase-caller-audit-sink.test.ts` (G-13 session), which already
+proves `SupabaseCallerAuditSink` propagates storage errors rather than swallowing them —
+required for this guard to be reachable at all in production wiring.
+
 ### cosmetic
 
 **G-10. CLAIMS.md citations that are vague or indirect** rather than pointing at a specific
@@ -197,12 +514,15 @@ elsewhere in the suite — but a reader following CLAIMS.md's own citation canno
 proof without independently searching for it, which is the exact failure mode CLAIMS.md's
 discipline exists to prevent.
 
-**G-11. `EXECUTION_AUTHORIZATION_TTL_SECONDS`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
-`SUPABASE_ANON_KEY`, `CRYPTO_MODE`, `RECEIPT_VERSION`, and `DATABASE_URL` are read by
-`packages/shared/src/config/Config.ts` but documented nowhere** on the public docs site
-(`guides/deploy-patterns.mdx`, `deployment/local.mdx`, `cryptography/overview.mdx`). Of
-these, `CRYPTO_MODE` is additionally dead (see G-4), so documenting it accurately means
-documenting that it does nothing yet.
+**G-11. PARTIALLY CLOSED in the 2026-07-17 session.** `EXECUTION_AUTHORIZATION_TTL_SECONDS`,
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `CRYPTO_MODE`,
+`RECEIPT_VERSION`, and `DATABASE_URL` are read by `packages/shared/src/config/Config.ts`.
+The new root `.env.example` now documents every environment variable confirmed (by grep)
+to be read anywhere in `packages/*/src`, including all of these, with `CRYPTO_MODE`
+annotated as dead per G-4. What remains open: the public docs site
+(`guides/deploy-patterns.mdx`, `deployment/local.mdx`, `cryptography/overview.mdx`) still
+does not mention them — `.env.example` is a better source of truth than doc prose (it
+can't drift as invisibly), but the site itself was not updated this session.
 
 ---
 
@@ -234,6 +554,12 @@ starts on `memory` before migrating to Supabase.*
 
 I lean toward Option A being cheap enough that Option B alone under-serves anyone actually
 running a pilot on `memory` storage under load, but this is a real design/priority call.
+
+**Status: RESOLVED — Option A implemented as written above**, in the audit-sink/G-1
+hardening session that followed the G-13 session. See G-1's own entry above for what
+changed and how it's verified. One point the estimate above didn't anticipate:
+`DuplicateBusinessTransactionError` had to move from `@parmana/runtime` to `@parmana/shared`
+to avoid a circular package dependency — also documented in G-1's entry.
 
 ### D-2. Hybrid/PQ dead configuration (G-4)
 
@@ -286,19 +612,21 @@ but not yet exposed. *Estimated size: trivial either way.*
 
 ## Top 5 to close first, if a bank's security team were reviewing next week
 
-1. **G-1, duplicate-transaction race** (Option A above) — a real, proven data-loss bug,
-   cheap to fix. *Half a day including the Supabase-side error mapping.*
-2. **G-3, live credentials used silently by default** — at minimum, add a loud warning to
-   `packages/api/tests/helpers/supabase-availability.ts` and this repo's contributor docs,
-   and a cleanup step (or a dedicated, clearly-disposable test project) so `npm test` stops
-   writing permanent rows to a real database. *A day, mostly cleanup-hook work across 10
-   test files.*
-3. **G-2, no CI** — a single GitHub Actions workflow running `npm test` on every PR would
-   have caught nothing new this pass (everything is green), but its absence is the reason
-   this whole audit was necessary instead of a standing guarantee. *A day, including
-   deciding whether Supabase-gated tests run in CI (needs project secrets) or are excluded
-   there and rely on local runs, which is itself a decision worth making explicitly rather
-   than by default.*
+1. **G-1, duplicate-transaction race — RESOLVED.** Option A implemented as written: atomic
+   `Map.has`/`Map.set` in the same tick for the in-memory repository, `23505` mapping for
+   the Supabase repository, both throwing the same `DuplicateBusinessTransactionError`
+   (relocated to `@parmana/shared` to avoid a circular dependency — see G-1's own entry).
+2. **G-3, live credentials used silently by default — RESOLVED.** The "silently" half is
+   fixed: an `ALLOW_LIVE_SUPABASE=1` opt-in is now required, hard-failing with a named
+   error otherwise. The cleanup half remains: no test deletes the real rows it writes once
+   opted in. *Remaining work: a cleanup step (or a dedicated, disposable test project) so
+   an opted-in `npm test` stops leaving permanent rows in a real database — a day, mostly
+   cleanup-hook work across 10 test files.*
+3. **G-2, no CI — CLOSED 2026-07-17.** `.github/workflows/ci.yml` now runs the full suite
+   on every push and PR. Supabase-gated tests are excluded there (no project secrets
+   configured in CI) and rely on local runs — the decision this note flagged as worth
+   making explicitly was made explicitly: local-only for now, revisit if fleet-wide
+   Supabase coverage in CI becomes a priority.
 4. **G-4, hybrid/PQ dead config** (Option B first, Option A if roadmapped) — Option B alone
    closes the "config that silently does nothing" trap same-day; Option A is a real project.
    *Trivial for B, weeks for A.*
@@ -322,14 +650,22 @@ summaries or file names alone.
 
 ---
 
-## Deferred: legacy documentation tree, out of scope for the terminology sweep
+## Legacy documentation tree terminology sweep — closed 2026-07-17
 
-`docs/00-introduction`, `docs/rfcs`, `GOVERNANCE.md`, `docs/01-concepts` through
-`docs/03-api`, `docs/adr`, and `typescript/docs/06_autonomous_vehicle.md` through
-`typescript/docs/09_multi_agent.md` predate the Mintlify site (`docs/site`) and still use
-older terminology, including "Execution Governance" as a brand or category term now claimed
-by an unrelated academic framework (Ku, 2026, EG Reference Specification). These files were
-left untouched during the terminology sweep that updated `docs/site`, `README.md`,
-`packages/connector-sdk/package.json`, and the affected tutorial READMEs. Whether this
-legacy tree gets swept for the same terminology or archived outright is a separate decision,
-not made here.
+Previously deferred (see prior revision of this document): `docs/00-introduction`,
+`docs/rfcs`, `GOVERNANCE.md`, `docs/01-concepts` through `docs/03-api`, `docs/adr`, and
+`typescript/docs/06_autonomous_vehicle.md` through `typescript/docs/09_multi_agent.md`
+predate the Mintlify site (`docs/site`) and were left untouched during an earlier
+terminology sweep that updated `docs/site`, `README.md`, `packages/connector-sdk/
+package.json`, and the affected tutorial READMEs.
+
+The 2026-07-17 audit closeout session swept the remainder: `GOVERNANCE.md`,
+`docs/00-introduction/PROBLEM.md`, `docs/rfcs/RFC-0012-Phase-1-Architecture-Completion.md`,
+`typescript/docs/06_autonomous_vehicle.md` through `09_multi_agent.md`,
+`docs/architecture/EXECUTION-FLOW-AUDIT.md`, `docs/architecture/KEY-MANAGEMENT.md`, and
+`docs/specifications/reference-policies.md`. A fresh repo-wide grep confirms
+`docs/01-concepts` through `docs/03-api` and `docs/adr` never actually contained the
+retired term (zero matches) — nothing to sweep there. See "Gaps closed in the 2026-07-17
+audit closeout session" above (item 19) for the two files intentionally left unswept (an
+external citation that is itself correctly named "Execution Governance") and the CI guard
+now in place against regression.

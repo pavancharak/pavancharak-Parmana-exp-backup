@@ -14,29 +14,37 @@
     "build:verbose": "tsc -b --verbose",
     "build:force": "tsc -b --force --verbose",
     "clean": "tsc -b --clean",
-  
-    "openapi": "npm run lint:openapi && npm run bundle:openapi",
+
+    "openapi": "npm run lint:openapi && npx redocly bundle openapi/openapi.yaml -o openapi/openapi.bundled.yaml --ext yaml && npx tsx scripts/copy-openapi-bundle-to-docs.ts",
+    "bundle:openapi": "redocly bundle openapi/openapi.yaml -o openapi/openapi.bundled.yaml --ext yaml && tsx scripts/copy-openapi-bundle-to-docs.ts",
+    "lint:openapi": "redocly lint openapi/openapi.yaml",
+
     "rebuild": "npm run clean && npm run build:force",
     "dev": "tsx packages/api/src/server.ts",
+
     "generate:gateway-keys": "tsx scripts/generate-keypair.ts --algorithm ed25519 --key-id gateway",
     "generate:api-key": "tsx scripts/generate-api-key.ts",
-    "lint:openapi": "redocly lint openapi/openapi.yaml",
-    "bundle:openapi": "redocly bundle openapi/openapi.yaml -o openapi/openapi.bundled.yaml --ext yaml && tsx scripts/copy-openapi-bundle-to-docs.ts",
+
     "typecheck": "tsc --noEmit -p tsconfig.json",
+
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
+
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+
     "pretest": "tsx scripts/check-dist-fresh.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
+
     "examples": "tsx scripts/run-examples.ts",
+
     "generate:python-models": "tsx python/scripts/generate_models.ts",
     "check:python-models": "tsx python/scripts/generate_models.ts --check"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -44,6 +52,7 @@
     "@types/node": "^24.0.0",
     "@vitest/coverage-v8": "^4.1.9",
     "dependency-cruiser": "^18.0.0",
+    "dotenv": "^17.4.2",
     "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.4",

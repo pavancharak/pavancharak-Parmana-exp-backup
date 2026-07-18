@@ -1,6 +1,7 @@
 {
   "name": "@parmana/envelope-verifier",
   "version": "0.1.0",
+  "private": true,
   "description": "Verifies that an incoming execution request was authorized by Parmana",
   "type": "module",
   "main": "./dist/index.js",
@@ -42,7 +43,7 @@
     "vitest": "^4.1.9"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
-  "license": "Apache-2.0"
+  "license": "SEE LICENSE IN LICENSE"
 }

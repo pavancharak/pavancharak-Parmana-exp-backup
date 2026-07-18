@@ -232,7 +232,7 @@ Execution Authorization
 
 
 
-Execution Governance
+AI Execution Authorization
 
 
 

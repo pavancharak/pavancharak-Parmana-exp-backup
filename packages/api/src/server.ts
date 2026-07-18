@@ -19,9 +19,14 @@ const callerAuth =
 const app =
   createApp(
     application,
-    callerAuth.disabled
-      ? {}
-      : { callerAuth },
+    {
+      callerAuth: callerAuth.disabled
+        ? "disabled"
+        : {
+            authenticator: callerAuth.authenticator,
+            auditSink: callerAuth.auditSink,
+          },
+    },
   );
 
 const PORT = 3000;

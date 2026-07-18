@@ -1,6 +1,7 @@
 {
   "name": "@parmana/crypto",
   "version": "0.1.0",
+  "private": true,
   "description": "Parmana Crypto Module",
   "type": "module",
   "main": "./dist/index.js",
@@ -38,7 +39,7 @@
     "typescript-eslint": "^8.62.0"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
-  "license": "Apache-2.0"
+  "license": "SEE LICENSE IN LICENSE"
 }

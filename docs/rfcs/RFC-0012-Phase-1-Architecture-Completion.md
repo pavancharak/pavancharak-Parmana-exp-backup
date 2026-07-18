@@ -608,7 +608,7 @@ Phase 1 provides the foundation for:
 
 \* distributed policy repositories
 
-\* execution governance
+\* execution authorization
 
 \* cryptographic policy attestations
 

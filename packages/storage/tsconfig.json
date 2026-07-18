@@ -21,6 +21,9 @@
     },
     {
       "path": "../crypto"
+    },
+    {
+      "path": "../envelope-verifier"
     }
   ]
 }

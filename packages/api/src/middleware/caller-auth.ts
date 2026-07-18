@@ -1,7 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 
 import type { CallerAuthenticator } from "../auth/CallerAuthenticator.js";
-import type { CallerAuditSink } from "../auth/CallerAuditSink.js";
+import type { CallerAuditEvent, CallerAuditSink } from "../auth/CallerAuditSink.js";
+import { AuditUnavailableError } from "../auth/AuditUnavailableError.js";
 
 /* eslint-disable @typescript-eslint/no-namespace */
 
@@ -42,6 +43,40 @@ function extractBearerToken(header: string | undefined): string | undefined {
  * policy-rejected transaction is still rejected by policy,
  * this middleware cannot substitute for it.
  */
+/**
+ * Records a caller-audit event, failing closed on a write error: logs
+ * a structured entry naming the failure, passes AuditUnavailableError
+ * to next() so the centralized error handler returns a 503, and
+ * returns false so the caller can stop before res.status()/next()
+ * (whichever the success path would have done). An action that
+ * executes without an audit record contradicts the product's core
+ * claim — see AuditUnavailableError's own comment and
+ * docs/VERIFICATION-GAPS.md.
+ *
+ * Deliberately no retry, buffering, or queueing: that would convert
+ * fail-closed into eventually-audited, a different design.
+ */
+async function recordOrFailClosed(
+  auditSink: CallerAuditSink,
+  event: CallerAuditEvent,
+  req: Request,
+  next: NextFunction,
+): Promise<boolean> {
+  try {
+    await auditSink.record(event);
+    return true;
+  } catch (error) {
+    console.error({
+      event: "caller_audit_write_failed",
+      route: req.originalUrl,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    next(new AuditUnavailableError());
+    return false;
+  }
+}
+
 export function createCallerAuthMiddleware(
   authenticator: CallerAuthenticator,
   auditSink: CallerAuditSink,
@@ -51,12 +86,19 @@ export function createCallerAuthMiddleware(
     const identity = authenticator.authenticate(credential);
 
     if (!identity) {
-      await auditSink.record({
-        type: "caller.rejected",
-        occurredAt: new Date().toISOString(),
-        route: req.originalUrl,
-        reason: credential ? "invalid credential" : "missing credential",
-      });
+      const recorded = await recordOrFailClosed(
+        auditSink,
+        {
+          type: "caller.rejected",
+          occurredAt: new Date().toISOString(),
+          route: req.originalUrl,
+          reason: credential ? "invalid credential" : "missing credential",
+        },
+        req,
+        next,
+      );
+
+      if (!recorded) return;
 
       res.status(401).json({
         error: "authentication required",
@@ -67,12 +109,19 @@ export function createCallerAuthMiddleware(
 
     req.callerId = identity.callerId;
 
-    await auditSink.record({
-      type: "caller.authenticated",
-      occurredAt: new Date().toISOString(),
-      route: req.originalUrl,
-      callerId: identity.callerId,
-    });
+    const recorded = await recordOrFailClosed(
+      auditSink,
+      {
+        type: "caller.authenticated",
+        occurredAt: new Date().toISOString(),
+        route: req.originalUrl,
+        callerId: identity.callerId,
+      },
+      req,
+      next,
+    );
+
+    if (!recorded) return;
 
     next();
   };

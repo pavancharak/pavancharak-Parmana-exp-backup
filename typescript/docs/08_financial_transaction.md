@@ -48,7 +48,7 @@ After completing this guide you will understand:
 
 
 
-\* Why financial AI requires execution governance
+\* Why financial AI requires execution authorization
 
 \* How payment approvals become Business Transactions
 
@@ -742,7 +742,7 @@ No external logs are required to reconstruct the execution.
 
 
 
-Execution governance supports:
+Execution authorization supports:
 
 
 
@@ -854,7 +854,7 @@ for the complete TypeScript implementation.
 
 
 
-Financial execution governance follows the same Parmana architecture used across all domains:
+Financial execution authorization follows the same Parmana architecture used across all domains:
 
 
 

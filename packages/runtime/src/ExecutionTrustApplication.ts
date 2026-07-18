@@ -10,10 +10,10 @@ import {
 
 import { Runtime } from "./Runtime.js";
 
+import { VerificationFailedError } from "./errors/VerificationFailedError.js";
 import { BusinessTransactionService } from "./services/business-transaction-service.js";
 import { ReceiptService } from "./services/receipt-service.js";
 import { VerificationService } from "./services/verification-service.js";
-import { VerificationFailedError } from "./errors/VerificationFailedError.js";
 
 /**
  * Execution Trust Application.
@@ -51,66 +51,42 @@ export class ExecutionTrustApplication {
   async execute(
     transaction: BusinessTransaction,
   ): Promise<ExecutionTrustRecord> {
-  
-    //
-    // Accept Business Transaction
-    //
-    
 
+    console.log("[APP] 1 - accept");
     await this.transactions.accept(
       transaction,
     );
 
-
-    //
-    // Execute Runtime
-    //
-
-
+    console.log("[APP] 2 - runtime");
     await this.runtime.execute(
       transaction,
     );
 
-    //
-    // Verification
-    //
-  
+    console.log("[APP] 3 - verification");
     await this.verification.verify(
       transaction.businessTransactionId,
     );
 
-
-
-    //
-    // Receipt
-    //
-
-
+    console.log("[APP] 4 - receipt");
     await this.receipts.generate(
       transaction.businessTransactionId,
     );
 
- 
-
-    //
-    // Load completed Trust Record
-    //
-  
-
+    console.log("[APP] 5 - load trust record");
     const trustRecord =
       await this.trustRecords.findByTransactionId(
         transaction.businessTransactionId,
       );
 
-  
+    console.log("[APP] 6 - found trust record");
+
     if (!trustRecord) {
       throw new Error(
         "Execution Trust Record not found.",
       );
     }
 
-   
-
+    console.log("[APP] 7 - returning");
     return trustRecord;
   }
 

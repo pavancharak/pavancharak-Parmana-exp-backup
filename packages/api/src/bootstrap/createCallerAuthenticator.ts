@@ -1,9 +1,10 @@
 import { loadConfig, type Config } from "@parmana/shared";
 
 import { StaticKeyAuthenticator } from "../auth/StaticKeyAuthenticator.js";
-import { InMemoryCallerAuditSink } from "../auth/InMemoryCallerAuditSink.js";
 import type { CallerAuthenticator } from "../auth/CallerAuthenticator.js";
 import type { CallerAuditSink } from "../auth/CallerAuditSink.js";
+
+import { createCallerAuditSink } from "./createCallerAuditSink.js";
 
 export type CallerAuthBootstrap =
   | { readonly disabled: true }
@@ -49,6 +50,6 @@ export function createCallerAuthenticator(
   return {
     disabled: false,
     authenticator: new StaticKeyAuthenticator(config.auth.keys),
-    auditSink: new InMemoryCallerAuditSink(),
+    auditSink: createCallerAuditSink(),
   };
 }

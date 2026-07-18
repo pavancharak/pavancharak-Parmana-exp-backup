@@ -836,7 +836,7 @@ The complete workflow becomes independently explainable.
 
 
 
-Execution governance provides:
+Execution authorization provides:
 
 
 

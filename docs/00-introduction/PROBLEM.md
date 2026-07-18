@@ -190,7 +190,7 @@ AI capability cannot replace organizational authority.
 
 
 
-\# Existing AI Systems Lack Execution Governance
+\# Existing AI Systems Lack Execution Authorization
 
 
 

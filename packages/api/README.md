@@ -19,18 +19,34 @@ required environment variables are absent:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_ANON_KEY`)
 
-Set these (typically via a repo-root `.env`, gitignored) to run:
+Setting these alone is not enough to run these tests: since the G-3 fix
+(docs/VERIFICATION-GAPS.md), a suite that detects `SUPABASE_*` configured
+without `ALLOW_LIVE_SUPABASE=1` also set refuses to run at all — a hard
+failure naming the missing flag, not a silent run and not a silent skip. Set
+both `SUPABASE_*` and `ALLOW_LIVE_SUPABASE=1` to actually run these tests:
 
-- `test/verification-negative.integration.test.ts`
-- `test/trust-record-get.integration.test.ts`
-- `test/trust-record-lifecycle.integration.test.ts`
-- `test/workflow-negative.integration.test.ts`
-- `test/workflow-supabase.integration.test.ts`
-- `test/receipt-negative.integration.test.ts`
-- `test/receipt-signature.integration.test.ts`
-- `test/replay.integration.test.ts`
+- `tests/unit/transactions-api.test.ts` (persistence cases only — most of
+  this file is hermetic)
+- `tests/integration/verification-negative.integration.test.ts`
+- `tests/integration/trust-record-get.integration.test.ts`
+- `tests/integration/trust-record-lifecycle.integration.test.ts`
+- `tests/integration/workflow-negative.integration.test.ts`
+- `tests/integration/workflow-supabase.integration.test.ts`
+- `tests/integration/receipt-negative.integration.test.ts`
+- `tests/integration/receipt-signature.integration.test.ts`
+- `tests/integration/replay.integration.test.ts`
+- `tests/integration/supabase-caller-audit-sink.integration.test.ts` (added
+  when the durable `SupabaseCallerAuditSink` closed G-13)
 
-The skip check lives in `test/helpers/supabase-availability.ts`.
+The skip check lives in `tests/helpers/supabase-availability.ts`.
+
+The sibling `@parmana/storage` package has its own Supabase-gated suites,
+routed through the same `resolveSupabaseGate` mechanism (its own copy of the
+helper, kept independent by design — see that file's comment) and the same
+`ALLOW_LIVE_SUPABASE=1` requirement:
+`packages/storage/tests/integration/supabase-execution-trust-record-ordering.integration.test.ts`,
+`supabase-nonce-store.integration.test.ts` (G-13), and
+`supabase-business-transaction-duplicate.integration.test.ts` (G-1).
 
 ### Known non-hermetic gap: policy directory
 

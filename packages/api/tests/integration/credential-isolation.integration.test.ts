@@ -31,7 +31,7 @@ describe("Credential Isolation (HTTP boundary)", () => {
       createInspectableExecutionSystem();
 
     const application = createApplication(executionSystem);
-    const app = createApp(application);
+    const app = createApp(application, { callerAuth: "disabled" });
 
     const transaction = createBusinessTransaction();
 
@@ -83,7 +83,7 @@ describe("Credential Isolation (HTTP boundary)", () => {
       });
 
     const application = createApplication(executionSystem);
-    const app = createApp(application);
+    const app = createApp(application, { callerAuth: "disabled" });
 
     const transaction = createBusinessTransaction();
 
@@ -125,7 +125,7 @@ describe("Credential Isolation (HTTP boundary)", () => {
     });
 
     const application = createApplication(executionSystem);
-    const app = createApp(application);
+    const app = createApp(application, { callerAuth: "disabled" });
 
     const transaction = createBusinessTransaction();
 

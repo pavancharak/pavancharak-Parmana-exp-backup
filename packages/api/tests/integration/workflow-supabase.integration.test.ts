@@ -20,17 +20,9 @@ beforeAll(() => {
 });
 
 import app from "../test-app.js";
-import { hasSupabaseConfig } from "../helpers/supabase-availability.js";
+import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
 
-const supabaseConfigured = hasSupabaseConfig();
-
-if (!supabaseConfigured) {
-  console.log(
-    "[SKIP] Supabase Workflow Integration: SUPABASE_URL / " +
-      "SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) not set. " +
-      "See packages/api/README.md to enable this suite.",
-  );
-}
+const supabaseConfigured = resolveSupabaseGate("Supabase Workflow Integration");
 
 describe.skipIf(!supabaseConfigured)(
   "Supabase Workflow Integration",

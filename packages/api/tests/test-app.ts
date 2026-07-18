@@ -10,6 +10,7 @@ const application = createApplication(
 
 const app = createApp(
   application,
+  { callerAuth: "disabled" },
 );
 
 export default app;

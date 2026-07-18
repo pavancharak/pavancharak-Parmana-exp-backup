@@ -410,7 +410,12 @@ Please:
 
 # License
 
-Licensed under the Apache License 2.0.
+Source-available for evaluation. All rights reserved. See [LICENSE](./LICENSE).
+
+No license is granted to use, copy, modify, distribute, or create derivative
+works from this repository except as expressly permitted in a separate
+written agreement with Parmana Systems. For licensing inquiries, contact
+founder@parmanasystems.com.
 
 ---
 
@@ -744,7 +749,12 @@ Architectural consistency is preferred over feature velocity.
 
 # License
 
-Licensed under the Apache License 2.0.
+Source-available for evaluation. All rights reserved. See [LICENSE](./LICENSE).
+
+No license is granted to use, copy, modify, distribute, or create derivative
+works from this repository except as expressly permitted in a separate
+written agreement with Parmana Systems. For licensing inquiries, contact
+founder@parmanasystems.com.
 
 ---
 

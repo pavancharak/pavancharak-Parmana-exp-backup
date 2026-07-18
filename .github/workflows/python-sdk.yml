@@ -51,20 +51,12 @@ jobs:
         run: npm ci
 
       - name: Check generated models are up to date
-        # Invoked via the local tsx binary directly, NOT `npm run
-        # check:python-models` or `npx tsx ...`: root package.json and
-        # typescript/package.json both declare "name": "parmana", which
-        # makes npm's workspace resolution ambiguous and breaks both
-        # `npm run <script>` (cascades across every workspace) and `npx`
-        # (resolves relative to an arbitrary workspace directory instead
-        # of the repo root) at the repo root. Pre-existing, unrelated to
-        # this SDK -- see the consolidated core-API/repo findings note.
-        run: ./node_modules/.bin/tsx python/scripts/generate_models.ts --check
         # python/parmana/models/*.py is generated from
         # packages/shared/src/domain/*.ts (and CryptoAlgorithms.ts) by
         # python/scripts/generate_models.ts. This fails the build if
         # regenerating would change the committed output, so the SDK
         # cannot silently drift from @parmana/shared.
+        run: npm run check:python-models
 
       - name: Install Python package
         run: |

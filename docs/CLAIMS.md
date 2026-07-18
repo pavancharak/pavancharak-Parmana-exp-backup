@@ -520,6 +520,148 @@ Evidence
 
 
 
+\## 2.16 Caller Authentication at the API Boundary
+
+
+
+Every route except /health requires a valid caller credential. createApp's callerAuth option is mandatory — it accepts either an authenticator/auditSink pair or the literal string "disabled" — so every call site states its choice explicitly; there is no default that silently mounts the API with no caller authentication. Production (server.ts) refuses to start with PARMANA\_AUTH\_DISABLED unset and no PARMANA\_API\_KEYS configured (2.17). A key valid for one caller does not grant a different caller's identity, and every accept/reject outcome is audited without ever recording the raw key. In production, that audit trail is durable — see 3.2's sibling claim for the NonceStore side of the same fix — backed by Supabase and shared across every process, not scoped to one process's uptime; \`createCallerAuditSink.ts\` fails closed at startup if Supabase is not configured. \`InMemoryCallerAuditSink\` remains available and correct for tests (NODE\_ENV=test).
+
+
+
+Evidence
+
+
+
+\* packages/api/src/app.ts (CallerAuthOption: "disabled" | { authenticator, auditSink }, required, no default)
+
+\* packages/api/src/bootstrap/createCallerAuthenticator.ts
+
+\* packages/api/src/bootstrap/createCallerAuditSink.ts (production wiring; fails closed when Supabase is not configured)
+
+\* packages/api/src/auth/StaticKeyAuthenticator.ts
+
+\* packages/api/src/auth/SupabaseCallerAuditSink.ts / InMemoryCallerAuditSink.ts
+
+\* packages/api/tests/integration/supabase-caller-audit-sink.integration.test.ts — a recorded event is read back through a second, independent client
+
+\* packages/api/tests/integration/caller-auth.integration.test.ts (valid/missing/invalid credential, scoping and revocation, audit trail content never contains the raw key, composition with policy evaluation, full route inventory)
+
+\* packages/api/tests/unit/bootstrap/create-caller-authenticator.test.ts
+
+
+
+\---
+
+
+
+\## 2.17 Fail-Closed Startup Configuration Validation
+
+
+
+Parmana refuses to start rather than let missing required configuration surface later as an unstructured runtime error. This applies to caller authentication keys (PARMANA\_API\_KEYS, unless PARMANA\_AUTH\_DISABLED=true is set explicitly), the policy directory (PARMANA\_POLICY\_DIR), and — in production wiring — the durable NonceStore and CallerAuditSink's Supabase configuration alike: all fail at startup with an error naming the missing variable, rather than PARMANA\_POLICY\_DIR surfacing as an unhandled ERR\_INVALID\_ARG\_TYPE inside FilePolicyRepository.load at request time, or a NonceStore/CallerAuditSink silently degrading to an in-memory implementation.
+
+
+
+Evidence
+
+
+
+\* packages/api/src/bootstrap/createCallerAuthenticator.ts
+
+\* packages/shared/src/config/Config.ts (requirePolicyDirectory)
+
+\* packages/api/src/bootstrap/assertSupabaseConfigured.ts, used by createNonceStore.ts and createCallerAuditSink.ts
+
+\* packages/shared/tests/unit/config.test.ts — "refuses to start when PARMANA\_POLICY\_DIR is unset", "refuses to start when PARMANA\_POLICY\_DIR is blank"
+
+\* packages/api/tests/unit/bootstrap/create-caller-authenticator.test.ts
+
+\* packages/api/tests/unit/bootstrap/create-nonce-store.test.ts, create-caller-audit-sink.test.ts — "fails closed with a named, actionable error when NODE\_ENV is not test and Supabase is not configured", "never silently falls back" to the in-memory implementation
+
+
+
+\---
+
+
+
+\## 2.18 Key Provider Input Validation
+
+
+
+FileKeyProvider rejects any keyId that does not match ^\[A-Za-z0-9._-\]+$ before constructing a filesystem path from it, closing the path-traversal surface a crafted keyId (for example, containing "../") would otherwise open against the configured key directory.
+
+
+
+Evidence
+
+
+
+\* packages/crypto/src/providers/key/FileKeyProvider.ts (assertValidKeyId)
+
+\* packages/crypto/tests/unit/file-key-provider.test.ts — rejects a path-traversal keyId in getPrivateKey, getPublicKey, hasKey, and getMetadata
+
+
+
+\---
+
+
+
+\## 2.19 Fail-Closed Caller-Authentication Audit Writes
+
+
+
+A caller-authentication event (accepted or rejected) that fails to be recorded fails the request. \`middleware/caller-auth.ts\` wraps every \`CallerAuditSink.record()\` call: on success the request proceeds exactly as before; on failure the request is rejected with \`AuditUnavailableError\` (503, code \`AUDIT\_UNAVAILABLE\`) and a structured log entry naming the failure, rather than proceeding unaudited or crashing as an unhandled rejection. This is a deliberate design decision — an action that executes without an audit record contradicts independently verifiable execution — not an incidental side effect; the availability cost is accepted. No retry, buffering, or queueing exists: a failure fails closed immediately, once, every time.
+
+
+
+Evidence
+
+
+
+\* packages/api/src/middleware/caller-auth.ts (recordOrFailClosed)
+
+\* packages/api/src/auth/AuditUnavailableError.ts
+
+\* packages/api/tests/unit/middleware/caller-auth.test.ts — both success paths unchanged; both failure paths rejected with \`AuditUnavailableError\` (503/AUDIT\_UNAVAILABLE), not a 401 and not a silent pass-through; the structured log entry's exact shape; the sink is called exactly once (no retry)
+
+\* packages/api/tests/unit/supabase-caller-audit-sink.test.ts — \`SupabaseCallerAuditSink\` propagates storage errors rather than swallowing them, which is what makes this guard reachable in production wiring
+
+
+
+\---
+
+
+
+\## 2.20 Atomic Rejection of Duplicate Business Transactions
+
+
+
+Creating a Business Transaction with a \`businessTransactionId\` that already exists is rejected atomically, with the identical \`DuplicateBusinessTransactionError\` regardless of storage backend. \`MemoryBusinessTransactionRepository.create()\` performs its existence check and its write in the same synchronous tick, with no \`await\` between them, so two concurrent calls for the same id cannot interleave; \`SupabaseBusinessTransactionRepository.create()\` relies on the \`business\_transaction\_id\` column's \`PRIMARY KEY\` constraint and maps the resulting \`23505\` unique-violation to the same error class. Neither implementation ever silently overwrites an existing transaction.
+
+
+
+Evidence
+
+
+
+\* packages/storage/src/memory/MemoryBusinessTransactionRepository.ts
+
+\* packages/storage/src/supabase/SupabaseBusinessTransactionRepository.ts (isUniqueViolation mapping)
+
+\* packages/shared/src/errors/duplicate-business-transaction-error.ts
+
+\* packages/storage/tests/unit/memory-business-transaction-repository.test.ts — two simultaneous \`create()\` calls with the same id and different content: exactly one succeeds, the other rejects with \`DuplicateBusinessTransactionError\`, and the stored record is exactly the winner's
+
+\* packages/storage/tests/unit/business-transaction-repository-duplicate-consistency.test.ts — both repository implementations throw the identical error class and message for a duplicate
+
+\* packages/storage/tests/integration/supabase-business-transaction-duplicate.integration.test.ts — the same concurrent-race proof against a real Postgres database (Supabase-gated)
+
+
+
+\---
+
+
+
 \# 3. Conditional Claims
 
 
@@ -560,7 +702,11 @@ Evidence
 
 
 
-Single-use enforcement of an authorization's nonce is scoped to whichever NonceStore instance performs the check. If multiple independent receiving systems, or multiple instances of the same system, each use their own NonceStore, the same authorization can be accepted once per instance. Fleet-wide single-use requires every instance to share one persistent NonceStore. MemoryNonceStore additionally loses all state on process restart; because every envelope carries a short, bounded TTL, the exposure window created by either gap is bounded by that TTL, not unlimited.
+Single-use enforcement of an authorization's nonce is scoped to whichever NonceStore instance performs the check. If multiple independent receiving systems, or multiple instances of the same system, each use their own NonceStore, the same authorization can be accepted once per instance. Fleet-wide single-use requires every instance to share one persistent NonceStore that survives a process restart, not a per-process, in-memory one.
+
+
+
+Parmana's own production gateway does this by default. \`packages/api/src/bootstrap/createNonceStore.ts\` wires in \`SupabaseNonceStore\` (\`packages/storage/src/supabase/SupabaseNonceStore.ts\`) — a durable, Postgres-backed NonceStore shared across every process pointed at the same Supabase project — and fails closed at startup if it is not configured, rather than silently falling back to a per-process \`MemoryNonceStore\`. A receiving system that does not share a persistent NonceStore (whether by choice, misconfiguration, or because it is not Parmana's own gateway) still has its exposure window bounded by the envelope's short TTL, not unlimited — this is the general, deployment-agnostic version of the claim, and still the correct one for any \`@parmana/envelope-verifier\` integrator supplying their own NonceStore choice; \`MemoryNonceStore\` remains available and correct for tests.
 
 
 
@@ -568,7 +714,11 @@ Evidence
 
 
 
-\* NonceStore / MemoryNonceStore
+\* NonceStore / MemoryNonceStore / SupabaseNonceStore
+
+\* packages/api/src/bootstrap/createNonceStore.ts (production wiring; fails closed when Supabase is not configured, never falls back to in-memory)
+
+\* packages/storage/tests/integration/supabase-nonce-store.integration.test.ts — "a nonce consumed through one store instance is still consumed by a fresh instance against the same backing" (the fleet-sharing / restart-survival proof) and "two simultaneous checkAndRecord calls for the same nonce: exactly one succeeds" (a real concurrent-INSERT race against Postgres, not a simulated one)
 
 \* packages/envelope-verifier/README.md ("Claims", "PRODUCTION WARNING: MemoryNonceStore")
 
@@ -671,8 +821,6 @@ The following claims are planned but are intentionally withheld until supported 
 \* AI systems never possess or hold Parmana's execution credentials — no credential-brokering mechanism exists in the current implementation.
 
 \* Enterprise-grade key custody — current key storage is local PEM files read by FileKeyProvider; no KMS, HSM, or cloud key vault integration exists.
-
-\* API-layer authentication and authorization — no route in the Parmana API enforces authentication or authorization today; every request is accepted from any caller who can reach the port. Current deployments assume a trusted network boundary around the API. API-layer auth is a planned workstream, not yet scheduled or implemented.
 
 \* Authority, Intent, and Evidence verification checks in verification-service.ts. Only integrity, signature, and authorization binding are implemented today (2.15). The prior six-stage pipeline package (@parmana/verification) was retired in Session 5 — it had no real implementation and no real test coverage; its stage architecture is not being resurrected. Authority/Intent/Evidence checks, if built, will be added directly to verification-service.ts. Tracked for Session 6.
 
