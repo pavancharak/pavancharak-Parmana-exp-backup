@@ -21,9 +21,14 @@ required environment variables are absent:
 
 Setting these alone is not enough to run these tests: since the G-3 fix
 (docs/VERIFICATION-GAPS.md), a suite that detects `SUPABASE_*` configured
-without `ALLOW_LIVE_SUPABASE=1` also set refuses to run at all — a hard
-failure naming the missing flag, not a silent run and not a silent skip. Set
-both `SUPABASE_*` and `ALLOW_LIVE_SUPABASE=1` to actually run these tests:
+without `ALLOW_LIVE_SUPABASE=1` also set does not run against the live
+project — it skips cleanly instead, logging why. (Earlier, this was a hard
+failure instead of a skip; G-15 changed that so a default `npm test` on a
+machine with live credentials configured — the common daily-development
+case — stays green without anyone needing to touch `.env`. Explicitly
+requesting a live run with `ALLOW_LIVE_SUPABASE=1` but no visible
+credentials is still a hard failure, not a skip — see G-14.) Set both
+`SUPABASE_*` and `ALLOW_LIVE_SUPABASE=1` to actually run these tests:
 
 - `tests/unit/transactions-api.test.ts` (persistence cases only — most of
   this file is hermetic)

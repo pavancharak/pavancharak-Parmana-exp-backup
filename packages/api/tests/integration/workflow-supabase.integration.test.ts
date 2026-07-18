@@ -13,6 +13,7 @@ import request from "supertest";
 import type { ExecutionTrustRecord, Override } from "@parmana/shared";
 import { VerificationCrypto } from "@parmana/crypto";
 import { SupabaseStorageProvider } from "@parmana/storage";
+import { VerificationService } from "@parmana/runtime";
 
 beforeAll(() => {
   process.env.PARMANA_STORAGE =
@@ -179,14 +180,23 @@ describe.skipIf(!supabaseConfigured)(
           override.overrideId,
         );
 
-        const verifyResponse = await request(app)
-          .post("/verify")
-          .send({
-            businessTransactionId: transaction.businessTransactionId,
-          });
+        //
+        // Verify against the same real Supabase-backed repository this
+        // test wrote to directly (storage.trustRecords), not through
+        // request(app) — app's own repositories are always in-memory
+        // under NODE_ENV=test (G-15, docs/VERIFICATION-GAPS.md), so an
+        // HTTP round-trip here would look up this record in a store
+        // that never received it. VerificationService is the exact
+        // class the real /verify route delegates to
+        // (ExecutionTrustApplication.verify), so this still exercises
+        // production verification logic, just constructed directly
+        // against the real repository instead of through the app.
+        //
+        const verification = await new VerificationService(
+          storage.trustRecords,
+        ).verify(transaction.businessTransactionId);
 
-        expect(verifyResponse.status).toBe(200);
-        expect(verifyResponse.body.status).toBe("VERIFIED");
+        expect(verification.status).toBe("VERIFIED");
       },
       30000,
     );

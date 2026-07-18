@@ -20,23 +20,24 @@ export function hasSupabaseConfig(): boolean {
  * Resolves whether a Supabase-gated suite should run, and enforces the
  * live-credential opt-in (G-3): SUPABASE_* being configured is not by
  * itself enough to run against a live project. ALLOW_LIVE_SUPABASE=1
- * must also be set explicitly, or the suite refuses to run outright —
- * a thrown error during test collection, not a silent skip — rather
- * than silently writing to a real database. Call once per file, at
- * module scope, before any describe/it that depends on the result.
+ * must also be set explicitly, or the suite skips cleanly rather than
+ * silently writing to a real database — a default `npm test` on a
+ * machine with live credentials configured (the common daily-development
+ * case) stays green and side-effect-free without anyone needing to touch
+ * `.env`. Call once per file, at module scope, before any describe/it
+ * that depends on the result.
  */
 export function resolveSupabaseGate(suiteLabel: string): boolean {
   const configured = hasSupabaseConfig();
   const optedIn = process.env.ALLOW_LIVE_SUPABASE === "1";
 
   if (configured && !optedIn) {
-    throw new Error(
-      `${suiteLabel}: SUPABASE_URL and a Supabase key are configured, but ` +
-        "ALLOW_LIVE_SUPABASE=1 is not set. Refusing to run against a live " +
-        "Supabase project without the explicit opt-in. Set " +
-        "ALLOW_LIVE_SUPABASE=1 to run this suite, or unset SUPABASE_* to " +
-        "skip it.",
+    console.log(
+      `${suiteLabel}: Supabase credentials configured but ` +
+        "ALLOW_LIVE_SUPABASE=1 not set — skipping live suite. Set " +
+        "ALLOW_LIVE_SUPABASE=1 to run it.",
     );
+    return false;
   }
 
   // G-14: a live run was explicitly requested (the opt-in is set), but
@@ -61,8 +62,9 @@ export function resolveSupabaseGate(suiteLabel: string): boolean {
         "SUPABASE_ANON_KEY) not set. See packages/api/README.md to enable " +
         "this suite.",
     );
+    return false;
   }
 
-  return configured;
+  return true;
 }
 

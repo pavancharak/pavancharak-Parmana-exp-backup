@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
 
@@ -25,26 +25,33 @@ describe("resolveSupabaseGate", () => {
     }
   });
 
-  it("(case a) throws naming ALLOW_LIVE_SUPABASE when SUPABASE_* is configured without the opt-in", () => {
+  it("(case a) returns false and does not throw, logging the skip reason, when SUPABASE_* is configured without the opt-in", () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
     process.env.SUPABASE_URL = "https://example.supabase.co";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
     delete process.env.ALLOW_LIVE_SUPABASE;
 
-    expect(() => resolveSupabaseGate("Some Suite")).toThrow(
-      /ALLOW_LIVE_SUPABASE=1 is not set/,
+    expect(resolveSupabaseGate("Some Suite")).toBe(false);
+    expect(logSpy).toHaveBeenCalledWith(
+      "Some Suite: Supabase credentials configured but " +
+        "ALLOW_LIVE_SUPABASE=1 not set — skipping live suite. Set " +
+        "ALLOW_LIVE_SUPABASE=1 to run it.",
     );
 
-    expect(() => resolveSupabaseGate("Some Suite")).toThrow(/^Some Suite:/);
+    logSpy.mockRestore();
   });
 
-  it("(case a) also throws when ALLOW_LIVE_SUPABASE is set to something other than \"1\"", () => {
+  it("(case a) also returns false without throwing when ALLOW_LIVE_SUPABASE is set to something other than \"1\"", () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
     process.env.SUPABASE_URL = "https://example.supabase.co";
     process.env.SUPABASE_ANON_KEY = "test-anon-key";
     process.env.ALLOW_LIVE_SUPABASE = "true";
 
-    expect(() => resolveSupabaseGate("Some Suite")).toThrow(
-      /ALLOW_LIVE_SUPABASE=1 is not set/,
-    );
+    expect(resolveSupabaseGate("Some Suite")).toBe(false);
+
+    logSpy.mockRestore();
   });
 
   it("(case b) returns false and does not throw when no SUPABASE_* is configured", () => {

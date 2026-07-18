@@ -1,17 +1,50 @@
 import { StorageFactory } from "@parmana/storage";
+import type { StorageProvider } from "@parmana/storage";
 
 /**
- * Shared storage provider.
- *
- * Selected once during application startup.
+ * Shared storage provider, constructed lazily on first repository use
+ * rather than as a module-scope side effect (G-15,
+ * docs/VERIFICATION-GAPS.md). Importing this module — which every
+ * packages/api test file transitively does via ../src/application.js —
+ * must never itself construct a live Supabase client; only an actual
+ * repository call should.
  */
-const storage = StorageFactory.createFromEnvironment();
+let storage: StorageProvider | undefined;
+
+function getStorage(): StorageProvider {
+  storage ??= StorageFactory.createFromEnvironment();
+
+  return storage;
+}
+
+/**
+ * Wraps a repository accessor in a Proxy so the exported binding stays
+ * a plain repository instance at every call site — no function-call
+ * change required anywhere storage is used — while the real repository
+ * (and the storage provider behind it) isn't constructed until the
+ * first property access on it.
+ */
+function lazyRepository<T extends object>(
+  select: (provider: StorageProvider) => T,
+): T {
+  return new Proxy({} as T, {
+    get(_target, property, receiver) {
+      const repository = select(getStorage());
+
+      return Reflect.get(repository, property, receiver);
+    },
+  });
+}
 
 /**
  * Shared repositories.
  *
  * Every API route uses these instances.
  */
-export const businessTransactionRepository = storage.businessTransactions;
+export const businessTransactionRepository = lazyRepository(
+  (provider) => provider.businessTransactions,
+);
 
-export const executionTrustRecordRepository = storage.trustRecords;
+export const executionTrustRecordRepository = lazyRepository(
+  (provider) => provider.trustRecords,
+);
