@@ -758,6 +758,8 @@ Evidence
 
 Razorpay refunds are authorized against a deterministic policy pack (payment must exist and be captured, currency must be INR, amount must not exceed the refundable remainder, a per-refund cap, a daily cumulative cap tracked through the existing storage layer) and executed with credentials the requesting code never holds: key\_id and key\_secret are resolved only inside the existing session credential vault, at execution time, and destroyed immediately afterward by the existing try/finally pattern. A signed authorization and the existing, unmodified Execution Gateway pipeline (envelope verification, one-time Gateway sessions, session-credential issuance/consumption/destruction) carry every request. A repeated request for the same parmana transaction id is answered from a local outcome cache before any network call is made; independently, before every refund-create call the connector lists existing Razorpay refunds for the payment and treats one already tagged with the same transaction id as already executed, never creating a duplicate. This claim covers refund creation only. It does not claim payout creation (RazorpayX), webhooks, or live-mode operation, and it does not claim any change to Phase 1's Runtime, Policy Engine, Execution Gateway, Replay, Receipt Generation, Verification, or REST API, all of which remain exactly as evidenced elsewhere in this document.
 
+The Razorpay connector is also registered in the production API bootstrap (\`packages/api/src/bootstrap/createConnectorRegistry.ts\`), reachable through the existing, unmodified \`POST /execute\` endpoint by capability-based routing — the same mechanism that already reaches the vendor-payment connector — rather than only through unit tests and the standalone tutorial. Reached this way, policy is evaluated against caller-supplied signals, the same generic mechanism vendor-payment already uses; this path does not carry RazorpayRefundService's additional fetch-the-payment-before-evaluating-policy behavior, which remains a separate, test/tutorial-only harness (RazorpayRefundHarness), unchanged. Credentials (\`RAZORPAY\_KEY\_ID\` / \`RAZORPAY\_KEY\_SECRET\`) are resolved by a dedicated environment-backed provider at execution time only, following the same session-credential isolation as every other production connector. If either variable is unset outside test mode, the connector is not registered at all — \`razorpay:payment-fetch\` and \`razorpay:refund-create\` simply have no connector to resolve to (ConnectorSdkRegistry's existing "No connector registered for capability" error) — rather than the process starting with a mock or partially-configured credential, or the whole API refusing to start over one optional connector. All reachability proof for this API-wired path remains against MockRazorpayServer; it has not been exercised against a live or sandbox Razorpay account (see Future Claims).
+
 
 
 Evidence
@@ -771,6 +773,12 @@ Evidence
 \* policies/razorpay-refund/1.0.0/policy.json
 
 \* examples/tutorials/61-razorpay-refund (four outcomes: approved and executed, denied by policy, replay returning the recorded result, tamper rejected)
+
+\* packages/api/src/bootstrap/createRazorpayConnector.ts, createRazorpayCredentialProvider.ts (production registration; fails closed — the connector is never registered — when \`RAZORPAY\_KEY\_ID\` / \`RAZORPAY\_KEY\_SECRET\` are unset outside test mode), createConnectorRegistry.ts (conditional registration), createConnectorAuthenticator.ts (razorpay added to the trusted connector identity list)
+
+\* packages/api/tests/unit/bootstrap/create-razorpay-credential-provider.test.ts, create-connector-registry.test.ts (credential present/absent/malformed cases; fail-closed capability resolution when unconfigured; vendor-payment remains resolvable when razorpay is not; key\_secret never embedded in a thrown error)
+
+\* packages/api/tests/integration/razorpay-refund.integration.test.ts — a refund authorized, verified, and executed through a real \`POST /execute\` HTTP request against the production bootstrap chain (\`createExecutionSystem\`), landing on MockRazorpayServer; and a policy-denied refund through the same path making zero calls to Razorpay
 
 
 
@@ -787,6 +795,8 @@ The following claims are planned but are intentionally withheld until supported 
 
 
 \* \[FUTURE\] Razorpay payout creation (RazorpayX) and webhook handling: no implementation exists for either. The Razorpay connector implemented in this milestone covers refund creation only.
+
+\* \[FUTURE\] Live or sandbox Razorpay account testing: the connector's production API wiring (3.4) has been proven only against MockRazorpayServer, exactly like the pre-existing unit tests and tutorial. No test in this codebase has ever made a network call to a real or sandbox Razorpay endpoint.
 
 \* \[FUTURE\] Stripe connector — no implementation exists; would implement @parmana/connector-sdk's Connector interface.
 

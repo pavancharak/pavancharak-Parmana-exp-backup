@@ -182,6 +182,24 @@ paths:
         rejection reason. See the 500 response below and the executeRejected
         example. This is real, observed behavior, not a designed contract; it is
         documented here because the spec must describe the API as implemented.
+
+
+        `razorpay:refund-create` and `razorpay:payment-fetch` are a second pair
+        of registered capabilities reachable through this same endpoint by the
+        identical capability-based routing mechanism as `payments:execute` — see
+        the razorpay-refund-flow example below. Unlike `payments:execute`, this
+        capability is registered conditionally: if `RAZORPAY_KEY_ID` /
+        `RAZORPAY_KEY_SECRET` are not configured, the connector is never
+        registered and this action falls into the "no Connector registered" case
+        documented under 500 below. The response body shape for an approved
+        razorpay-refund-flow request is structurally identical to the
+        vendor-payment-flow response
+        (execution-trust-record-response.schema.json) — its execution's
+        evidence.attributes.connector.connectorId is "razorpay" and capability
+        is "razorpay:refund-create" rather than "vendor-payment" /
+        "payments:execute". See
+        packages/api/tests/integration/razorpay-refund.integration.test.ts for
+        the executable, real-request proof of this flow.
       requestBody:
         required: true
         content:
@@ -230,6 +248,48 @@ paths:
                     sufficientFunds: true
                     paymentAmount: 5000
                     riskScore: 12
+              razorpay-refund-flow:
+                summary: Real request shape (razorpay-refund 1.0.0, APPROVED), verbatim from
+                  packages/api/tests/integration/razorpay-refund.integration.test.ts
+                value:
+                  businessTransactionId: 8f14e45f-ceea-467e-8b39-8f14e45fceea
+                  metadata:
+                    businessTransactionId: 8f14e45f-ceea-467e-8b39-8f14e45fceea
+                    correlationId: 3f2504e0-4f89-11d3-9a0c-0305e82c3301
+                    createdBy: integration-test
+                    createdAt: 2026-07-18T18:00:00.000Z
+                  authority:
+                    authorityId: c4a76083-7d40-4e5f-9e3a-9c1b9e6f0d21
+                    authorityType: USER
+                    principalId: integration-test
+                    displayName: Integration Test
+                    issuedAt: 2026-07-18T18:00:00.000Z
+                  authorization:
+                    authorizationId: 6c1c1f2e-6c8a-4a34-9e2a-1c2a3e4f5a6b
+                    authorityId: c4a76083-7d40-4e5f-9e3a-9c1b9e6f0d21
+                    purpose: Integration Test
+                    authorizedAt: 2026-07-18T18:00:00.000Z
+                  intent:
+                    intentId: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
+                    authorizationId: 6c1c1f2e-6c8a-4a34-9e2a-1c2a3e4f5a6b
+                    action: razorpay:refund-create
+                    target: razorpay://payments/pay_HTTP001/refund
+                    parameters:
+                      paymentId: pay_HTTP001
+                      amountPaise: 250000
+                      reason: customer requested refund
+                    createdAt: 2026-07-18T18:00:00.000Z
+                  policy:
+                    name: razorpay-refund
+                    version: 1.0.0
+                    schemaVersion: 1.0.0
+                  signals:
+                    paymentStatus: captured
+                    paymentCurrency: INR
+                    refundableRemainingPaise: 1000000
+                    requestedRefundAmountPaise: 250000
+                    requestedExceedsRemainder: false
+                    dailyCumulativeAfterThisRefundPaise: 250000
       responses:
         "200":
           description: Execution Trust pipeline completed. The Execution Trust Record

@@ -6,8 +6,9 @@ import { createCredentialProvider } from "./createCredentialProvider.js";
 
 import {
   ConnectorSdkRegistry,
-  
+
   CapabilityConnectorPolicy,
+  RazorpayMetadata,
 } from "@parmana/connector-sdk";
 
 import type {
@@ -22,6 +23,8 @@ import {
 } from "@parmana/execution-control";
 
 import { createVendorPaymentConnector } from "./createVendorPaymentConnector.js";
+import { createRazorpayConnector } from "./createRazorpayConnector.js";
+import { createRazorpayCredentialProvider } from "./createRazorpayCredentialProvider.js";
 
 /**
  * Creates the production connector registry.
@@ -85,6 +88,39 @@ export function createConnectorRegistry(
 
     audit,
   });
+
+  const razorpayCredentialProvider = createRazorpayCredentialProvider();
+
+  if (razorpayCredentialProvider === undefined) {
+    console.warn({
+      event: "razorpay_connector_unavailable",
+      reason: "RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are not configured.",
+    });
+  } else {
+    registry.register({
+      connector: createRazorpayConnector(),
+
+      metadata: RazorpayMetadata,
+
+      connectorIdentity: {
+        connectorId: "razorpay",
+        publicIdentity: "spiffe://parmana/connectors/razorpay",
+        authenticationMetadata: {},
+      },
+
+      credentialProvider: razorpayCredentialProvider,
+
+      policy: new CapabilityConnectorPolicy(
+        new DefaultConnectorPolicy(authenticator, sessions),
+      ),
+
+      gatewayAuthentication,
+
+      crypto,
+
+      audit,
+    });
+  }
 
   return registry;
 }

@@ -110,6 +110,7 @@ res.status(401).json({
 });
 
 return;
+    }
 
     req.callerId = identity.callerId;
 

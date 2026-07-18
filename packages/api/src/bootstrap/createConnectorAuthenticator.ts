@@ -33,6 +33,12 @@ export function createConnectorAuthenticator(): RequestBoundConnectorAuthenticat
           "spiffe://parmana/connectors/vendor-payment",
         authenticationMetadata: {},
       },
+      {
+        connectorId: "razorpay",
+        publicIdentity:
+          "spiffe://parmana/connectors/razorpay",
+        authenticationMetadata: {},
+      },
     ],
   );
 }

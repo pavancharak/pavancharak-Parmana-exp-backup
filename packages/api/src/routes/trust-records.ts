@@ -7,6 +7,10 @@ import type {
 
 import type { ExecutionTrustApplication } from "@parmana/runtime";
 
+interface TrustRecordParams {
+  businessTransactionId: string;
+}
+
 export function createTrustRecordsRouter(
   application: ExecutionTrustApplication,
 ): Router {
@@ -20,15 +24,14 @@ export function createTrustRecordsRouter(
   router.get(
     "/:businessTransactionId",
     async (
-      req: Request,
+      req: Request<TrustRecordParams>,
       res: Response,
       next: NextFunction,
     ): Promise<void> => {
       try {
-        const record =
-          await application.getTrustRecord(
-            req.params.businessTransactionId,
-          );
+        const record = await application.getTrustRecord(
+          req.params.businessTransactionId,
+        );
 
         if (!record) {
           res.status(404).json({
@@ -38,10 +41,8 @@ export function createTrustRecordsRouter(
         }
 
         res.json(record);
-        return;
       } catch (error) {
         next(error);
-        return;
       }
     },
   );
