@@ -19,6 +19,7 @@ import { createTrustRecordsRouter } from "./routes/trust-records.js";
 import { createVerifyGetRouter } from "./routes/verify-get.js";
 import { createVerifyRouter } from "./routes/verify.js";
 import { createRazorpayWebhookRouter } from "./routes/webhooks-razorpay.js";
+import { createReadyRouter } from "./routes/ready.js";
 
 import versionRoutes from "./routes/version.js";
 
@@ -96,15 +97,16 @@ app.use(express.json());
 /**
  * System
  *
- * /health and /openapi.yaml are the two routes exempt from
- * caller authentication: liveness probes and API documentation
- * consumers must be able to reach them with no credential (a
- * caller cannot discover how to get a key from a spec it is
- * not allowed to read). Everything below this line, including
- * "/" and "/version", sits behind the middleware when it is
- * provided.
+ * /health, /ready, and /openapi.yaml are the routes exempt from
+ * caller authentication: liveness/readiness probes and API
+ * documentation consumers must be able to reach them with no
+ * credential (a caller cannot discover how to get a key from a spec it
+ * is not allowed to read, and a PaaS orchestrator has no API key at
+ * all). Everything below this line, including "/" and "/version",
+ * sits behind the middleware when it is provided.
  */
 app.use("/health", healthRoutes);
+app.use("/ready", createReadyRouter());
 app.use("/openapi.yaml", openapiRoutes);
 app.use("/documentation", documentationRoutes);
 

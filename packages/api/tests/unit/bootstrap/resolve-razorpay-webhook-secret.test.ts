@@ -44,4 +44,11 @@ describe("resolveRazorpayWebhookSecret", () => {
 
     expect(resolveRazorpayWebhookSecret()).toBe("real-production-webhook-secret");
   });
+
+  it("fails closed when RAZORPAY_WEBHOOK_SECRET is set but blank, rather than silently disabling the route", () => {
+    process.env.NODE_ENV = "production";
+    process.env.RAZORPAY_WEBHOOK_SECRET = "   ";
+
+    expect(() => resolveRazorpayWebhookSecret()).toThrow(/RAZORPAY_WEBHOOK_SECRET is set but blank/);
+  });
 });

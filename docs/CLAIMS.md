@@ -944,6 +944,114 @@ Evidence
 
 
 
+\## 3.7 Real Razorpay-Initiated Webhook Delivery (Scoped)
+
+
+
+Closes the gap 3.6 explicitly left open: a real \`refund.processed\` webhook, delivered by Razorpay's own webhook infrastructure — not constructed or signed by this codebase's own test code — has been received, signature-verified, correlated, and closed into a signed Settlement Confirmation through the real production chain, exactly once, in test mode.
+
+
+
+Procedure: a real API server was run locally with \`POST /webhooks/razorpay\` mounted behind a fresh, randomly generated, single-use secret, exposed via a \`cloudflared\` quick tunnel (no account, no standing infrastructure). That URL and secret were registered in the Razorpay Dashboard under \*\*Test Mode\*\* specifically — a Live Mode registration silently receives nothing for test-mode activity, which cost real debugging time before the correct mode was found. A real 100-paise refund was then created through the full production \`POST /execute\` chain (the same path 3.4 exercises), and Razorpay delivered a genuine \`refund.processed\` webhook to the tunnel — HMAC-SHA256 signature verified against the registered secret, event persisted through \`RazorpayWebhookEventStore.recordIfUnseen\`, \`200\` returned. \`RazorpaySettlementProcessor.runOnce()\`, run against that same process's stores, correlated the event to its Execution Trust Record, fetch-verified the refund's real status directly from Razorpay (\`razorpay:refund-fetch\`, not the webhook's own claimed status), and appended a real, independently signed \`SETTLED\` Settlement Confirmation — observed live: refund id redacted \`rfnd\_\*\*\*\*\*\*\*\*1vGG\`, confirmation id \`69c44cff-568a-4161-a66c-c6906aba2e42\`, \`fetchedRefundStatus: "processed"\`, surfaced correctly on \`GET /verification/{businessTransactionId}\`.
+
+
+
+A second, earlier refund's webhook was also observed during this exercise: Razorpay retried the same event id nine times total (the initial capture-tap implementation had a bug — a second \`express.raw()\` layered in front of the real route's own broke under real network conditions, though it never affected refund-authorization or money-movement correctness) before the fixed path accepted a retry successfully. Its own settlement never confirmed, purely as an artifact of the demo harness being restarted mid-exercise (losing its in-memory-only Trust Record, since the exercise ran with \`NODE\_ENV=test\` storage semantics) — not a defect in \`RazorpaySettlementProcessor\`, which parks and eventually flags exactly this "correlated record not found" case rather than crashing or silently dropping the event.
+
+
+
+The captured delivery (redacted for PII — see below — and committed) is replayed in a permanent, always-running hermetic test, not a one-time manual exercise: \`packages/api/tests/integration/razorpay-real-webhook-fixture.integration.test.ts\` feeds the real captured bytes through the actual \`/webhooks/razorpay\` route and through \`RazorpaySettlementProcessor.processEvent()\` directly, asserting that \`extractSafeMetadata\`'s and the processor's correlation-extraction logic's shape assumptions — previously checked only against this codebase's own synthetic payloads — hold against what Razorpay actually sends (notably: a real refund event carries \`payload.payment\` and \`payload.refund\` as siblings, which every synthetic payload elsewhere in this suite already assumed but had never been checked against a real delivery).
+
+
+
+PII redacted from the committed fixture after capture: \`payload.payment.entity.email\`, \`.contact\`, \`.card.{id,iin,issuer,last4,network,token\_iin}\`, \`.card\_id\`, \`.token\_id\`, \`.acquirer\_data.auth\_code\`, \`payload.refund.entity.acquirer\_data.arn\`, and the top-level \`account\_id\`. Test-mode payment/refund/order entity ids were kept exactly as captured. Redacting the body invalidated Razorpay's original signature over the original bytes, so the fixture's stored signature is a freshly computed HMAC-SHA256 over the redacted bytes under a dedicated, non-sensitive \`FIXTURE\_SECRET\` constant — not a claim that this exact signature is one Razorpay produced (see the fixture file's header comment for the precise distinction between what the shape proves and what the signature proves).
+
+
+
+This claim is scoped narrowly and deliberately: one real delivery, test mode only, via a temporary tunnel with no standing public endpoint. It does not claim live-mode webhook delivery (see Future Claims), a standing/production webhook endpoint, or that Razorpay's retry behavior has been characterized beyond what was incidentally observed (nine retries of one event over several minutes).
+
+
+
+Evidence
+
+
+
+\* packages/api/tests/fixtures/razorpay-webhook-real-delivery.ts (the captured, redacted, re-signed real delivery; full provenance in the header comment)
+
+
+
+\* packages/api/tests/integration/razorpay-real-webhook-fixture.integration.test.ts — always-running (not gated): the real payload verifies and extracts through the actual \`/webhooks/razorpay\` route; \`RazorpaySettlementProcessor\` correlates and settles the real payload via \`processEvent\`
+
+
+
+\* packages/connector-sdk/src/connectors/razorpay/MockRazorpayServer.ts (\`seedExistingRefund\` — additive test-only hook letting a hermetic test seed a refund carrying a real, externally-captured id, which the normal create flow's randomly generated id cannot reproduce)
+
+
+
+\* packages/api/README.md — "Real webhook delivery fixture" section: what the fixture proves and does not prove, PII redacted, and the tunnel procedure for reproducing a fresh capture
+
+
+
+\---
+
+
+
+\## 3.8 Deployed Environment: Full Chain via a Permanent Public Endpoint (Scoped)
+
+
+
+Closes the last gap 3.7 left open: 3.7's real Razorpay-initiated webhook delivery was proven against a temporary \`cloudflared\` tunnel run locally, with no standing infrastructure. This claim proves the identical full chain — a real refund, a real Razorpay-initiated webhook, signature-verified, correlated, and closed into a signed Settlement Confirmation — against Parmana's actual deployed instance, reachable at a permanent public URL, continuously running, not a one-time local exercise.
+
+
+
+\*\*Deployment\*\*: \`parmana-api\`, a single Docker image (see DEPLOYMENT.md), running on Fly.io across two machines in the \`lhr\` region (\`fly.toml\` declares \`primary\_region = 'bom'\`; the actually running machines are \`lhr\` — this claim states the observed region, not the configured one). Durable storage (\`PARMANA\_STORAGE=supabase\`) and the webhook/settlement event stores are Supabase-backed, shared across both machines. The API requires caller authentication at every route except \`/health\`: an unauthenticated \`POST /execute\` was observed returning \`401\` with \`WWW-Authenticate: Bearer realm="Parmana"\`, never falling open.
+
+
+
+\`POST /webhooks/razorpay\` is registered permanently — not through a tunnel — at \`https://parmana-api.fly.dev/webhooks/razorpay\`, in the Razorpay Dashboard's Test Mode, for \`refund.processed\` and \`refund.failed\`.
+
+
+
+\*\*Procedure\*\*: one authenticated, gated 100-paise refund was created through the full production \`POST /execute\` chain against the same manually captured test-mode payment 3.4/3.7 use, executed against the deployed instance. Razorpay created the refund (id redacted \`rfnd\_\*\*\*\*\*\*\*\*\*\*T9Cj\`) and, independently, delivered a genuine \`refund.processed\` webhook to the permanent endpoint above. The deployed instance's webhook route verified its signature against the rotated \`RAZORPAY\_WEBHOOK\_SECRET\`, persisted the event, and the deployed settlement poll loop (\`scripts/process-razorpay-settlements.ts\`, \`pollIntervalMs: 15000\`) drained it: fetch-verified the refund's real status directly from Razorpay, and appended a signed \`SETTLED\` Settlement Confirmation (\`confirmationId dcb06247-6e7a-4adf-b709-5da407f0b054\`, \`fetchedRefundStatus: "processed"\`) to the Execution Trust Record, surfaced correctly on \`GET /verification/{businessTransactionId}\`. Elapsed time from \`POST /execute\` to the signed \`SETTLED\` confirmation: approximately 48 seconds.
+
+
+
+Correlation is proven by construction, not just observation: \`RazorpaySettlementProcessor\` never queries Razorpay for refunds on its own — \`runOnce()\` only drains events already sitting in the durable webhook event store, and the only code path that ever writes to that store is the webhook route, only after signature verification succeeds. Since the business transaction id driving this refund was freshly generated for this exercise, a matching event could only have entered the store via a genuinely delivered, correctly signed webhook POST from Razorpay to the permanent endpoint above.
+
+
+
+This claim is scoped narrowly: one real delivery, test mode only, against a permanent endpoint. It does not claim live-mode operation, load-bearing traffic, or high availability — the deployment runs two machines for redundancy, not for capacity or failover behavior that has been tested. \[FUTURE\] live-mode operation remains open (see 3.4/Future Claims).
+
+
+
+Evidence
+
+
+
+\* \`fly.toml\`, \`Dockerfile\`, \`docker/entrypoint.sh\` (deployment shape)
+
+
+
+\* \`packages/api/src/routes/ready.ts\` (readiness probe distinguishing Supabase-backed storage from in-memory)
+
+
+
+\* \`packages/api/src/middleware/caller-auth.ts\` (401 + \`WWW-Authenticate\` on missing credential, observed live against the deployed instance)
+
+
+
+\* \`scripts/process-razorpay-settlements.ts\` (the deployed settlement poll loop; \`RAZORPAY\_SETTLEMENT\_POLL\_INTERVAL\_MS\`)
+
+
+
+\* Live smoke test performed against \`https://parmana-api.fly.dev\` this session: unauthenticated \`POST /execute\` → \`401\`; one authenticated 100-paise refund via \`POST /execute\`; \`GET /verification/{businessTransactionId}\` polled until \`settlement.status: "SETTLED"\` (confirmationId \`dcb06247-6e7a-4adf-b709-5da407f0b054\`, \`fetchedRefundStatus: "processed"\`, refund id redacted \`rfnd\_\*\*\*\*\*\*\*\*\*\*T9Cj\`)
+
+
+
+\---
+
+
+
 \# 4. Future Claims (Pending Evidence)
 
 
@@ -955,8 +1063,6 @@ The following claims are planned but are intentionally withheld until supported 
 \* \[FUTURE\] Razorpay payout creation (RazorpayX): no implementation exists. The Razorpay connector implemented in this milestone covers refund creation only.
 
 \* \[FUTURE\] Razorpay live-mode operation: every live claim in 3.4 is against Razorpay's test-mode API only. No test in this codebase has ever made a network call against Razorpay live mode, and none is planned — live-mode operation is a deployment/production-configuration concern (\`RAZORPAY\_KEY\_ID\`/\`RAZORPAY\_KEY\_SECRET\` pointing at a live-mode key pair), not something this suite proves.
-
-\* \[FUTURE\] Live Razorpay webhook delivery (real Razorpay-initiated, not locally-injected): every webhook event processed anywhere in this codebase — including 3.6's live-run settlement closure — is constructed and signed by a test, never received from Razorpay's own servers. Proving real delivery requires a public URL Razorpay can reach (e.g. a tunnel during development, or a deployed environment) and, to close the signature-authenticity gap specifically, a captured real payload fixture: a real Razorpay delivery's exact bytes and headers, saved once from the Razorpay Dashboard's webhook delivery log and replayed in a hermetic test — mirroring how docs/guides/e2e captures real request/response pairs elsewhere in this codebase — so the payload-shape assumptions in \`extractSafeMetadata\` (routes/webhooks-razorpay.ts) and \`RazorpaySettlementProcessor\`'s correlation-extraction logic are checked against what Razorpay actually sends, not just what its docs describe or what this codebase's own synthetic payloads assume.
 
 \* \[FUTURE\] Stripe connector — no implementation exists; would implement @parmana/connector-sdk's Connector interface.
 

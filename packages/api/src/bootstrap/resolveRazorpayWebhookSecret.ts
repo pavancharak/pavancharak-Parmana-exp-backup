@@ -22,5 +22,23 @@ export function resolveRazorpayWebhookSecret(): string | undefined {
     return process.env.RAZORPAY_TEST_WEBHOOK_SECRET ?? RAZORPAY_WEBHOOK_TEST_MODE_PLACEHOLDER_SECRET;
   }
 
-  return process.env.RAZORPAY_WEBHOOK_SECRET;
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+  // A variable that is *set but blank* signals a deployment
+  // misconfiguration (an unresolved secret reference, an emptied
+  // field), not a deliberate "I don't want this feature" choice —
+  // deliberate absence is the variable being unset entirely, which
+  // still returns undefined (route absent) below. Fails closed rather
+  // than silently mounting the route with an empty HMAC secret, which
+  // would accept every signature check as effectively unauthenticated.
+  if (secret !== undefined && secret.trim() === "") {
+    throw new Error(
+      "RAZORPAY_WEBHOOK_SECRET is set but blank. Refusing to start: an " +
+        "empty webhook secret would accept forged signatures. Set a real " +
+        "secret, or unset RAZORPAY_WEBHOOK_SECRET entirely to leave the " +
+        "webhook route disabled.",
+    );
+  }
+
+  return secret;
 }

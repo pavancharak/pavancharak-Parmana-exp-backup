@@ -1,0 +1,67 @@
+import request from "supertest";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { createApplication } from "../../../src/application.js";
+import { createApp } from "../../../src/app.js";
+import { createExecutionSystem } from "../../../src/bootstrap/createExecutionSystem.js";
+
+const ENV_KEYS = ["NODE_ENV", "PARMANA_STORAGE", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY"] as const;
+
+function buildApp() {
+  const executionSystem = createExecutionSystem();
+  const application = createApplication(executionSystem);
+  return createApp(application, { callerAuth: "disabled", razorpayWebhook: "disabled" });
+}
+
+describe("GET /ready", () => {
+  const original = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
+
+  afterEach(() => {
+    for (const key of ENV_KEYS) {
+      if (original[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = original[key];
+      }
+    }
+  });
+
+  it("reports READY without touching Supabase when NODE_ENV=test", async () => {
+    const response = await request(buildApp()).get("/ready");
+
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe("READY");
+    expect(response.body.storage).toBe("not-supabase-backed");
+  });
+
+  it("reports READY without touching Supabase when storage is memory-backed outside test", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.PARMANA_STORAGE = "memory";
+
+    const response = await request(buildApp()).get("/ready");
+
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe("READY");
+  });
+
+  it("reports NOT_READY (503) with a reason when Supabase-backed and the connection fails", async () => {
+    // Built under NODE_ENV=test (so app construction's own eager
+    // assertStorageConfigured/createNonceStore checks don't themselves
+    // throw on the bad Supabase config below) -- the route handler
+    // reads process.env fresh per request, independent of how the app
+    // was constructed, so flipping env only around the request itself
+    // still exercises the live-storage branch faithfully.
+    const app = buildApp();
+
+    process.env.NODE_ENV = "production";
+    process.env.PARMANA_STORAGE = "supabase";
+    process.env.SUPABASE_URL = "not-a-valid-url";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "unreachable-key";
+
+    const response = await request(app).get("/ready");
+
+    expect(response.status).toBe(503);
+    expect(response.body.status).toBe("NOT_READY");
+    expect(typeof response.body.reason).toBe("string");
+  });
+});

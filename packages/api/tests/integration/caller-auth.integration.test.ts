@@ -275,6 +275,14 @@ describe("Caller authentication (HTTP boundary)", () => {
       expect(response.status).toBe(200);
     });
 
+    it("GET /ready requires no credential", async () => {
+      const { app } = buildApp();
+
+      const response = await request(app).get("/ready");
+
+      expect(response.status).toBe(200);
+    });
+
     it.each(["/", "/version", "/policies", "/transactions", "/trust-records", "/replay", "/receipt", "/receipt/latest", "/verify", "/verification"])(
       "%s requires a credential",
       async (route) => {

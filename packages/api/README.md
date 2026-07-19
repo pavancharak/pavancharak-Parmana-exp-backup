@@ -52,6 +52,63 @@ verification. Only `event id`, `event type`, and `payment`/`refund` ids
 contents, and never any card/customer field Razorpay's payload may
 include.
 
+### Real webhook delivery fixture (`tests/fixtures/razorpay-webhook-real-delivery.ts`)
+
+Every other Razorpay webhook test in this suite signs its own synthetic
+payload. `tests/integration/razorpay-real-webhook-fixture.integration.test.ts`
+is the exception: it replays a real, Razorpay-initiated `refund.processed`
+delivery, captured once (2026-07-19) and committed as a hermetic fixture.
+It runs unconditionally in the default suite — nothing about it depends on
+live credentials.
+
+**What it proves, precisely:** the real payload *shape* Razorpay's own
+webhook infrastructure sends (the `payment`+`refund` sibling structure
+under `payload`, the exact field paths) satisfies every assumption
+`extractSafeMetadata` (`routes/webhooks-razorpay.ts`) and
+`RazorpaySettlementProcessor`'s correlation-extraction logic made about
+that shape while this codebase had only synthetic payloads to test
+against. It does **not** prove the fixture's stored signature is one
+Razorpay itself produced: the body was redacted for PII after capture
+(see below), which invalidated Razorpay's original signature over the
+original bytes, so the fixture carries a freshly computed HMAC-SHA256
+over the redacted bytes under a dedicated, non-sensitive
+`FIXTURE_SECRET` constant instead. See the fixture file's header comment
+for the full reasoning.
+
+**PII redacted after capture:** `payload.payment.entity.email`,
+`.contact`, `.card.{id,iin,issuer,last4,network,token_iin}`, `.card_id`,
+`.token_id`, `.acquirer_data.auth_code`, `payload.refund.entity
+.acquirer_data.arn`, and the top-level `account_id`. Test-mode
+payment/refund/order entity ids were kept exactly as captured, per the
+same test-mode-ids-are-fine carve-out `docs/CLAIMS.md` uses elsewhere.
+
+**Reproducing a fresh capture** (only needed to refresh or extend this
+fixture, not for normal development):
+
+1. Run a real API server locally (`createApp` with `razorpayWebhook` set
+   to a fresh secret and an inspectable event store) and expose it with a
+   tunnel that requires no account, e.g. `npx cloudflared tunnel --url
+   http://localhost:3000`.
+2. Register the tunnel's public URL + `/webhooks/razorpay` and the fresh
+   secret in Razorpay Dashboard → Settings → Webhooks, in **Test Mode**
+   specifically (a Live Mode registration will never deliver against
+   test-mode activity — this cost real debugging time the first time).
+   Subscribe to `refund.processed` and `refund.failed`.
+3. Trigger a real refund (the same shape
+   `tests/integration/razorpay-live.integration.test.ts` uses) through
+   `POST /execute` and wait for Razorpay's real delivery to arrive.
+4. Capture the exact raw body bytes and full header set before any
+   processing. Note: layering a second `express.raw()` in front of the
+   real route's own is tempting but unreliable under real network
+   conditions (Node marks a fully drained request stream unreadable, and
+   *when* that flips differs between a fast local call and a real
+   tunnel-relayed one) — drain the stream manually exactly once and relay
+   the captured bytes as a fresh internal HTTP request to the real route
+   instead.
+5. Audit the captured payload for PII before committing anything —
+   Razorpay payment/refund webhook payloads carry real customer email,
+   phone, and card fields, not just entity ids.
+
 ### Settlement processing (`npm run process:razorpay-settlements`)
 
 Out-of-band from the webhook request cycle (M4a's `200` has already

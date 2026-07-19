@@ -45,6 +45,21 @@ export class MockRazorpayServer {
     this.payments.set(payment.id, payment);
   }
 
+  /**
+   * Test-only hook: inserts a refund object exactly as given, arbitrary
+   * id included, bypassing the normal create flow (which always assigns
+   * a randomly generated id). Used to seed a mock refund whose id must
+   * match one an external source already assigned — e.g. a hermetic
+   * fixture replaying a real, externally captured Razorpay webhook
+   * delivery, whose payload references a specific real refund id that
+   * the create flow cannot reproduce.
+   */
+  seedExistingRefund(paymentId: string, refund: RazorpayRefund): void {
+    const list = this.refunds.get(paymentId) ?? [];
+    list.push(refund);
+    this.refunds.set(paymentId, list);
+  }
+
   refundsFor(paymentId: string): readonly RazorpayRefund[] {
     return this.refunds.get(paymentId) ?? [];
   }
