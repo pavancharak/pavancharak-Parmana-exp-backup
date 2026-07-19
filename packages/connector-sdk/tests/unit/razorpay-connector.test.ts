@@ -1,9 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   MockRazorpayServer,
   RAZORPAY_PAYMENT_FETCH_CAPABILITY,
   RAZORPAY_REFUND_CREATE_CAPABILITY,
+  RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_ID,
+  RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_SECRET,
   RazorpayConnector,
   brandCredentialHandle,
   connectorCapabilities,
@@ -226,5 +228,96 @@ describe("RazorpayConnector", () => {
 
     expect(JSON.stringify(result)).not.toContain(KEY_SECRET);
     expect(result.metadata?.keyIdRedacted).toBe("rzp_test...");
+  });
+
+  it("refuses to send the built-in test-mode placeholder credential to Razorpay's real API, before any network call", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    // No baseUrl override: defaults to RazorpayConnector's own default,
+    // Razorpay's real production API — this is exactly the unsafe
+    // combination the guard exists to catch.
+    const realBaseUrlConnector = new RazorpayConnector({
+      connectorId: "razorpay",
+      capabilities: connectorCapabilities([
+        RAZORPAY_PAYMENT_FETCH_CAPABILITY,
+        RAZORPAY_REFUND_CREATE_CAPABILITY,
+      ]),
+    });
+
+    let caught: unknown;
+    try {
+      await realBaseUrlConnector.execute(
+        {
+          capability: RAZORPAY_PAYMENT_FETCH_CAPABILITY,
+          businessTransactionId: "txn-placeholder-guard",
+          action: RAZORPAY_PAYMENT_FETCH_CAPABILITY,
+          target: "payments/pay_ABC123",
+          parameters: { paymentId: "pay_ABC123" },
+        },
+        context({
+          credential: brandCredentialHandle({
+            providerId: "static",
+            credentialId: "razorpay",
+            value: {
+              keyId: RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_ID,
+              keySecret: RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_SECRET,
+            },
+          }),
+        }),
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("refuses to send");
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    fetchSpy.mockRestore();
+  });
+
+  it("still allows the placeholder credential against a mock server (baseUrl override) — the guard is real-endpoint-specific", async () => {
+    const placeholderMockServer = new MockRazorpayServer({
+      keyId: RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_ID,
+      keySecret: RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_SECRET,
+    });
+
+    try {
+      await placeholderMockServer.listen();
+      placeholderMockServer.setPayment(capturedPayment());
+
+      const mockConnector = new RazorpayConnector({
+        connectorId: "razorpay",
+        capabilities: connectorCapabilities([
+          RAZORPAY_PAYMENT_FETCH_CAPABILITY,
+          RAZORPAY_REFUND_CREATE_CAPABILITY,
+        ]),
+        baseUrl: placeholderMockServer.baseUrl,
+      });
+
+      const result = await mockConnector.execute(
+        {
+          capability: RAZORPAY_PAYMENT_FETCH_CAPABILITY,
+          businessTransactionId: "txn-placeholder-mock-ok",
+          action: RAZORPAY_PAYMENT_FETCH_CAPABILITY,
+          target: "payments/pay_ABC123",
+          parameters: { paymentId: "pay_ABC123" },
+        },
+        context({
+          credential: brandCredentialHandle({
+            providerId: "static",
+            credentialId: "razorpay",
+            value: {
+              keyId: RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_ID,
+              keySecret: RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_SECRET,
+            },
+          }),
+        }),
+      );
+
+      expect(result.success).toBe(true);
+    } finally {
+      await placeholderMockServer.close();
+    }
   });
 });

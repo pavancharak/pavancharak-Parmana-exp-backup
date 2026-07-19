@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import type { RazorpayPayment, RazorpayRefund } from "./RazorpayTypes.js";
+import type { RazorpayPayment, RazorpayRefund, RazorpayRefundStatus } from "./RazorpayTypes.js";
 
 export interface MockRazorpayServerOptions {
   readonly keyId: string;
@@ -17,9 +17,11 @@ export interface MockRazorpayServerOptions {
  *
  * Behavior is deliberately conservative and matches only what this
  * milestone's spec states about Razorpay: GET /v1/payments/:id, GET
- * /v1/payments/:id/refunds, POST /v1/payments/:id/refund. Anything not
- * stated by the spec (e.g. webhooks, RazorpayX payouts) is out of scope
- * and not simulated here.
+ * /v1/payments/:id/refunds, POST /v1/payments/:id/refund, GET
+ * /v1/refunds/:id. Anything not stated by the spec (e.g. webhook
+ * delivery, RazorpayX payouts) is out of scope and not simulated here —
+ * M4b's tests simulate a webhook delivery by signing a payload directly
+ * and POSTing it to the real webhook route, not through this server.
  */
 export class MockRazorpayServer {
   private server: Server | undefined;
@@ -45,6 +47,26 @@ export class MockRazorpayServer {
 
   refundsFor(paymentId: string): readonly RazorpayRefund[] {
     return this.refunds.get(paymentId) ?? [];
+  }
+
+  /**
+   * Test-only hook: forces an existing refund's status, used to
+   * simulate Razorpay reporting "failed" (or any other status) from
+   * GET /refunds/:id — real Razorpay refunds always start "processed"
+   * from a create call, so a test needing a different fetched state
+   * mutates it directly here rather than this server inventing failure
+   * scenarios createRefund itself never produces.
+   */
+  setRefundStatus(refundId: string, status: RazorpayRefundStatus): void {
+    for (const [paymentId, list] of this.refunds) {
+      const index = list.findIndex((refund) => refund.id === refundId);
+      if (index !== -1) {
+        const updated = [...list];
+        updated[index] = { ...updated[index]!, status };
+        this.refunds.set(paymentId, updated);
+        return;
+      }
+    }
   }
 
   async listen(): Promise<void> {
@@ -92,7 +114,24 @@ export class MockRazorpayServer {
       return;
     }
 
+    const refundFetchMatch = /^\/v1\/refunds\/([^/]+)$/.exec(url);
+    if (method === "GET" && refundFetchMatch) {
+      this.handleFetchRefund(res, refundFetchMatch[1]!);
+      return;
+    }
+
     this.respond(res, 404, { error: { description: "Not found" } });
+  }
+
+  private handleFetchRefund(res: ServerResponse, refundId: string): void {
+    for (const list of this.refunds.values()) {
+      const found = list.find((refund) => refund.id === refundId);
+      if (found !== undefined) {
+        this.respond(res, 200, found);
+        return;
+      }
+    }
+    this.respond(res, 404, { error: { description: "The id provided does not exist" } });
   }
 
   private handleFetchPayment(res: ServerResponse, paymentId: string): void {

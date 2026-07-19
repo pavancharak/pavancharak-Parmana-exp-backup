@@ -58,6 +58,13 @@
         "$ref": "./receipt.schema.json"
       }
     },
+    "settlementConfirmations": {
+      "type": "array",
+      "description": "Settlement Confirmation history (M4b). Append-only. Optional (unlike overrides/executions/verifications/receipts): absent on every Trust Record created before M4b, and on any record no webhook has ever closed the lifecycle for. An absent array means exactly the same as an empty one.",
+      "items": {
+        "$ref": "./settlement-confirmation.schema.json"
+      }
+    },
     "trustRecordHash": {
       "type": "string",
       "description": "Canonical hash of the Execution Trust Record, computed over its canonical serialized form."

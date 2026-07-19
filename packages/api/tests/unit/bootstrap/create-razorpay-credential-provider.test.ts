@@ -6,8 +6,8 @@ const ENV_KEYS = [
   "NODE_ENV",
   "RAZORPAY_KEY_ID",
   "RAZORPAY_KEY_SECRET",
-  "TEST_RAZORPAY_KEY_ID",
-  "TEST_RAZORPAY_KEY_SECRET",
+  "RAZORPAY_TEST_KEY_ID",
+  "RAZORPAY_TEST_KEY_SECRET",
 ] as const;
 
 describe("createRazorpayCredentialProvider", () => {
@@ -27,8 +27,8 @@ describe("createRazorpayCredentialProvider", () => {
 
   it("returns a static provider with default test credentials when NODE_ENV=test and no overrides are set", async () => {
     process.env.NODE_ENV = "test";
-    delete process.env.TEST_RAZORPAY_KEY_ID;
-    delete process.env.TEST_RAZORPAY_KEY_SECRET;
+    delete process.env.RAZORPAY_TEST_KEY_ID;
+    delete process.env.RAZORPAY_TEST_KEY_SECRET;
     delete process.env.RAZORPAY_KEY_ID;
     delete process.env.RAZORPAY_KEY_SECRET;
 
@@ -42,10 +42,10 @@ describe("createRazorpayCredentialProvider", () => {
     });
   });
 
-  it("honors TEST_RAZORPAY_KEY_ID / TEST_RAZORPAY_KEY_SECRET overrides in test mode", async () => {
+  it("honors RAZORPAY_TEST_KEY_ID / RAZORPAY_TEST_KEY_SECRET overrides in test mode", async () => {
     process.env.NODE_ENV = "test";
-    process.env.TEST_RAZORPAY_KEY_ID = "rzp_test_overridden";
-    process.env.TEST_RAZORPAY_KEY_SECRET = "overridden-secret";
+    process.env.RAZORPAY_TEST_KEY_ID = "rzp_test_overridden";
+    process.env.RAZORPAY_TEST_KEY_SECRET = "overridden-secret";
 
     const provider = createRazorpayCredentialProvider();
     const handle = await provider!.resolve("razorpay");

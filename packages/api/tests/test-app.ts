@@ -10,7 +10,7 @@ const application = createApplication(
 
 const app = createApp(
   application,
-  { callerAuth: "disabled" },
+  { callerAuth: "disabled", razorpayWebhook: "disabled" },
 );
 
 export default app;

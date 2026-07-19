@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.parmana.ai/requests/razorpay-webhook-event.schema.json",
+  "title": "Razorpay Webhook Event",
+  "description": "Request payload for POST /webhooks/razorpay — Razorpay's own webhook envelope, forwarded verbatim. Shape and fields vary by event type; this schema only documents the fields this route itself reads (event, payload.payment.entity.id, payload.refund.entity.id) for audit metadata extraction. The full payload is persisted as-is for later processing (M4b) and is not otherwise validated against this schema at runtime — signature verification (X-Razorpay-Signature) is what actually authenticates a request, not payload shape.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "entity": {
+      "type": "string",
+      "description": "Always \"event\" for a Razorpay webhook delivery.",
+      "examples": ["event"]
+    },
+    "event": {
+      "type": "string",
+      "description": "Razorpay event type. Extracted into the pending-events store and audit trail when present.",
+      "examples": ["refund.processed", "payment.captured"]
+    },
+    "contains": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "payment": {
+          "type": "object",
+          "properties": {
+            "entity": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "examples": ["pay_ABC123"] }
+              }
+            }
+          }
+        },
+        "refund": {
+          "type": "object",
+          "properties": {
+            "entity": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "examples": ["rfnd_ABC123"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "created_at": {
+      "type": "integer",
+      "description": "Unix timestamp."
+    }
+  },
+  "examples": [
+    {
+      "entity": "event",
+      "event": "refund.processed",
+      "contains": ["refund"],
+      "payload": {
+        "refund": {
+          "entity": { "id": "rfnd_ABC123", "payment_id": "pay_XYZ789", "amount": 100, "status": "processed" }
+        },
+        "payment": {
+          "entity": { "id": "pay_XYZ789" }
+        }
+      },
+      "created_at": 1752800000
+    }
+  ]
+}

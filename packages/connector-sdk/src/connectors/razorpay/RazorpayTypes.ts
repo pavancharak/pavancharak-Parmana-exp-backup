@@ -49,6 +49,16 @@ export interface RazorpayRefundList {
 /** Fixed notes key the parmana transaction id is always written under. */
 export const PARMANA_TXN_NOTES_KEY = "parmana_txn";
 
+/**
+ * The built-in test-mode placeholder credential (createRazorpayCredential
+ * Provider.ts's fallback when no real test-mode credential is configured).
+ * Exported here, shared by both that fallback and RazorpayConnector's own
+ * fail-closed guard against sending it to a real endpoint, so the two
+ * sides can never drift apart into comparing different literals.
+ */
+export const RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_ID = "rzp_test_integration00";
+export const RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_SECRET = "integration-test-key-secret";
+
 export interface RazorpayCredentialValue {
   readonly keyId: string;
   readonly keySecret: string;

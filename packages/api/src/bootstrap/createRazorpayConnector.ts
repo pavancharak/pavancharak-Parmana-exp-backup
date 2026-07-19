@@ -2,6 +2,7 @@ import {
   RazorpayConnector,
   RAZORPAY_PAYMENT_FETCH_CAPABILITY,
   RAZORPAY_REFUND_CREATE_CAPABILITY,
+  RAZORPAY_REFUND_FETCH_CAPABILITY,
   connectorCapabilities,
 } from "@parmana/connector-sdk";
 
@@ -22,6 +23,7 @@ export function createRazorpayConnector(): RazorpayConnector {
     capabilities: connectorCapabilities([
       RAZORPAY_PAYMENT_FETCH_CAPABILITY,
       RAZORPAY_REFUND_CREATE_CAPABILITY,
+      RAZORPAY_REFUND_FETCH_CAPABILITY,
     ]),
 
     ...(process.env.RAZORPAY_BASE_URL !== undefined

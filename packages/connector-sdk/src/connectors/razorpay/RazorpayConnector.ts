@@ -8,6 +8,7 @@ import type {
 
 import {
   PARMANA_TXN_NOTES_KEY,
+  RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_ID,
   isRazorpayCredentialValue,
   redactRazorpayKeyId,
   type RazorpayRefund,
@@ -17,6 +18,7 @@ import {
 
 export const RAZORPAY_PAYMENT_FETCH_CAPABILITY = "razorpay:payment-fetch";
 export const RAZORPAY_REFUND_CREATE_CAPABILITY = "razorpay:refund-create";
+export const RAZORPAY_REFUND_FETCH_CAPABILITY = "razorpay:refund-fetch";
 
 export interface RazorpayConnectorOptions {
   readonly connectorId: string;
@@ -36,6 +38,10 @@ export interface RazorpayRefundCreateParameters {
 
 export interface RazorpayPaymentFetchParameters {
   readonly paymentId: string;
+}
+
+export interface RazorpayRefundFetchParameters {
+  readonly refundId: string;
 }
 
 const DEFAULT_BASE_URL = "https://api.razorpay.com/v1";
@@ -81,6 +87,24 @@ export class RazorpayConnector implements Connector {
       );
     }
     const { keyId, keySecret } = context.credential.value;
+
+    // Fail closed before any network setup: the built-in test-mode
+    // placeholder (createRazorpayCredentialProvider.ts's fallback when no
+    // real test-mode credential is configured) is only ever safe against a
+    // mock server reached through an explicit baseUrl override. Sent to
+    // Razorpay's real API, it can only ever be rejected — but relying on
+    // that rejection is an accident of Razorpay's behavior, not a
+    // guarantee this codebase controls. Refuse outright instead.
+    if (this.baseUrl === DEFAULT_BASE_URL && keyId === RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_ID) {
+      throw new Error(
+        `RazorpayConnector "${this.connectorId}" refuses to send the built-in test-mode placeholder ` +
+          `credential to Razorpay's real API (${DEFAULT_BASE_URL}). This placeholder is only safe against ` +
+          "a mock server reached via an explicit baseUrl override. Configure RAZORPAY_TEST_KEY_ID/" +
+          "RAZORPAY_TEST_KEY_SECRET (or RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET in production) with real " +
+          "credentials, or point baseUrl at a mock server.",
+      );
+    }
+
     const authorizationHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`;
 
     const controller = new AbortController();
@@ -92,6 +116,8 @@ export class RazorpayConnector implements Connector {
           return await this.fetchPayment(request, authorizationHeader, controller.signal, keyId);
         case RAZORPAY_REFUND_CREATE_CAPABILITY:
           return await this.createRefund(request, authorizationHeader, controller.signal, keyId);
+        case RAZORPAY_REFUND_FETCH_CAPABILITY:
+          return await this.fetchRefund(request, authorizationHeader, controller.signal, keyId);
         default:
           throw new Error(
             `RazorpayConnector "${this.connectorId}" has no handler for capability "${request.capability}".`,
@@ -120,6 +146,25 @@ export class RazorpayConnector implements Connector {
     const paymentId = requireString(request.parameters.paymentId, "parameters.paymentId");
     const payment = await this.razorpayGet(`/payments/${paymentId}`, authorizationHeader, signal);
     return { success: true, metadata: { payment, keyIdRedacted: redactRazorpayKeyId(keyId) } };
+  }
+
+  /**
+   * FETCH-VERIFY: the read a settlement processor (M4b) makes to
+   * confirm a refund's actual state directly from Razorpay, rather than
+   * trusting a webhook's claimed event type — a webhook is a doorbell,
+   * never a delivery. Returns whatever status Razorpay reports
+   * ("processed", "failed", "pending", ...) verbatim; the caller
+   * decides what that means, this connector does not interpret it.
+   */
+  private async fetchRefund(
+    request: ConnectorRequest,
+    authorizationHeader: string,
+    signal: AbortSignal,
+    keyId: string,
+  ): Promise<ConnectorResponse> {
+    const refundId = requireString(request.parameters.refundId, "parameters.refundId");
+    const refund = await this.razorpayGet(`/refunds/${refundId}`, authorizationHeader, signal);
+    return { success: true, metadata: { refund, keyIdRedacted: redactRazorpayKeyId(keyId) } };
   }
 
   /**

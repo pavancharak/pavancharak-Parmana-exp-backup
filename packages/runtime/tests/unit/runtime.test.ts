@@ -80,6 +80,7 @@ class InMemoryExecutionTrustRecordRepository
   async appendVerification(): Promise<void> {}
 
   async appendReceipt(): Promise<void> {}
+  async appendSettlementConfirmation(): Promise<void> {}
 }
 
 const APPROVE_POLICY: Policy = {

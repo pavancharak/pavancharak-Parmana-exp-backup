@@ -1,7 +1,11 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import type { BusinessTransaction } from "@parmana/shared";
-import { MockRazorpayServer } from "@parmana/connector-sdk";
+import {
+  MockRazorpayServer,
+  RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_ID,
+  RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_SECRET,
+} from "@parmana/connector-sdk";
 
 import { createApplication } from "../../src/application.js";
 import { createApp } from "../../src/app.js";
@@ -32,6 +36,8 @@ import { createExecutionSystem } from "../../src/bootstrap/createExecutionSystem
 describe("Razorpay refund (HTTP boundary)", () => {
   let server: MockRazorpayServer | undefined;
   const originalRazorpayBaseUrl = process.env.RAZORPAY_BASE_URL;
+  const originalTestKeyId = process.env.RAZORPAY_TEST_KEY_ID;
+  const originalTestKeySecret = process.env.RAZORPAY_TEST_KEY_SECRET;
 
   afterEach(async () => {
     if (server !== undefined) {
@@ -43,10 +49,20 @@ describe("Razorpay refund (HTTP boundary)", () => {
     } else {
       process.env.RAZORPAY_BASE_URL = originalRazorpayBaseUrl;
     }
+    if (originalTestKeyId === undefined) {
+      delete process.env.RAZORPAY_TEST_KEY_ID;
+    } else {
+      process.env.RAZORPAY_TEST_KEY_ID = originalTestKeyId;
+    }
+    if (originalTestKeySecret === undefined) {
+      delete process.env.RAZORPAY_TEST_KEY_SECRET;
+    } else {
+      process.env.RAZORPAY_TEST_KEY_SECRET = originalTestKeySecret;
+    }
   });
 
-  const KEY_ID = "rzp_test_integration00";
-  const KEY_SECRET = "integration-test-key-secret";
+  const KEY_ID = RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_ID;
+  const KEY_SECRET = RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_SECRET;
 
   async function buildApp(): Promise<{ app: ReturnType<typeof createApp>; server: MockRazorpayServer }> {
     const mockServer = new MockRazorpayServer({ keyId: KEY_ID, keySecret: KEY_SECRET });
@@ -55,9 +71,19 @@ describe("Razorpay refund (HTTP boundary)", () => {
 
     process.env.RAZORPAY_BASE_URL = mockServer.baseUrl;
 
+    // Hermetic regardless of the ambient environment: this test's mock
+    // server only recognizes the built-in placeholder credential, so it
+    // must not depend on RAZORPAY_TEST_KEY_ID/SECRET being ambiently
+    // absent — a machine with real Razorpay live-test credentials
+    // configured (for razorpay-live.integration.test.ts) must not leak
+    // them in here and get rejected by this mock server as a mismatched
+    // credential.
+    process.env.RAZORPAY_TEST_KEY_ID = KEY_ID;
+    process.env.RAZORPAY_TEST_KEY_SECRET = KEY_SECRET;
+
     const executionSystem = createExecutionSystem();
     const application = createApplication(executionSystem);
-    const app = createApp(application, { callerAuth: "disabled" });
+    const app = createApp(application, { callerAuth: "disabled", razorpayWebhook: "disabled" });
 
     return { app, server: mockServer };
   }

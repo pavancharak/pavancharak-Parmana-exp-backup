@@ -1,4 +1,6 @@
 import {
+  RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_ID,
+  RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_SECRET,
   StaticCredentialProvider,
   brandCredentialHandle,
   type CredentialHandle,
@@ -52,7 +54,11 @@ class RazorpayEnvironmentCredentialProvider implements CredentialProvider {
  * razorpay capability should not be registered at all.
  *
  * Test (NODE_ENV=test): a static key_id/key_secret pair, overridable via
- * TEST_RAZORPAY_KEY_ID / TEST_RAZORPAY_KEY_SECRET — mirrors
+ * RAZORPAY_TEST_KEY_ID / RAZORPAY_TEST_KEY_SECRET — the same names
+ * documented in .env.example and read directly, with no intermediate
+ * bridge variable (a prior TEST_RAZORPAY_KEY_ID/SECRET naming here,
+ * word-order-swapped from the documented .env names, depended entirely
+ * on call sites remembering to copy one into the other). Mirrors
  * createCredentialProvider.ts's existing vendor-payment test/production
  * split.
  *
@@ -70,8 +76,8 @@ export function createRazorpayCredentialProvider(): CredentialProvider | undefin
   if (process.env.NODE_ENV === "test") {
     return new StaticCredentialProvider({
       [RAZORPAY_CONNECTOR_ID]: {
-        keyId: process.env.TEST_RAZORPAY_KEY_ID ?? "rzp_test_integration00",
-        keySecret: process.env.TEST_RAZORPAY_KEY_SECRET ?? "integration-test-key-secret",
+        keyId: process.env.RAZORPAY_TEST_KEY_ID ?? RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_ID,
+        keySecret: process.env.RAZORPAY_TEST_KEY_SECRET ?? RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_SECRET,
       },
     });
   }

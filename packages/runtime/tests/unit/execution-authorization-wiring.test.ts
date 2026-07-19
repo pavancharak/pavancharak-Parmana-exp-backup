@@ -116,6 +116,8 @@ class InMemoryExecutionTrustRecordRepository
     _businessTransactionId: string,
     _receipt: Receipt,
   ): Promise<void> {}
+
+  async appendSettlementConfirmation(): Promise<void> {}
 }
 
 class FixedPolicyRepository implements PolicyRepository {

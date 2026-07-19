@@ -18,13 +18,14 @@ import { createTransactionsRouter } from "./routes/transactions.js";
 import { createTrustRecordsRouter } from "./routes/trust-records.js";
 import { createVerifyGetRouter } from "./routes/verify-get.js";
 import { createVerifyRouter } from "./routes/verify.js";
-
-
+import { createRazorpayWebhookRouter } from "./routes/webhooks-razorpay.js";
 
 import versionRoutes from "./routes/version.js";
 
 import type { CallerAuthenticator } from "./auth/CallerAuthenticator.js";
 import type { CallerAuditSink } from "./auth/CallerAuditSink.js";
+import type { RazorpayWebhookEventStore } from "./webhooks/RazorpayWebhookEventStore.js";
+import type { RazorpayWebhookAuditSink } from "./webhooks/RazorpayWebhookAuditSink.js";
 
 /**
  * Every call site must state its caller-auth choice explicitly:
@@ -41,8 +42,25 @@ export type CallerAuthOption =
       readonly auditSink: CallerAuditSink;
     };
 
+/**
+ * Same explicit-choice discipline as CallerAuthOption, for the same
+ * reason: "disabled" mounts no /webhooks/razorpay route at all (a
+ * request to it 404s); the object form requires the secret plus both
+ * stores the route needs (resolveRazorpayWebhookSecret.ts,
+ * createRazorpayWebhookEventStore.ts, createRazorpayWebhookAuditSink.ts
+ * build these — server.ts is the reference call site). No default.
+ */
+export type RazorpayWebhookOption =
+  | "disabled"
+  | {
+      readonly secret: string;
+      readonly eventStore: RazorpayWebhookEventStore;
+      readonly auditSink: RazorpayWebhookAuditSink;
+    };
+
 export interface CreateAppOptions {
   readonly callerAuth: CallerAuthOption;
+  readonly razorpayWebhook: RazorpayWebhookOption;
 }
 
 export function createApp(
@@ -50,6 +68,28 @@ export function createApp(
   options: CreateAppOptions,
 ) {
   const app = express();
+
+/**
+ * Razorpay webhooks
+ *
+ * Mounted before the global express.json() below, and with its own
+ * express.raw() (see routes/webhooks-razorpay.ts), so signature
+ * verification runs over the exact wire bytes Razorpay signed — never
+ * a re-serialized req.body. "disabled" mounts no route at all, so a
+ * request to it 404s — mirroring createConnectorRegistry.ts's
+ * fail-closed "capability simply absent" shape for the Razorpay
+ * connector itself.
+ */
+if (options.razorpayWebhook !== "disabled") {
+  app.use(
+    "/webhooks/razorpay",
+    createRazorpayWebhookRouter({
+      secret: options.razorpayWebhook.secret,
+      eventStore: options.razorpayWebhook.eventStore,
+      auditSink: options.razorpayWebhook.auditSink,
+    }),
+  );
+}
 
 app.use(express.json());
 

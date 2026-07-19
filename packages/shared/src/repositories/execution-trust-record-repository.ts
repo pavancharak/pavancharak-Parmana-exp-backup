@@ -3,6 +3,7 @@ import {
   ExecutionTrustRecord,
   Override,
   Receipt,
+  SettlementConfirmation,
   Verification,
 } from "../domain/index.js";
 
@@ -60,4 +61,12 @@ export interface ExecutionTrustRecordRepository {
    * Appends an immutable Receipt.
    */
   appendReceipt(businessTransactionId: string, receipt: Receipt): Promise<void>;
+
+  /**
+   * Appends an immutable Settlement Confirmation.
+   */
+  appendSettlementConfirmation(
+    businessTransactionId: string,
+    confirmation: SettlementConfirmation,
+  ): Promise<void>;
 }

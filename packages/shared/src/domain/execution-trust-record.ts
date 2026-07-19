@@ -3,6 +3,7 @@ import { Execution } from "./execution.js";
 import { Override } from "./override.js";
 import { Verification } from "./verification.js";
 import { Receipt } from "./receipt.js";
+import { SettlementConfirmation } from "./settlement-confirmation.js";
 import { Signature } from "./signature.js";
 
 /**
@@ -65,6 +66,24 @@ export interface ExecutionTrustRecord {
    * of Execution Trust Record state.
    */
   readonly receipts: readonly Receipt[];
+
+  /**
+   * Settlement Confirmation history.
+   *
+   * Optional (unlike receipts/verifications/overrides) rather than
+   * defaulted to an empty array at every construction site: this field
+   * did not exist before M4b, and making it optional means every
+   * pre-existing call site that builds an ExecutionTrustRecord object
+   * literal (test fixtures included) keeps compiling unchanged. Readers
+   * MUST treat an absent array the same as an empty one.
+   *
+   * Each entry is a second, independently signed artifact closing a
+   * connector-mediated action's lifecycle (e.g. a Razorpay refund) once
+   * fetch-verified — see settlement-confirmation.ts. Appending one never
+   * mutates any existing Receipt or this record's own
+   * trustRecordHash/signature.
+   */
+  readonly settlementConfirmations?: readonly SettlementConfirmation[];
 
   /**
    * Canonical hash of the Execution Trust Record.

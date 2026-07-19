@@ -38,6 +38,7 @@ export * from "./AuthorizationVerifier.js";
 // -----------------------------------------------------------------------------
 
 export * from "./ReceiptCrypto.js";
+export * from "./SettlementConfirmationCrypto.js";
 export * from "./VerificationCrypto.js";
 
 // -----------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import type {
   ExecutionTrustRecordRepository,
   Override,
   Receipt,
+  SettlementConfirmation,
   Verification,
 } from "@parmana/shared";
 
@@ -184,6 +185,29 @@ if (receiptError) {
 }
 
 
+const settlementConfirmationResult = await this.client
+  .from("settlement_confirmations")
+  .select("confirmation_json")
+  .eq(
+    "business_transaction_id",
+    businessTransactionId,
+  )
+  .order(
+    "issued_at",
+    { ascending: true },
+  )
+  .order(
+    "seq",
+    { ascending: true },
+  );
+
+const settlementConfirmations = settlementConfirmationResult.data;
+const settlementConfirmationError = settlementConfirmationResult.error;
+if (settlementConfirmationError) {
+  throw settlementConfirmationError;
+}
+
+
   const trustRecord: ExecutionTrustRecord = {
   trustRecordId:
     record.trust_record_id,
@@ -229,6 +253,15 @@ receipts:
         readonly receipt_json: Receipt;
       },
     ) => r.receipt_json,
+  ),
+
+settlementConfirmations:
+  (settlementConfirmations ?? []).map(
+    (
+      s: {
+        readonly confirmation_json: SettlementConfirmation;
+      },
+    ) => s.confirmation_json,
   ),
 
 
@@ -381,6 +414,37 @@ async appendReceipt(
 
       issued_at:
         receipt.issuedAt.toISOString(),
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  await this.touch(
+    businessTransactionId,
+  );
+}
+/**
+ * Appends a Settlement Confirmation.
+ */
+async appendSettlementConfirmation(
+  businessTransactionId: string,
+  confirmation: SettlementConfirmation,
+): Promise<void> {
+  const { error } = await this.client
+    .from("settlement_confirmations")
+    .insert({
+      confirmation_id:
+        confirmation.confirmationId,
+
+      business_transaction_id:
+        businessTransactionId,
+
+      confirmation_json:
+        confirmation,
+
+      issued_at:
+        confirmation.issuedAt.toISOString(),
     });
 
   if (error) {

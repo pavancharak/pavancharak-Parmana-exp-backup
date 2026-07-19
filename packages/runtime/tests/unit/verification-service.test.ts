@@ -56,6 +56,7 @@ class InMemoryExecutionTrustRecordRepository
   }
 
   async appendReceipt(): Promise<void> {}
+  async appendSettlementConfirmation(): Promise<void> {}
 }
 
 function createTransaction(

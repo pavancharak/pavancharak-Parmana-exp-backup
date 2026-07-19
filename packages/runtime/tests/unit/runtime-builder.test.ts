@@ -40,6 +40,7 @@ class NullExecutionTrustRecordRepository
   async appendVerification(): Promise<void> {}
 
   async appendReceipt(): Promise<void> {}
+  async appendSettlementConfirmation(): Promise<void> {}
 }
 
 const noopStage: RuntimeComponent = {

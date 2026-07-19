@@ -58,6 +58,9 @@ tags:
   - name: Policies
     description: Policy existence/readability check
 
+  - name: Webhooks
+    description: Inbound webhook receipt from external connectors (Razorpay)
+
   - name: System
     description: Operational endpoints
 
@@ -1557,6 +1560,84 @@ paths:
                   value:
                     error: Execution Trust Record not found.
                     code: VERIFICATION_FAILED
+
+  /webhooks/razorpay:
+    post:
+      tags:
+        - Webhooks
+      summary: Receive a Razorpay webhook delivery
+      operationId: receiveRazorpayWebhook
+      description: >
+        Verifies the HMAC-SHA256 signature (X-Razorpay-Signature) over the raw
+        request body against RAZORPAY_WEBHOOK_SECRET, timing-safe. A valid,
+        fresh event (deduplicated on X-Razorpay-Event-Id) is persisted to a
+        pending-events store and acknowledged; nothing is processed inline —
+        settlement/lifecycle processing is a future milestone (M4b, see
+        docs/CLAIMS.md). Not registered at all (404) when
+        RAZORPAY_WEBHOOK_SECRET is not configured.
+      parameters:
+        - name: X-Razorpay-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+          description: hex(HMAC-SHA256(rawBody, RAZORPAY_WEBHOOK_SECRET))
+        - name: X-Razorpay-Event-Id
+          in: header
+          required: true
+          schema:
+            type: string
+          description: >-
+            Required once the signature has verified; a request missing it is
+            rejected even with a valid signature.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/requests/razorpay-webhook-event.schema.json'
+      responses:
+        '200':
+          description: Verified event accepted (fresh) or acknowledged (duplicate).
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/responses/razorpay-webhook-response.schema.json'
+              examples:
+                accepted:
+                  summary: Fresh event, persisted
+                  value:
+                    status: accepted
+                acknowledged:
+                  summary: Replayed event id, not reprocessed
+                  value:
+                    status: acknowledged
+        '401':
+          description: >-
+            Missing/invalid signature, or a validly-signed request missing
+            X-Razorpay-Event-Id.
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/common/error.schema.json'
+              examples:
+                invalidSignature:
+                  summary: Bad signature
+                  value:
+                    error: Invalid signature.
+        '404':
+          description: Route not registered — RAZORPAY_WEBHOOK_SECRET is not configured.
+        '413':
+          description: Request body exceeded the size cap.
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/common/error.schema.json'
+              examples:
+                tooLarge:
+                  summary: Oversized body
+                  value:
+                    error: Payload too large.
 
   /policies/validate:
     post:
