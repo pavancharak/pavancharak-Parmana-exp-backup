@@ -1,6 +1,7 @@
 # Parmana
 
-**The authorization layer for AI execution.**
+**Execution Trust Infrastructure: turning what an AI agent did into a
+verifiable record, not a hope.**
 
 [![CI](https://github.com/pavancharak/parmana-exp/actions/workflows/ci.yml/badge.svg)](https://github.com/pavancharak/parmana-exp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-proprietary-lightgrey)](./LICENSE)
@@ -8,13 +9,15 @@
 
 As organizations connect AI agents to real systems, the open question is
 no longer whether the agent can act, it's what it's actually allowed to
-do. Parmana sits between an AI agent and the systems it calls: every
+do, and whether what it did can be proven afterward rather than assumed.
+Parmana sits between an AI agent and the systems it calls: every
 requested action is checked against an explicit policy before it runs, so
 an agent can only do what it was approved to do. Every approved action
 also produces a signed, tamper-evident record, so what happened can be
 proven afterward, not just trusted. Parmana does not decide what the
 agent should do. It decides, and proves, whether the agent was allowed to
-do it.
+do it — the authorization layer beneath that guarantee, not a
+replacement for it.
 
 ## Proven, not promised
 

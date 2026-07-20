@@ -1,4 +1,4 @@
-\# Parmana Technical Claims
+# Parmana Technical Claims
 
 
 
@@ -10,15 +10,15 @@ Status: Public
 
 
 
-\---
+---
 
 
 
-\# Key Compromise Notice
+# Key Compromise Notice
 
 
 
-The default signing key (\`keys/default.private.pem\` / \`keys/default.public.pem\`) committed to this repository prior to 2026-07-05 was publicly exposed in the public GitHub repository. The private key must be treated as permanently compromised.
+The default signing key (`keys/default.private.pem` / `keys/default.public.pem`) was publicly exposed in a Parmana Systems GitHub repository prior to 2026-07-05 (incident record: `04-INCIDENTS-LOG.md`, INC-1). This repository's own commit history does not carry that exposure — no `.pem` private key was ever committed here — but the key itself must still be treated as permanently compromised regardless of which repository exposed it.
 
 
 
@@ -30,15 +30,47 @@ The key pair was rotated on 2026-07-05.
 
 
 
-\---
+---
 
 
 
-\# Purpose
+# 1. Core Positioning
 
 
 
-This document defines the public technical claims that Parmana makes about its architecture and capabilities.
+## Category
+
+
+
+Parmana is **Execution Trust Infrastructure**.
+
+
+
+## Mission
+
+
+
+Trust in what an AI agent did should not have to rest on hoping it behaved — it should be a verifiable record. Parmana establishes that record through an explicit chain — authorize, verify, execute, confirm — connecting business authorization, policy evaluation, runtime execution, and execution evidence.
+
+
+
+## Value Proposition
+
+
+
+Parmana enables organizations to verify what automated systems executed—not simply trust that they executed correctly.
+
+
+
+---
+
+
+
+# Purpose
+
+
+
+This document defines the public technical claims that Parmana makes about its architecture and capabilities: the authorize → verify → execute → confirm chain above, made specific and checkable.
 
 
 
@@ -50,55 +82,23 @@ A technical claim SHOULD be promoted only when supported by:
 
 
 
-\* implementation
+* implementation
 
-\* automated tests
+* automated tests
 
-\* audit evidence
+* audit evidence
 
-\* documented proofs
+* documented proofs
 
-\* independent verification (where applicable)
-
-
-
-\---
+* independent verification (where applicable)
 
 
 
-\# 1. Core Positioning
+---
 
 
 
-\## Category
-
-
-
-Parmana is \*\*Execution Trust Infrastructure\*\*.
-
-
-
-\## Mission
-
-
-
-Parmana establishes a verifiable trust chain between business authorization, policy evaluation, runtime execution, and execution evidence.
-
-
-
-\## Value Proposition
-
-
-
-Parmana enables organizations to verify what automated systems executed—not simply trust that they executed correctly.
-
-
-
-\---
-
-
-
-\# 2. Supported Technical Claims
+# 2. Supported Technical Claims
 
 
 
@@ -106,11 +106,11 @@ The following claims are supported by the current implementation and architectur
 
 
 
-\---
+---
 
 
 
-\## 2.1 Trusted Business Transactions
+## 2.1 Trusted Business Transactions
 
 
 
@@ -126,17 +126,17 @@ Evidence
 
 
 
-\* BusinessTransactionValidator
+* BusinessTransactionValidator
 
-\* G-01 Trusted Business Transaction
-
-
-
-\---
+* G-01 Trusted Business Transaction
 
 
 
-\## 2.2 Deterministic Policy Selection
+---
+
+
+
+## 2.2 Deterministic Policy Selection
 
 
 
@@ -152,13 +152,13 @@ The runtime does not:
 
 
 
-\* discover policies
+* discover policies
 
-\* negotiate policies
+* negotiate policies
 
-\* automatically select the latest version
+* automatically select the latest version
 
-\* substitute alternative policies
+* substitute alternative policies
 
 
 
@@ -166,19 +166,19 @@ Evidence
 
 
 
-\* PolicyRouter
+* PolicyRouter
 
-\* PolicyValidator
+* PolicyValidator
 
-\* G-02 Deterministic Policy Selection
-
-
-
-\---
+* G-02 Deterministic Policy Selection
 
 
 
-\## 2.3 Deterministic Policy Evaluation
+---
+
+
+
+## 2.3 Deterministic Policy Evaluation
 
 
 
@@ -190,11 +190,11 @@ Evaluation records include:
 
 
 
-\* matched rule
+* matched rule
 
-\* decision reason
+* decision reason
 
-\* evaluation trace
+* evaluation trace
 
 
 
@@ -202,17 +202,17 @@ Evidence
 
 
 
-\* PolicyEngine
+* PolicyEngine
 
-\* G-03 Deterministic Policy Evaluation
-
-
-
-\---
+* G-03 Deterministic Policy Evaluation
 
 
 
-\## 2.4 Authorized Execution
+---
+
+
+
+## 2.4 Authorized Execution
 
 
 
@@ -224,19 +224,19 @@ Evidence
 
 
 
-\* TrustChainValidationComponent
+* TrustChainValidationComponent
 
-\* RuntimeEngine
+* RuntimeEngine
 
-\* G-04 Authorized Execution
-
-
-
-\---
+* G-04 Authorized Execution
 
 
 
-\## 2.5 Verifiable Execution Evidence
+---
+
+
+
+## 2.5 Verifiable Execution Evidence
 
 
 
@@ -248,11 +248,11 @@ Execution produces:
 
 
 
-\* Execution Trust Records
+* Execution Trust Records
 
-\* Canonical Trust Record hashes
+* Canonical Trust Record hashes
 
-\* Signed Receipts
+* Signed Receipts
 
 
 
@@ -260,23 +260,23 @@ Evidence
 
 
 
-\* ExecutionTrustRecordBuilder
+* ExecutionTrustRecordBuilder
 
-\* VerificationCrypto
+* VerificationCrypto
 
-\* ReceiptCrypto
+* ReceiptCrypto
 
-\* G-05
+* G-05
 
-\* G-06
-
-
-
-\---
+* G-06
 
 
 
-\## 2.6 Independent Verification
+---
+
+
+
+## 2.6 Independent Verification
 
 
 
@@ -292,21 +292,21 @@ Evidence
 
 
 
-\* packages/runtime/src/services/verification-service.ts
+* packages/runtime/src/services/verification-service.ts
 
-\* packages/runtime/test/verification-service.test.ts
+* packages/runtime/test/verification-service.test.ts
 
-\* VerificationCrypto
+* VerificationCrypto
 
-\* G-07
-
-
-
-\---
+* G-07
 
 
 
-\## 2.7 Replay Support
+---
+
+
+
+## 2.7 Replay Support
 
 
 
@@ -318,21 +318,21 @@ Evidence
 
 
 
-\* Replay package
+* Replay package
 
-\* G-08
-
-
-
-\---
+* G-08
 
 
 
-\## 2.8 Signed, Single-Use, Time-Bounded Execution Authorization
+---
 
 
 
-Every approved execution request carries a cryptographically signed Execution Authorization scoped to one decision, bound to a single-use nonce, and valid only within a bounded time window (Ed25519 by default; ML-DSA-65 / FIPS 204 configurable via SIGNATURE\_PROVIDER).
+## 2.8 Signed, Single-Use, Time-Bounded Execution Authorization
+
+
+
+Every approved execution request carries a cryptographically signed Execution Authorization scoped to one decision, bound to a single-use nonce, and valid only within a bounded time window (Ed25519 by default; ML-DSA-65 / FIPS 204 configurable via SIGNATURE_PROVIDER).
 
 
 
@@ -340,25 +340,25 @@ Evidence
 
 
 
-\* AuthorizationSigner
+* AuthorizationSigner
 
-\* AuthorizationVerifier
+* AuthorizationVerifier
 
-\* EnvelopeVerifier
+* EnvelopeVerifier
 
-\* MemoryNonceStore
+* MemoryNonceStore
 
-\* packages/crypto/test/authorization-envelope.test.ts
+* packages/crypto/test/authorization-envelope.test.ts
 
-\* packages/envelope-verifier/test/envelope-verifier.test.ts
-
-
-
-\---
+* packages/envelope-verifier/test/envelope-verifier.test.ts
 
 
 
-\## 2.9 Independent Envelope Verification
+---
+
+
+
+## 2.9 Independent Envelope Verification
 
 
 
@@ -370,17 +370,17 @@ Evidence
 
 
 
-\* @parmana/envelope-verifier (EnvelopeVerifier, requireParmanaAuthorization)
+* @parmana/envelope-verifier (EnvelopeVerifier, requireParmanaAuthorization)
 
-\* packages/envelope-verifier/README.md ("Claims" section)
-
-
-
-\---
+* packages/envelope-verifier/README.md ("Claims" section)
 
 
 
-\## 2.10 Rejection of Forged, Tampered, Expired, and Replayed Authorizations
+---
+
+
+
+## 2.10 Rejection of Forged, Tampered, Expired, and Replayed Authorizations
 
 
 
@@ -392,15 +392,15 @@ Evidence
 
 
 
-\* packages/envelope-verifier/tests/unit/envelope-verifier.test.ts — "a forged envelope does not burn the nonce", "an expired envelope does not burn the nonce", "rejects a second use of the same nonce", "treats the exact expiresAt instant as expired (boundary is exclusive, not inclusive)", "under two concurrent verify() calls with one nonce, exactly one succeeds (deterministic, not flaky)"
+* packages/envelope-verifier/tests/unit/envelope-verifier.test.ts — "a forged envelope does not burn the nonce", "an expired envelope does not burn the nonce", "rejects a second use of the same nonce", "treats the exact expiresAt instant as expired (boundary is exclusive, not inclusive)", "under two concurrent verify() calls with one nonce, exactly one succeeds (deterministic, not flaky)"
 
 
 
-\---
+---
 
 
 
-\## 2.11 Trust Record Bound to Its Authorization
+## 2.11 Trust Record Bound to Its Authorization
 
 
 
@@ -412,17 +412,17 @@ Evidence
 
 
 
-\* ExecutionTrustRecordBuilder
+* ExecutionTrustRecordBuilder
 
-\* packages/runtime/test/execution-authorization-wiring.test.ts — "trust record references the authorization"
-
-
-
-\---
+* packages/runtime/test/execution-authorization-wiring.test.ts — "trust record references the authorization"
 
 
 
-\## 2.12 Fail-Closed Authorization on Rejection
+---
+
+
+
+## 2.12 Fail-Closed Authorization on Rejection
 
 
 
@@ -434,17 +434,17 @@ Evidence
 
 
 
-\* RuntimeEngine (authorization signing occurs only after executionGate.enforce() approves the Decision)
+* RuntimeEngine (authorization signing occurs only after executionGate.enforce() approves the Decision)
 
-\* packages/runtime/test/execution-authorization-wiring.test.ts — "rejected transaction produces no authorization"
-
-
-
-\---
+* packages/runtime/test/execution-authorization-wiring.test.ts — "rejected transaction produces no authorization"
 
 
 
-\## 2.13 Key/Algorithm Binding Guard
+---
+
+
+
+## 2.13 Key/Algorithm Binding Guard
 
 
 
@@ -456,21 +456,21 @@ Evidence
 
 
 
-\* assertKeyType (used by Ed25519SignatureProvider and Dilithium3SignatureProvider)
+* assertKeyType (used by Ed25519SignatureProvider and Dilithium3SignatureProvider)
 
-\* packages/crypto/test/SignatureProvider.test.ts
-
-
-
-\---
+* packages/crypto/test/SignatureProvider.test.ts
 
 
 
-\## 2.14 Configurable Post-Quantum Signing (ML-DSA-65)
+---
 
 
 
-Post-quantum signing (ML-DSA-65, FIPS 204, historically referred to in this codebase as "dilithium3") is selectable via SIGNATURE\_PROVIDER, using the same PEM-based persistent key mechanism as the default Ed25519 provider (FileKeyProvider, keyId "default"). Requires Node >= 24 for native node:crypto ml-dsa-65 support. Selecting it with missing or mismatched key material fails closed rather than silently regenerating or substituting different keys.
+## 2.14 Configurable Post-Quantum Signing (ML-DSA-65)
+
+
+
+Post-quantum signing (ML-DSA-65, FIPS 204, historically referred to in this codebase as "dilithium3") is selectable via SIGNATURE_PROVIDER, using the same PEM-based persistent key mechanism as the default Ed25519 provider (FileKeyProvider, keyId "default"). Requires Node >= 24 for native node:crypto ml-dsa-65 support. Selecting it with missing or mismatched key material fails closed rather than silently regenerating or substituting different keys.
 
 
 
@@ -478,23 +478,23 @@ Evidence
 
 
 
-\* Dilithium3SignatureProvider
+* Dilithium3SignatureProvider
 
-\* FileKeyProvider
+* FileKeyProvider
 
-\* generate-keypair.ts (--algorithm dilithium3)
+* generate-keypair.ts (--algorithm dilithium3)
 
-\* packages/crypto/test/Dilithium3SignatureProvider.test.ts
+* packages/crypto/test/Dilithium3SignatureProvider.test.ts
 
-\* packages/crypto/test/dilithium3-cross-instance.test.ts
-
-
-
-\---
+* packages/crypto/test/dilithium3-cross-instance.test.ts
 
 
 
-\## 2.15 Authorization-Binding Verification
+---
+
+
+
+## 2.15 Authorization-Binding Verification
 
 
 
@@ -506,59 +506,25 @@ Evidence
 
 
 
-\* VerificationService (packages/runtime/src/services/verification-service.ts)
+* VerificationService (packages/runtime/src/services/verification-service.ts)
 
-\* packages/runtime/tests/unit/verification-service.test.ts — all 6 cases
+* packages/runtime/tests/unit/verification-service.test.ts — all 6 cases
 
-\* packages/runtime/tests/unit/verification-negative.test.ts — always-running, in-memory: fails on a mutated transaction payload field, a mutated signature value, and a mutated executions hash-chain-array element
+* packages/runtime/tests/unit/verification-negative.test.ts — always-running, in-memory: fails on a mutated transaction payload field, a mutated signature value, and a mutated executions hash-chain-array element
 
-\* packages/api/tests/integration/verification-negative.integration.test.ts — "reports FAILED when the persisted record is tampered after execution" (additional citation; Supabase-gated, does not run without live credentials)
-
-
-
-\---
+* packages/api/tests/integration/verification-negative.integration.test.ts — "reports FAILED when the persisted record is tampered after execution" (additional citation; Supabase-gated, does not run without live credentials)
 
 
 
-\## 2.16 Caller Authentication at the API Boundary
+---
 
 
 
-Every route except /health requires a valid caller credential. createApp's callerAuth option is mandatory — it accepts either an authenticator/auditSink pair or the literal string "disabled" — so every call site states its choice explicitly; there is no default that silently mounts the API with no caller authentication. Production (server.ts) refuses to start with PARMANA\_AUTH\_DISABLED unset and no PARMANA\_API\_KEYS configured (2.17). A key valid for one caller does not grant a different caller's identity, and every accept/reject outcome is audited without ever recording the raw key. In production, that audit trail is durable — see 3.2's sibling claim for the NonceStore side of the same fix — backed by Supabase and shared across every process, not scoped to one process's uptime; \`createCallerAuditSink.ts\` fails closed at startup if Supabase is not configured. \`InMemoryCallerAuditSink\` remains available and correct for tests (NODE\_ENV=test).
+## 2.16 Caller Authentication at the API Boundary
 
 
 
-Evidence
-
-
-
-\* packages/api/src/app.ts (CallerAuthOption: "disabled" | { authenticator, auditSink }, required, no default)
-
-\* packages/api/src/bootstrap/createCallerAuthenticator.ts
-
-\* packages/api/src/bootstrap/createCallerAuditSink.ts (production wiring; fails closed when Supabase is not configured)
-
-\* packages/api/src/auth/StaticKeyAuthenticator.ts
-
-\* packages/api/src/auth/SupabaseCallerAuditSink.ts / InMemoryCallerAuditSink.ts
-
-\* packages/api/tests/integration/supabase-caller-audit-sink.integration.test.ts — a recorded event is read back through a second, independent client
-
-\* packages/api/tests/integration/caller-auth.integration.test.ts (valid/missing/invalid credential, scoping and revocation, audit trail content never contains the raw key, composition with policy evaluation, full route inventory)
-
-\* packages/api/tests/unit/bootstrap/create-caller-authenticator.test.ts
-
-
-
-\---
-
-
-
-\## 2.17 Fail-Closed Startup Configuration Validation
-
-
-
-Parmana refuses to start rather than let missing required configuration surface later as an unstructured runtime error. This applies to caller authentication keys (PARMANA\_API\_KEYS, unless PARMANA\_AUTH\_DISABLED=true is set explicitly), the policy directory (PARMANA\_POLICY\_DIR), and — in production wiring — the durable NonceStore and CallerAuditSink's Supabase configuration alike: all fail at startup with an error naming the missing variable, rather than PARMANA\_POLICY\_DIR surfacing as an unhandled ERR\_INVALID\_ARG\_TYPE inside FilePolicyRepository.load at request time, or a NonceStore/CallerAuditSink silently degrading to an in-memory implementation.
+Every route except /health requires a valid caller credential. createApp's callerAuth option is mandatory — it accepts either an authenticator/auditSink pair or the literal string "disabled" — so every call site states its choice explicitly; there is no default that silently mounts the API with no caller authentication. Production (server.ts) refuses to start with PARMANA_AUTH_DISABLED unset and no PARMANA_API_KEYS configured (2.17). A key valid for one caller does not grant a different caller's identity, and every accept/reject outcome is audited without ever recording the raw key. In production, that audit trail is durable — see 3.2's sibling claim for the NonceStore side of the same fix — backed by Supabase and shared across every process, not scoped to one process's uptime; `createCallerAuditSink.ts` fails closed at startup if Supabase is not configured. `InMemoryCallerAuditSink` remains available and correct for tests (NODE_ENV=test).
 
 
 
@@ -566,51 +532,33 @@ Evidence
 
 
 
-\* packages/api/src/bootstrap/createCallerAuthenticator.ts
+* packages/api/src/app.ts (CallerAuthOption: "disabled" | { authenticator, auditSink }, required, no default)
 
-\* packages/shared/src/config/Config.ts (requirePolicyDirectory)
+* packages/api/src/bootstrap/createCallerAuthenticator.ts
 
-\* packages/api/src/bootstrap/assertSupabaseConfigured.ts, used by createNonceStore.ts and createCallerAuditSink.ts
+* packages/api/src/bootstrap/createCallerAuditSink.ts (production wiring; fails closed when Supabase is not configured)
 
-\* packages/shared/tests/unit/config.test.ts — "refuses to start when PARMANA\_POLICY\_DIR is unset", "refuses to start when PARMANA\_POLICY\_DIR is blank"
+* packages/api/src/auth/StaticKeyAuthenticator.ts
 
-\* packages/api/tests/unit/bootstrap/create-caller-authenticator.test.ts
+* packages/api/src/auth/SupabaseCallerAuditSink.ts / InMemoryCallerAuditSink.ts
 
-\* packages/api/tests/unit/bootstrap/create-nonce-store.test.ts, create-caller-audit-sink.test.ts — "fails closed with a named, actionable error when NODE\_ENV is not test and Supabase is not configured", "never silently falls back" to the in-memory implementation
+* packages/api/tests/integration/supabase-caller-audit-sink.integration.test.ts — a recorded event is read back through a second, independent client
 
+* packages/api/tests/integration/caller-auth.integration.test.ts (valid/missing/invalid credential, scoping and revocation, audit trail content never contains the raw key, composition with policy evaluation, full route inventory)
 
-
-\---
-
-
-
-\## 2.18 Key Provider Input Validation
+* packages/api/tests/unit/bootstrap/create-caller-authenticator.test.ts
 
 
 
-FileKeyProvider rejects any keyId that does not match ^\[A-Za-z0-9._-\]+$ before constructing a filesystem path from it, closing the path-traversal surface a crafted keyId (for example, containing "../") would otherwise open against the configured key directory.
+---
 
 
 
-Evidence
+## 2.17 Fail-Closed Startup Configuration Validation
 
 
 
-\* packages/crypto/src/providers/key/FileKeyProvider.ts (assertValidKeyId)
-
-\* packages/crypto/tests/unit/file-key-provider.test.ts — rejects a path-traversal keyId in getPrivateKey, getPublicKey, hasKey, and getMetadata
-
-
-
-\---
-
-
-
-\## 2.19 Fail-Closed Caller-Authentication Audit Writes
-
-
-
-A caller-authentication event (accepted or rejected) that fails to be recorded fails the request. \`middleware/caller-auth.ts\` wraps every \`CallerAuditSink.record()\` call: on success the request proceeds exactly as before; on failure the request is rejected with \`AuditUnavailableError\` (503, code \`AUDIT\_UNAVAILABLE\`) and a structured log entry naming the failure, rather than proceeding unaudited or crashing as an unhandled rejection. This is a deliberate design decision — an action that executes without an audit record contradicts independently verifiable execution — not an incidental side effect; the availability cost is accepted. No retry, buffering, or queueing exists: a failure fails closed immediately, once, every time.
+Parmana refuses to start rather than let missing required configuration surface later as an unstructured runtime error. This applies to caller authentication keys (PARMANA_API_KEYS, unless PARMANA_AUTH_DISABLED=true is set explicitly), the policy directory (PARMANA_POLICY_DIR), and — in production wiring — the durable NonceStore and CallerAuditSink's Supabase configuration alike: all fail at startup with an error naming the missing variable, rather than PARMANA_POLICY_DIR surfacing as an unhandled ERR_INVALID_ARG_TYPE inside FilePolicyRepository.load at request time, or a NonceStore/CallerAuditSink silently degrading to an in-memory implementation.
 
 
 
@@ -618,25 +566,29 @@ Evidence
 
 
 
-\* packages/api/src/middleware/caller-auth.ts (recordOrFailClosed)
+* packages/api/src/bootstrap/createCallerAuthenticator.ts
 
-\* packages/api/src/auth/AuditUnavailableError.ts
+* packages/shared/src/config/Config.ts (requirePolicyDirectory)
 
-\* packages/api/tests/unit/middleware/caller-auth.test.ts — both success paths unchanged; both failure paths rejected with \`AuditUnavailableError\` (503/AUDIT\_UNAVAILABLE), not a 401 and not a silent pass-through; the structured log entry's exact shape; the sink is called exactly once (no retry)
+* packages/api/src/bootstrap/assertSupabaseConfigured.ts, used by createNonceStore.ts and createCallerAuditSink.ts
 
-\* packages/api/tests/unit/supabase-caller-audit-sink.test.ts — \`SupabaseCallerAuditSink\` propagates storage errors rather than swallowing them, which is what makes this guard reachable in production wiring
+* packages/shared/tests/unit/config.test.ts — "refuses to start when PARMANA_POLICY_DIR is unset", "refuses to start when PARMANA_POLICY_DIR is blank"
 
+* packages/api/tests/unit/bootstrap/create-caller-authenticator.test.ts
 
-
-\---
-
-
-
-\## 2.20 Atomic Rejection of Duplicate Business Transactions
+* packages/api/tests/unit/bootstrap/create-nonce-store.test.ts, create-caller-audit-sink.test.ts — "fails closed with a named, actionable error when NODE_ENV is not test and Supabase is not configured", "never silently falls back" to the in-memory implementation
 
 
 
-Creating a Business Transaction with a \`businessTransactionId\` that already exists is rejected atomically, with the identical \`DuplicateBusinessTransactionError\` regardless of storage backend. \`MemoryBusinessTransactionRepository.create()\` performs its existence check and its write in the same synchronous tick, with no \`await\` between them, so two concurrent calls for the same id cannot interleave; \`SupabaseBusinessTransactionRepository.create()\` relies on the \`business\_transaction\_id\` column's \`PRIMARY KEY\` constraint and maps the resulting \`23505\` unique-violation to the same error class. Neither implementation ever silently overwrites an existing transaction.
+---
+
+
+
+## 2.18 Key Provider Input Validation
+
+
+
+FileKeyProvider rejects any keyId that does not match ^[A-Za-z0-9._-]+$ before constructing a filesystem path from it, closing the path-traversal surface a crafted keyId (for example, containing "../") would otherwise open against the configured key directory.
 
 
 
@@ -644,25 +596,73 @@ Evidence
 
 
 
-\* packages/storage/src/memory/MemoryBusinessTransactionRepository.ts
+* packages/crypto/src/providers/key/FileKeyProvider.ts (assertValidKeyId)
 
-\* packages/storage/src/supabase/SupabaseBusinessTransactionRepository.ts (isUniqueViolation mapping)
-
-\* packages/shared/src/errors/duplicate-business-transaction-error.ts
-
-\* packages/storage/tests/unit/memory-business-transaction-repository.test.ts — two simultaneous \`create()\` calls with the same id and different content: exactly one succeeds, the other rejects with \`DuplicateBusinessTransactionError\`, and the stored record is exactly the winner's
-
-\* packages/storage/tests/unit/business-transaction-repository-duplicate-consistency.test.ts — both repository implementations throw the identical error class and message for a duplicate
-
-\* packages/storage/tests/integration/supabase-business-transaction-duplicate.integration.test.ts — the same concurrent-race proof against a real Postgres database (Supabase-gated)
+* packages/crypto/tests/unit/file-key-provider.test.ts — rejects a path-traversal keyId in getPrivateKey, getPublicKey, hasKey, and getMetadata
 
 
 
-\---
+---
 
 
 
-\# 3. Conditional Claims
+## 2.19 Fail-Closed Caller-Authentication Audit Writes
+
+
+
+A caller-authentication event (accepted or rejected) that fails to be recorded fails the request. `middleware/caller-auth.ts` wraps every `CallerAuditSink.record()` call: on success the request proceeds exactly as before; on failure the request is rejected with `AuditUnavailableError` (503, code `AUDIT_UNAVAILABLE`) and a structured log entry naming the failure, rather than proceeding unaudited or crashing as an unhandled rejection. This is a deliberate design decision — an action that executes without an audit record contradicts independently verifiable execution — not an incidental side effect; the availability cost is accepted. No retry, buffering, or queueing exists: a failure fails closed immediately, once, every time.
+
+
+
+Evidence
+
+
+
+* packages/api/src/middleware/caller-auth.ts (recordOrFailClosed)
+
+* packages/api/src/auth/AuditUnavailableError.ts
+
+* packages/api/tests/unit/middleware/caller-auth.test.ts — both success paths unchanged; both failure paths rejected with `AuditUnavailableError` (503/AUDIT_UNAVAILABLE), not a 401 and not a silent pass-through; the structured log entry's exact shape; the sink is called exactly once (no retry)
+
+* packages/api/tests/unit/supabase-caller-audit-sink.test.ts — `SupabaseCallerAuditSink` propagates storage errors rather than swallowing them, which is what makes this guard reachable in production wiring
+
+
+
+---
+
+
+
+## 2.20 Atomic Rejection of Duplicate Business Transactions
+
+
+
+Creating a Business Transaction with a `businessTransactionId` that already exists is rejected atomically, with the identical `DuplicateBusinessTransactionError` regardless of storage backend. `MemoryBusinessTransactionRepository.create()` performs its existence check and its write in the same synchronous tick, with no `await` between them, so two concurrent calls for the same id cannot interleave; `SupabaseBusinessTransactionRepository.create()` relies on the `business_transaction_id` column's `PRIMARY KEY` constraint and maps the resulting `23505` unique-violation to the same error class. Neither implementation ever silently overwrites an existing transaction.
+
+
+
+Evidence
+
+
+
+* packages/storage/src/memory/MemoryBusinessTransactionRepository.ts
+
+* packages/storage/src/supabase/SupabaseBusinessTransactionRepository.ts (isUniqueViolation mapping)
+
+* packages/shared/src/errors/duplicate-business-transaction-error.ts
+
+* packages/storage/tests/unit/memory-business-transaction-repository.test.ts — two simultaneous `create()` calls with the same id and different content: exactly one succeeds, the other rejects with `DuplicateBusinessTransactionError`, and the stored record is exactly the winner's
+
+* packages/storage/tests/unit/business-transaction-repository-duplicate-consistency.test.ts — both repository implementations throw the identical error class and message for a duplicate
+
+* packages/storage/tests/integration/supabase-business-transaction-duplicate.integration.test.ts — the same concurrent-race proof against a real Postgres database (Supabase-gated)
+
+
+
+---
+
+
+
+# 3. Conditional Claims
 
 
 
@@ -670,11 +670,11 @@ The following claims are true only under an explicitly stated scope. The scope c
 
 
 
-\---
+---
 
 
 
-\## 3.1 Non-Bypassable Envelope Verification (Scoped)
+## 3.1 Non-Bypassable Envelope Verification (Scoped)
 
 
 
@@ -690,15 +690,15 @@ Evidence
 
 
 
-\* @parmana/envelope-verifier (EnvelopeVerifier.verify, requireParmanaAuthorization)
+* @parmana/envelope-verifier (EnvelopeVerifier.verify, requireParmanaAuthorization)
 
 
 
-\---
+---
 
 
 
-\## 3.2 Fleet-Wide Single-Use Requires a Shared NonceStore
+## 3.2 Fleet-Wide Single-Use Requires a Shared NonceStore
 
 
 
@@ -706,7 +706,7 @@ Single-use enforcement of an authorization's nonce is scoped to whichever NonceS
 
 
 
-Parmana's own production gateway does this by default. \`packages/api/src/bootstrap/createNonceStore.ts\` wires in \`SupabaseNonceStore\` (\`packages/storage/src/supabase/SupabaseNonceStore.ts\`) — a durable, Postgres-backed NonceStore shared across every process pointed at the same Supabase project — and fails closed at startup if it is not configured, rather than silently falling back to a per-process \`MemoryNonceStore\`. A receiving system that does not share a persistent NonceStore (whether by choice, misconfiguration, or because it is not Parmana's own gateway) still has its exposure window bounded by the envelope's short TTL, not unlimited — this is the general, deployment-agnostic version of the claim, and still the correct one for any \`@parmana/envelope-verifier\` integrator supplying their own NonceStore choice; \`MemoryNonceStore\` remains available and correct for tests.
+Parmana's own production gateway does this by default. `packages/api/src/bootstrap/createNonceStore.ts` wires in `SupabaseNonceStore` (`packages/storage/src/supabase/SupabaseNonceStore.ts`) — a durable, Postgres-backed NonceStore shared across every process pointed at the same Supabase project — and fails closed at startup if it is not configured, rather than silently falling back to a per-process `MemoryNonceStore`. A receiving system that does not share a persistent NonceStore (whether by choice, misconfiguration, or because it is not Parmana's own gateway) still has its exposure window bounded by the envelope's short TTL, not unlimited — this is the general, deployment-agnostic version of the claim, and still the correct one for any `@parmana/envelope-verifier` integrator supplying their own NonceStore choice; `MemoryNonceStore` remains available and correct for tests.
 
 
 
@@ -714,21 +714,21 @@ Evidence
 
 
 
-\* NonceStore / MemoryNonceStore / SupabaseNonceStore
+* NonceStore / MemoryNonceStore / SupabaseNonceStore
 
-\* packages/api/src/bootstrap/createNonceStore.ts (production wiring; fails closed when Supabase is not configured, never falls back to in-memory)
+* packages/api/src/bootstrap/createNonceStore.ts (production wiring; fails closed when Supabase is not configured, never falls back to in-memory)
 
-\* packages/storage/tests/integration/supabase-nonce-store.integration.test.ts — "a nonce consumed through one store instance is still consumed by a fresh instance against the same backing" (the fleet-sharing / restart-survival proof) and "two simultaneous checkAndRecord calls for the same nonce: exactly one succeeds" (a real concurrent-INSERT race against Postgres, not a simulated one)
+* packages/storage/tests/integration/supabase-nonce-store.integration.test.ts — "a nonce consumed through one store instance is still consumed by a fresh instance against the same backing" (the fleet-sharing / restart-survival proof) and "two simultaneous checkAndRecord calls for the same nonce: exactly one succeeds" (a real concurrent-INSERT race against Postgres, not a simulated one)
 
-\* packages/envelope-verifier/README.md ("Claims", "PRODUCTION WARNING: MemoryNonceStore")
-
-
-
-\---
+* packages/envelope-verifier/README.md ("Claims", "PRODUCTION WARNING: MemoryNonceStore")
 
 
 
-\## 3.3 Connector SDK Foundation (Scoped)
+---
+
+
+
+## 3.3 Connector SDK Foundation (Scoped)
 
 
 
@@ -740,87 +740,31 @@ Evidence
 
 
 
-\* packages/connector-sdk/src (Connector, ConnectorRegistry, CredentialProvider, SdkConnectorExecutor, HttpConnector, MockConnector, CapabilityConnectorPolicy)
+* packages/connector-sdk/src (Connector, ConnectorRegistry, CredentialProvider, SdkConnectorExecutor, HttpConnector, MockConnector, CapabilityConnectorPolicy)
 
-\* packages/connector-sdk/tests/unit (45 tests: registry, credential-provider leak checks, HttpConnector incl. timeout/fail-closed, MockConnector, evidence hashing/redaction, end-to-end Gateway integration, Execution Trust Record hash-boundary regression)
+* packages/connector-sdk/tests/unit (45 tests: registry, credential-provider leak checks, HttpConnector incl. timeout/fail-closed, MockConnector, evidence hashing/redaction, end-to-end Gateway integration, Execution Trust Record hash-boundary regression)
 
-\* policies/connector-capability/1.0.0/policy.json (reference policy: ALLOW crm:read, BLOCK crm:delete, threshold-gated payments:refund, default BLOCK, no approval-workflow outcome)
-
-
-
-\---
+* policies/connector-capability/1.0.0/policy.json (reference policy: ALLOW crm:read, BLOCK crm:delete, threshold-gated payments:refund, default BLOCK, no approval-workflow outcome)
 
 
 
-\## 3.4 Razorpay Refund Connector (Scoped)
+---
 
 
 
-Razorpay refunds are authorized against a deterministic policy pack (payment must exist and be captured, currency must be INR, amount must not exceed the refundable remainder, a per-refund cap, a daily cumulative cap tracked through the existing storage layer) and executed with credentials the requesting code never holds: key\_id and key\_secret are resolved only inside the existing session credential vault, at execution time, and destroyed immediately afterward by the existing try/finally pattern. A signed authorization and the existing, unmodified Execution Gateway pipeline (envelope verification, one-time Gateway sessions, session-credential issuance/consumption/destruction) carry every request. A repeated request for the same parmana transaction id is answered from a local outcome cache before any network call is made; independently, before every refund-create call the connector lists existing Razorpay refunds for the payment and treats one already tagged with the same transaction id as already executed, never creating a duplicate. This claim covers refund creation only. It does not claim payout creation (RazorpayX), webhooks, or live-mode operation, and it does not claim any change to Phase 1's Runtime, Policy Engine, Execution Gateway, Replay, Receipt Generation, Verification, or REST API, all of which remain exactly as evidenced elsewhere in this document.
-
-The Razorpay connector is also registered in the production API bootstrap (\`packages/api/src/bootstrap/createConnectorRegistry.ts\`), reachable through the existing, unmodified \`POST /execute\` endpoint by capability-based routing — the same mechanism that already reaches the vendor-payment connector — rather than only through unit tests and the standalone tutorial. Reached this way, policy is evaluated against caller-supplied signals, the same generic mechanism vendor-payment already uses; this path does not carry RazorpayRefundService's additional fetch-the-payment-before-evaluating-policy behavior, which remains a separate, test/tutorial-only harness (RazorpayRefundHarness), unchanged. Credentials (\`RAZORPAY\_KEY\_ID\` / \`RAZORPAY\_KEY\_SECRET\`) are resolved by a dedicated environment-backed provider at execution time only, following the same session-credential isolation as every other production connector. If either variable is unset outside test mode, the connector is not registered at all — \`razorpay:payment-fetch\` and \`razorpay:refund-create\` simply have no connector to resolve to (ConnectorSdkRegistry's existing "No connector registered for capability" error) — rather than the process starting with a mock or partially-configured credential, or the whole API refusing to start over one optional connector.
-
-Reachability proof for this API-wired path is no longer MockRazorpayServer-only. \`packages/api/tests/integration/razorpay-live.integration.test.ts\`, gated behind \`ALLOW\_LIVE\_RAZORPAY=1\` plus a real \`RAZORPAY\_TEST\_KEY\_ID\` (must start with \`rzp\_test\_\`, checked before any network call) / \`RAZORPAY\_TEST\_KEY\_SECRET\` pair — mirroring \`ALLOW\_LIVE\_SUPABASE\`, skipped by default so this stays opt-in rather than a default \`npm test\` behavior — drives the same production bootstrap chain through a real \`POST /execute\` against Razorpay's actual test-mode API (\`https://api.razorpay.com\`). Two cases in this file target a deliberately non-existent payment id and only prove reachability (a real, distinguishable HTTP response — not a network-level failure — for \`razorpay:payment-fetch\` and \`razorpay:refund-create\`'s pre-create idempotency-listing GET), never reaching a money-moving call.
-
-A third, independently gated case — requiring one additional variable, \`TEST\_RAZORPAY\_CAPTURED\_PAYMENT\_ID\`, naming a Razorpay test-mode payment captured once, manually, through client-side Checkout (there is no server-side API to create one) — goes further and has now been run live to completion. **Razorpay test mode, against a manually captured Checkout payment, 100 paise, via the production \`POST /execute\` chain**: a refund was created (Razorpay refund entity id observed, redacted: \`***************pG6B\`; amount confirmed 100 paise in both the outgoing request and Razorpay's response; \`notes.parmana\_txn\` carrying the businessTransactionId). Idempotency was proven live, not assumed: resubmitting the identical businessTransactionId was rejected with HTTP 409 by \`BusinessTransactionService.accept()\`'s uniqueness guard (packages/runtime/src/services/business-transaction-service.ts) — a layer upstream of both RazorpayConnector's own pre-create listing check and RazorpayRefundService's local outcome cache (the latter unreachable from this HTTP route entirely) — before RuntimeEngine, policy evaluation, or the connector were ever invoked; zero calls to \`api.razorpay.com\` were made for the repeat. An independent, out-of-band live listing (test-side oracle, bypassing the connector) then confirmed exactly one refund exists for the payment carrying that transaction id. A third sub-case discovered the payment's real remaining refundable amount live (through a \`razorpay:payment-fetch\` call, not guessed), requested a refund exceeding it, and confirmed policy denial with zero calls to Razorpay. This is the first live execution of the money-moving refund-create call in this codebase's history. It does not claim live-mode (as opposed to test-mode) operation, or webhook handling (M4) — both remain future work (see Future Claims).
-
-A defense-in-depth fix accompanies this: RazorpayConnector itself (packages/connector-sdk/src/connectors/razorpay/RazorpayConnector.ts) now refuses, before any network call, to send the built-in test-mode placeholder credential (createRazorpayCredentialProvider.ts's fallback when no real test-mode credential is configured) to Razorpay's real API — that placeholder is only ever safe against a mock server reached through an explicit \`baseUrl\` override, and this guard makes that a structural guarantee rather than an accident of Razorpay rejecting unrecognized credentials. Separately, \`createRazorpayCredentialProvider.ts\`'s test-mode branch now reads \`RAZORPAY\_TEST\_KEY\_ID\`/\`RAZORPAY\_TEST\_KEY\_SECRET\` directly — the same names documented in \`.env.example\` — removing a prior word-order-swapped bridge variable that depended on call sites remembering to copy one name into the other.
+## 3.4 Razorpay Refund Connector (Scoped)
 
 
 
-Evidence
+Razorpay refunds are authorized against a deterministic policy pack (payment must exist and be captured, currency must be INR, amount must not exceed the refundable remainder, a per-refund cap, a daily cumulative cap tracked through the existing storage layer) and executed with credentials the requesting code never holds: key_id and key_secret are resolved only inside the existing session credential vault, at execution time, and destroyed immediately afterward by the existing try/finally pattern. A signed authorization and the existing, unmodified Execution Gateway pipeline (envelope verification, one-time Gateway sessions, session-credential issuance/consumption/destruction) carry every request. A repeated request for the same parmana transaction id is answered from a local outcome cache before any network call is made; independently, before every refund-create call the connector lists existing Razorpay refunds for the payment and treats one already tagged with the same transaction id as already executed, never creating a duplicate. This claim covers refund creation only. It does not claim payout creation (RazorpayX), webhooks, or live-mode operation, and it does not claim any change to Phase 1's Runtime, Policy Engine, Execution Gateway, Replay, Receipt Generation, Verification, or REST API, all of which remain exactly as evidenced elsewhere in this document.
 
+The Razorpay connector is also registered in the production API bootstrap (`packages/api/src/bootstrap/createConnectorRegistry.ts`), reachable through the existing, unmodified `POST /execute` endpoint by capability-based routing — the same mechanism that already reaches the vendor-payment connector — rather than only through unit tests and the standalone tutorial. Reached this way, policy is evaluated against caller-supplied signals, the same generic mechanism vendor-payment already uses; this path does not carry RazorpayRefundService's additional fetch-the-payment-before-evaluating-policy behavior, which remains a separate, test/tutorial-only harness (RazorpayRefundHarness), unchanged. Credentials (`RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`) are resolved by a dedicated environment-backed provider at execution time only, following the same session-credential isolation as every other production connector. If either variable is unset outside test mode, the connector is not registered at all — `razorpay:payment-fetch` and `razorpay:refund-create` simply have no connector to resolve to (ConnectorSdkRegistry's existing "No connector registered for capability" error) — rather than the process starting with a mock or partially-configured credential, or the whole API refusing to start over one optional connector.
 
+Reachability proof for this API-wired path is no longer MockRazorpayServer-only. `packages/api/tests/integration/razorpay-live.integration.test.ts`, gated behind `ALLOW_LIVE_RAZORPAY=1` plus a real `RAZORPAY_TEST_KEY_ID` (must start with `rzp_test_`, checked before any network call) / `RAZORPAY_TEST_KEY_SECRET` pair — mirroring `ALLOW_LIVE_SUPABASE`, skipped by default so this stays opt-in rather than a default `npm test` behavior — drives the same production bootstrap chain through a real `POST /execute` against Razorpay's actual test-mode API (`https://api.razorpay.com`). Two cases in this file target a deliberately non-existent payment id and only prove reachability (a real, distinguishable HTTP response — not a network-level failure — for `razorpay:payment-fetch` and `razorpay:refund-create`'s pre-create idempotency-listing GET), never reaching a money-moving call.
 
-\* packages/connector-sdk/src/connectors/razorpay (RazorpayConnector, RazorpayRefundService, RazorpayRefundHarness, RazorpayCumulativeRefundLedger, RazorpayRefundReceipt, MockRazorpayServer)
+A third, independently gated case — requiring one additional variable, `TEST_RAZORPAY_CAPTURED_PAYMENT_ID`, naming a Razorpay test-mode payment captured once, manually, through client-side Checkout (there is no server-side API to create one) — goes further and has now been run live to completion. **Razorpay test mode, against a manually captured Checkout payment, 100 paise, via the production `POST /execute` chain**: a refund was created (Razorpay refund entity id observed, redacted: `***************pG6B`; amount confirmed 100 paise in both the outgoing request and Razorpay's response; `notes.parmana_txn` carrying the businessTransactionId). Idempotency was proven live, not assumed: resubmitting the identical businessTransactionId was rejected with HTTP 409 by `BusinessTransactionService.accept()`'s uniqueness guard (packages/runtime/src/services/business-transaction-service.ts) — a layer upstream of both RazorpayConnector's own pre-create listing check and RazorpayRefundService's local outcome cache (the latter unreachable from this HTTP route entirely) — before RuntimeEngine, policy evaluation, or the connector were ever invoked; zero calls to `api.razorpay.com` were made for the repeat. An independent, out-of-band live listing (test-side oracle, bypassing the connector) then confirmed exactly one refund exists for the payment carrying that transaction id. A third sub-case discovered the payment's real remaining refundable amount live (through a `razorpay:payment-fetch` call, not guessed), requested a refund exceeding it, and confirmed policy denial with zero calls to Razorpay. This is the first live execution of the money-moving refund-create call in this codebase's history. It does not claim live-mode (as opposed to test-mode) operation, or webhook handling (M4) — both remain future work (see Future Claims).
 
-\* packages/connector-sdk/tests/unit/razorpay-connector.test.ts, razorpay-refund-policy.test.ts, razorpay-refund-service.test.ts (approval and execution, denial for each policy rule, application-level idempotency with no duplicate create call, replay with no second HTTP call at all, key\_secret absence from evidence/receipt/thrown errors, tamper rejection via businessTransactionHash verification)
-
-\* policies/razorpay-refund/1.0.0/policy.json
-
-\* examples/tutorials/61-razorpay-refund (four outcomes: approved and executed, denied by policy, replay returning the recorded result, tamper rejected)
-
-\* packages/api/src/bootstrap/createRazorpayConnector.ts, createRazorpayCredentialProvider.ts (production registration; fails closed — the connector is never registered — when \`RAZORPAY\_KEY\_ID\` / \`RAZORPAY\_KEY\_SECRET\` are unset outside test mode), createConnectorRegistry.ts (conditional registration), createConnectorAuthenticator.ts (razorpay added to the trusted connector identity list)
-
-\* packages/api/tests/unit/bootstrap/create-razorpay-credential-provider.test.ts, create-connector-registry.test.ts (credential present/absent/malformed cases; fail-closed capability resolution when unconfigured; vendor-payment remains resolvable when razorpay is not; key\_secret never embedded in a thrown error)
-
-\* packages/api/tests/integration/razorpay-refund.integration.test.ts — a refund authorized, verified, and executed through a real \`POST /execute\` HTTP request against the production bootstrap chain (\`createExecutionSystem\`), landing on MockRazorpayServer; and a policy-denied refund through the same path making zero calls to Razorpay
-
-\* packages/api/tests/integration/razorpay-live.integration.test.ts — the only test in this codebase that calls a real Razorpay endpoint, gated behind \`ALLOW\_LIVE\_RAZORPAY=1\` + real test-mode credentials (skipped by default). Two cases prove reachability only, against a deliberately non-existent payment id. A third, independently gated case (additionally requiring \`TEST\_RAZORPAY\_CAPTURED\_PAYMENT\_ID\`) creates a real 100-paise refund against a manually captured test-mode payment through the full production \`POST /execute\` chain, proves idempotency live (a same-id repeat is rejected with HTTP 409 before any second Razorpay call, independently confirmed via a live refunds listing), and proves policy denial live for a refund exceeding the payment's real remaining refundable amount (zero Razorpay calls)
-
-\* packages/connector-sdk/tests/unit/razorpay-connector.test.ts — regression coverage added alongside this: RazorpayConnector refuses to send the built-in test-mode placeholder credential to Razorpay's real API before any network call (fetch spy asserts zero calls), and confirms the same placeholder still works normally against a mock server (baseUrl override) — the guard is real-endpoint-specific, not a behavior change for existing mock-based tests
-
-
-
-\---
-
-
-
-\## 3.5 Razorpay Webhook Receipt (M4a, Scoped)
-
-
-
-\`POST /webhooks/razorpay\` receives Razorpay webhook deliveries, verifies their signature, and durably deduplicates them by event id. This milestone stops there: a verified, fresh event is persisted to a pending-events store and acknowledged. It does not claim settlement confirmation, any Execution Trust Record lifecycle change, or a fetch-verify round trip against Razorpay — processing a persisted event is explicitly out of scope (M4b, see Future Claims below).
-
-
-
-Signature verification is HMAC-SHA256 over the raw request body bytes against \`RAZORPAY\_WEBHOOK\_SECRET\`, compared timing-safe (\`crypto.timingSafeEqual\`, the same construction as \`StaticKeyAuthenticator\`'s API-key comparison) against the \`X-Razorpay-Signature\` header. The raw bytes are captured route-scoped — \`express.raw()\` mounted on this router only, ahead of the app's global \`express.json()\` — never a re-serialization of a parsed body, which is not guaranteed to reproduce the original wire bytes; \`packages/api/tests/unit/webhooks/verify-razorpay-webhook-signature.test.ts\` and the integration suite each include a case proving this specifically (a pretty-printed payload whose \`JSON.stringify\` output differs byte-for-byte from the wire form still verifies).
-
-
-
-\`RAZORPAY\_WEBHOOK\_SECRET\` is a third Razorpay credential, isolated the same way as \`RAZORPAY\_KEY\_ID\`/\`SECRET\`: never logged, never placed in an error message or audit record. Fail-closed by construction, not merely by convention: \`resolveRazorpayWebhookSecret.ts\` returns \`undefined\` when unset outside test mode, and \`app.ts\` never mounts the route at all in that case — a request to it 404s (Express's own "no route matches" response), mirroring exactly how the Razorpay connector itself is simply absent from the registry when \`RAZORPAY\_KEY\_ID\`/\`SECRET\` are unset. In test mode, \`RAZORPAY\_TEST\_WEBHOOK\_SECRET\` overrides a built-in placeholder secret; every call site of \`createApp\` must state its \`razorpayWebhook\` choice explicitly (\`"disabled"\` or a real secret+stores triple) — the same no-default discipline \`CallerAuthOption\` already established.
-
-
-
-Replay protection is durable and consume-exactly-once, keyed on \`X-Razorpay-Event-Id\`, and structurally mirrors \`@parmana/envelope-verifier\`'s \`NonceStore\`: a single atomic call (\`RazorpayWebhookEventStore.recordIfUnseen\`) does both the "is this a replay?" check and the persist, with no separate check-then-set — in production this is one INSERT into \`razorpay\_webhook\_events\`, whose primary key on \`event\_id\` is the entire atomicity mechanism (identical to \`consumed\_nonces\`/\`SupabaseNonceStore\`); in test mode, an in-memory \`Map\`. Order is enforced in code: the dedupe store is never touched until after the signature has verified and the event id header is confirmed present — the same verify-then-consume reasoning \`EnvelopeVerifier\` already applies to Gateway nonces, applied here to webhook event ids. A dedicated integration test (\`verify-before-consume ordering\`) proves this directly: a forged signature carrying a fresh event id is rejected and the dedupe store remains untouched, and a subsequent legitimately-signed request with that same event id is still accepted as fresh, not as a duplicate.
-
-
-
-Response discipline: verified + fresh → persisted, audited (\`webhook.received\`), \`200\` immediately, with no downstream processing inline. Duplicate (already consumed) → \`200\` (acknowledged, never reprocessed), audited as \`webhook.duplicate\`. Bad signature, missing signature header, or a validly-signed request missing the event id header → \`401\`, audited as \`webhook.rejected\` with a short diagnostic reason, body never persisted anywhere. Oversized body (over the 1MB cap) → \`413\`.
-
-
-
-Payload handling treats the body as untrusted input even after signature verification: only event id, event type, and payment/refund ids (when extractable from \`payload.payment.entity.id\`/\`payload.refund.entity.id\`) ever reach an audit record — never full payload contents, and never any card/customer field Razorpay's payload may include. An audit record for a request that failed signature verification carries no payload-derived fields at all — the body is never parsed before the signature is confirmed valid.
+A defense-in-depth fix accompanies this: RazorpayConnector itself (packages/connector-sdk/src/connectors/razorpay/RazorpayConnector.ts) now refuses, before any network call, to send the built-in test-mode placeholder credential (createRazorpayCredentialProvider.ts's fallback when no real test-mode credential is configured) to Razorpay's real API — that placeholder is only ever safe against a mock server reached through an explicit `baseUrl` override, and this guard makes that a structural guarantee rather than an accident of Razorpay rejecting unrecognized credentials. Separately, `createRazorpayCredentialProvider.ts`'s test-mode branch now reads `RAZORPAY_TEST_KEY_ID`/`RAZORPAY_TEST_KEY_SECRET` directly — the same names documented in `.env.example` — removing a prior word-order-swapped bridge variable that depended on call sites remembering to copy one name into the other.
 
 
 
@@ -828,71 +772,55 @@ Evidence
 
 
 
-\* packages/api/src/webhooks (RazorpayWebhookEventStore, InMemoryRazorpayWebhookEventStore, SupabaseRazorpayWebhookEventStore, RazorpayWebhookAuditSink, InMemoryRazorpayWebhookAuditSink, SupabaseRazorpayWebhookAuditSink, verifyRazorpayWebhookSignature, RazorpayWebhookTypes)
+* packages/connector-sdk/src/connectors/razorpay (RazorpayConnector, RazorpayRefundService, RazorpayRefundHarness, RazorpayCumulativeRefundLedger, RazorpayRefundReceipt, MockRazorpayServer)
+
+* packages/connector-sdk/tests/unit/razorpay-connector.test.ts, razorpay-refund-policy.test.ts, razorpay-refund-service.test.ts (approval and execution, denial for each policy rule, application-level idempotency with no duplicate create call, replay with no second HTTP call at all, key_secret absence from evidence/receipt/thrown errors, tamper rejection via businessTransactionHash verification)
+
+* policies/razorpay-refund/1.0.0/policy.json
+
+* examples/tutorials/61-razorpay-refund (four outcomes: approved and executed, denied by policy, replay returning the recorded result, tamper rejected)
+
+* packages/api/src/bootstrap/createRazorpayConnector.ts, createRazorpayCredentialProvider.ts (production registration; fails closed — the connector is never registered — when `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are unset outside test mode), createConnectorRegistry.ts (conditional registration), createConnectorAuthenticator.ts (razorpay added to the trusted connector identity list)
+
+* packages/api/tests/unit/bootstrap/create-razorpay-credential-provider.test.ts, create-connector-registry.test.ts (credential present/absent/malformed cases; fail-closed capability resolution when unconfigured; vendor-payment remains resolvable when razorpay is not; key_secret never embedded in a thrown error)
+
+* packages/api/tests/integration/razorpay-refund.integration.test.ts — a refund authorized, verified, and executed through a real `POST /execute` HTTP request against the production bootstrap chain (`createExecutionSystem`), landing on MockRazorpayServer; and a policy-denied refund through the same path making zero calls to Razorpay
+
+* packages/api/tests/integration/razorpay-live.integration.test.ts — the only test in this codebase that calls a real Razorpay endpoint, gated behind `ALLOW_LIVE_RAZORPAY=1` + real test-mode credentials (skipped by default). Two cases prove reachability only, against a deliberately non-existent payment id. A third, independently gated case (additionally requiring `TEST_RAZORPAY_CAPTURED_PAYMENT_ID`) creates a real 100-paise refund against a manually captured test-mode payment through the full production `POST /execute` chain, proves idempotency live (a same-id repeat is rejected with HTTP 409 before any second Razorpay call, independently confirmed via a live refunds listing), and proves policy denial live for a refund exceeding the payment's real remaining refundable amount (zero Razorpay calls)
+
+* packages/connector-sdk/tests/unit/razorpay-connector.test.ts — regression coverage added alongside this: RazorpayConnector refuses to send the built-in test-mode placeholder credential to Razorpay's real API before any network call (fetch spy asserts zero calls), and confirms the same placeholder still works normally against a mock server (baseUrl override) — the guard is real-endpoint-specific, not a behavior change for existing mock-based tests
 
 
 
-\* packages/api/src/routes/webhooks-razorpay.ts (the route: verify-then-consume ordering, response discipline, payload-handling rule)
+---
 
 
 
-\* packages/api/src/bootstrap/resolveRazorpayWebhookSecret.ts, createRazorpayWebhookEventStore.ts, createRazorpayWebhookAuditSink.ts (test/production split; fail-closed at startup in production when Supabase is unconfigured, mirroring createNonceStore.ts/createCallerAuditSink.ts)
+## 3.5 Razorpay Webhook Receipt (M4a, Scoped)
 
 
 
-\* supabase/migrations/20260718182238\_add\_razorpay\_webhook\_tables.sql (\`razorpay\_webhook\_events\`, \`razorpay\_webhook\_audit\_events\`; primary-key-as-atomicity mechanism, RLS enabled, no PII)
+`POST /webhooks/razorpay` receives Razorpay webhook deliveries, verifies their signature, and durably deduplicates them by event id. This milestone stops there: a verified, fresh event is persisted to a pending-events store and acknowledged. It does not claim settlement confirmation, any Execution Trust Record lifecycle change, or a fetch-verify round trip against Razorpay — processing a persisted event is explicitly out of scope (M4b, see Future Claims below).
 
 
 
-\* packages/api/tests/unit/webhooks/verify-razorpay-webhook-signature.test.ts — HMAC-SHA256 vectors (valid signature accepted, one-byte body tamper rejected, one-byte signature tamper rejected, wrong-secret rejected, non-hex header rejected without throwing), and the raw-bytes-not-re-serialized proof
+Signature verification is HMAC-SHA256 over the raw request body bytes against `RAZORPAY_WEBHOOK_SECRET`, compared timing-safe (`crypto.timingSafeEqual`, the same construction as `StaticKeyAuthenticator`'s API-key comparison) against the `X-Razorpay-Signature` header. The raw bytes are captured route-scoped — `express.raw()` mounted on this router only, ahead of the app's global `express.json()` — never a re-serialization of a parsed body, which is not guaranteed to reproduce the original wire bytes; `packages/api/tests/unit/webhooks/verify-razorpay-webhook-signature.test.ts` and the integration suite each include a case proving this specifically (a pretty-printed payload whose `JSON.stringify` output differs byte-for-byte from the wire form still verifies).
 
 
 
-\* packages/api/tests/unit/webhooks/in-memory-razorpay-webhook-event-store.test.ts — fresh event recorded; replayed event id rejected as duplicate, original record not overwritten
+`RAZORPAY_WEBHOOK_SECRET` is a third Razorpay credential, isolated the same way as `RAZORPAY_KEY_ID`/`SECRET`: never logged, never placed in an error message or audit record. Fail-closed by construction, not merely by convention: `resolveRazorpayWebhookSecret.ts` returns `undefined` when unset outside test mode, and `app.ts` never mounts the route at all in that case — a request to it 404s (Express's own "no route matches" response), mirroring exactly how the Razorpay connector itself is simply absent from the registry when `RAZORPAY_KEY_ID`/`SECRET` are unset. In test mode, `RAZORPAY_TEST_WEBHOOK_SECRET` overrides a built-in placeholder secret; every call site of `createApp` must state its `razorpayWebhook` choice explicitly (`"disabled"` or a real secret+stores triple) — the same no-default discipline `CallerAuthOption` already established.
 
 
 
-\* packages/api/tests/unit/bootstrap/resolve-razorpay-webhook-secret.test.ts — test-mode placeholder/override; production fail-closed absence and configured-secret cases
+Replay protection is durable and consume-exactly-once, keyed on `X-Razorpay-Event-Id`, and structurally mirrors `@parmana/envelope-verifier`'s `NonceStore`: a single atomic call (`RazorpayWebhookEventStore.recordIfUnseen`) does both the "is this a replay?" check and the persist, with no separate check-then-set — in production this is one INSERT into `razorpay_webhook_events`, whose primary key on `event_id` is the entire atomicity mechanism (identical to `consumed_nonces`/`SupabaseNonceStore`); in test mode, an in-memory `Map`. Order is enforced in code: the dedupe store is never touched until after the signature has verified and the event id header is confirmed present — the same verify-then-consume reasoning `EnvelopeVerifier` already applies to Gateway nonces, applied here to webhook event ids. A dedicated integration test (`verify-before-consume ordering`) proves this directly: a forged signature carrying a fresh event id is rejected and the dedupe store remains untouched, and a subsequent legitimately-signed request with that same event id is still accepted as fresh, not as a duplicate.
 
 
 
-\* packages/api/tests/integration/razorpay-webhook.integration.test.ts — full \`POST /webhooks/razorpay\` HTTP requests against the real app and an inspectable in-memory event store/audit sink: valid signature accepted and persisted; duplicate acknowledged without reprocessing; bad signature rejected with nothing persisted; missing signature header rejected; validly-signed request missing the event id header rejected; verify-before-consume ordering (forged signature + fresh event id never consumes it); raw-bytes proof at the HTTP boundary; \`razorpayWebhook: "disabled"\` mounts no route (404)
+Response discipline: verified + fresh → persisted, audited (`webhook.received`), `200` immediately, with no downstream processing inline. Duplicate (already consumed) → `200` (acknowledged, never reprocessed), audited as `webhook.duplicate`. Bad signature, missing signature header, or a validly-signed request missing the event id header → `401`, audited as `webhook.rejected` with a short diagnostic reason, body never persisted anywhere. Oversized body (over the 1MB cap) → `413`.
 
 
 
-\---
-
-
-
-\## 3.6 Razorpay Refund Lifecycle Closure (M4b, Scoped)
-
-
-
-\`RazorpaySettlementProcessor\` (packages/api/src/webhooks/RazorpaySettlementProcessor.ts) drains M4a's verified, deduplicated pending-events store into signed Settlement Confirmations, closing a Razorpay refund's lifecycle on its correlated Execution Trust Record. This is the first code in this codebase that reads \`razorpay\_webhook\_events\` back to act on anything — M4a's own claim explicitly stopped short of this.
-
-
-
-Only \`refund.processed\` and \`refund.failed\` events are acted on; every other event type is acknowledged as ignored and audited, never treated as an error. Correlation extracts the parmana transaction id from the refund entity's \`notes\` tag (the same \`parmana\_txn\` key \`RazorpayConnector.createRefund\` already writes) and looks up the Trust Record. Not found (the webhook can legitimately arrive before the synchronous execution path finishes writing) parks the event with bounded-attempt retry (default 5 attempts, configurable); the window exhausting produces a flagged (elevated-severity) audit event and the event is never reprocessed again — no crash, no infinite loop.
-
-
-
-FETCH-VERIFY is load-bearing, not decorative: a webhook is treated strictly as a doorbell, never a delivery. Before any confirmation is written, an authenticated \`razorpay:refund-fetch\` GET (a new capability added to \`RazorpayConnector\` this session, reusing the exact same connector/credential wiring \`razorpay:refund-create\` already uses) confirms the refund's status directly from Razorpay's API. The FETCHED status — never the webhook's own claimed event type — decides \`SettlementConfirmation.status\` (\`SETTLED\` when fetched status is \`"processed"\`, \`SETTLEMENT_FAILED\` otherwise). A webhook claiming \`refund.processed\` whose fetched state is actually \`"failed"\` is recorded as \`SETTLEMENT_FAILED\`; the fetch call itself being unreachable parks and, on window exhaustion, produces a flagged audit event and writes no confirmation at all (fail closed: no unverified closure).
-
-
-
-The Settlement Confirmation is a SECOND, independently signed artifact — the original Receipt is never mutated, and neither is the Trust Record's own \`trustRecordHash\`/\`signature\` (\`SettlementConfirmationCrypto\`, structurally identical to \`ReceiptCrypto\`: same \`TrustRecordHasher\`/\`ArtifactSigner\`/\`FileKeyProvider\`/\`DEFAULT_KEY_ID\` composition, so a confirmation is signed exactly the way a Receipt is and its signature verifies with the same \`SignatureVerifier\` used to verify Receipt signatures elsewhere in this document). It references the original Receipt id (when one exists — never a blocking dependency), the business transaction id, the triggering webhook event id, and the fetched refund status. \`ExecutionTrustRecordRepository.appendSettlementConfirmation\` follows the identical append-only pattern as \`appendReceipt\`/\`appendVerification\`/\`appendOverride\` (in-memory and Supabase, the latter backed by a new \`settlement\_confirmations\` table mirroring \`receipts\`'s shape).
-
-
-
-A \`SETTLEMENT_FAILED\` confirmation additionally emits a flagged (elevated-severity) audit event, and the read paths never go silent: \`GET /verification/{businessTransactionId}\` surfaces the latest confirmation's status, id, fetched status, and refund id alongside the verification result (a verifier sees "executed, settlement failed," not an unremarked VERIFIED); \`GET /trust-records/{businessTransactionId}\` surfaces the full \`settlementConfirmations\` array as part of the whole record.
-
-
-
-Processing is out-of-band from the webhook request cycle by design — M4a's \`200\` has already returned by the time settlement processing runs. Simplest pattern consistent with the codebase: no new queue infrastructure (none existed before this session — see 3.5's own note). \`RazorpaySettlementProcessor.runOnce()\` is a single idempotent drain, callable directly (what the test suite does, deterministically, with no timers) or from a thin poll loop (\`scripts/process-razorpay-settlements.ts\`, a \`setInterval\` calling \`runOnce()\` — no cron, no job-queue dependency added). Idempotency has two independent layers: durably, a confirmation is never written twice for the same webhook event id (checked against the Trust Record itself, safe across restarts); in-process, park-retry attempt counts reset on restart, which is safe precisely because the durable check is what actually prevents a duplicate confirmation.
-
-
-
-Live-verified (test mode): the gated live suite (3.4, \`razorpay-live.integration.test.ts\`) was extended with a case that, after creating a real 100-paise refund against the manually captured payment, polls live \`razorpay:refund-fetch\` through the full production \`POST /execute\` chain until Razorpay reports the refund \`"processed"\`, then submits a locally-injected, correctly-signed webhook event (signed with \`RAZORPAY\_TEST\_WEBHOOK\_SECRET\` if configured, else the built-in test-mode placeholder) and drives \`RazorpaySettlementProcessor.runOnce()\` against the real Razorpay API. Run live, this produced a real signed \`SETTLED\` confirmation with \`fetchedRefundStatus: "processed"\`, referencing the real refund id. This proves fetch-verify and settlement closure work end to end against a real Razorpay test-mode account, without a public URL — but it does NOT prove Razorpay itself ever delivered a webhook: the event this test submits is constructed and signed by the test itself, not received from Razorpay's servers (see Future Claims for exactly what closes this gap).
+Payload handling treats the body as untrusted input even after signature verification: only event id, event type, and payment/refund ids (when extractable from `payload.payment.entity.id`/`payload.refund.entity.id`) ever reach an audit record — never full payload contents, and never any card/customer field Razorpay's payload may include. An audit record for a request that failed signature verification carries no payload-derived fields at all — the body is never parsed before the signature is confirmed valid.
 
 
 
@@ -900,71 +828,143 @@ Evidence
 
 
 
-\* packages/api/src/webhooks/RazorpaySettlementProcessor.ts (correlation, park/retry with bounded window, fetch-verify, fetched-state-wins confirmation, audit trail, runOnce/processEvent)
+* packages/api/src/webhooks (RazorpayWebhookEventStore, InMemoryRazorpayWebhookEventStore, SupabaseRazorpayWebhookEventStore, RazorpayWebhookAuditSink, InMemoryRazorpayWebhookAuditSink, SupabaseRazorpayWebhookAuditSink, verifyRazorpayWebhookSignature, RazorpayWebhookTypes)
 
 
 
-\* packages/api/src/bootstrap/createRazorpaySettlementProcessor.ts (fail-closed: undefined when no Razorpay credential is configured, mirroring createConnectorRegistry.ts)
+* packages/api/src/routes/webhooks-razorpay.ts (the route: verify-then-consume ordering, response discipline, payload-handling rule)
 
 
 
-\* scripts/process-razorpay-settlements.ts (the out-of-band poll-loop trigger; \`npm run process:razorpay-settlements\`)
+* packages/api/src/bootstrap/resolveRazorpayWebhookSecret.ts, createRazorpayWebhookEventStore.ts, createRazorpayWebhookAuditSink.ts (test/production split; fail-closed at startup in production when Supabase is unconfigured, mirroring createNonceStore.ts/createCallerAuditSink.ts)
 
 
 
-\* packages/shared/src/domain/settlement-confirmation.ts (SettlementConfirmation, SettlementStatus), packages/crypto/src/SettlementConfirmationCrypto.ts (signing, structurally identical to ReceiptCrypto.ts)
+* supabase/migrations/20260718182238_add_razorpay_webhook_tables.sql (`razorpay_webhook_events`, `razorpay_webhook_audit_events`; primary-key-as-atomicity mechanism, RLS enabled, no PII)
 
 
 
-\* packages/shared/src/repositories/execution-trust-record-repository.ts (appendSettlementConfirmation), packages/storage/src/memory/MemoryExecutionTrustRecordRepository.ts, packages/storage/src/supabase/SupabaseExecutionTrustRecordRepository.ts, supabase/migrations/20260718190412\_add\_settlement\_confirmations\_and\_audit\_severity.sql (settlement\_confirmations table; widened razorpay\_webhook\_audit\_events type constraint plus severity/confirmation\_id/fetched\_refund\_status columns)
+* packages/api/tests/unit/webhooks/verify-razorpay-webhook-signature.test.ts — HMAC-SHA256 vectors (valid signature accepted, one-byte body tamper rejected, one-byte signature tamper rejected, wrong-secret rejected, non-hex header rejected without throwing), and the raw-bytes-not-re-serialized proof
 
 
 
-\* packages/connector-sdk/src/connectors/razorpay/RazorpayConnector.ts (new \`razorpay:refund-fetch\` capability, GET /refunds/:id), MockRazorpayServer.ts (GET /refunds/:id simulation, setRefundStatus test hook)
+* packages/api/tests/unit/webhooks/in-memory-razorpay-webhook-event-store.test.ts — fresh event recorded; replayed event id rejected as duplicate, original record not overwritten
 
 
 
-\* packages/api/src/routes/verify-get.ts (settlement surfaced on the verification read path, never silently)
+* packages/api/tests/unit/bootstrap/resolve-razorpay-webhook-secret.test.ts — test-mode placeholder/override; production fail-closed absence and configured-secret cases
 
 
 
-\* packages/api/tests/unit/webhooks/razorpay-settlement-processor.test.ts — processed event through signed, verifier-checked confirmation; failed event through flagged audit; webhook-claims-processed-but-fetch-says-failed (fetched state wins); park-and-retry race resolving once the Trust Record appears; park-window exhaustion (flagged, never reprocessed); fetch-verify unreachable (no confirmation, flagged, no crash); Receipt byte-identical and \`trustRecordHash\`/\`signature\` unchanged after settlement; irrelevant event types ignored, never an error; \`runOnce\` summary counts
+* packages/api/tests/integration/razorpay-webhook.integration.test.ts — full `POST /webhooks/razorpay` HTTP requests against the real app and an inspectable in-memory event store/audit sink: valid signature accepted and persisted; duplicate acknowledged without reprocessing; bad signature rejected with nothing persisted; missing signature header rejected; validly-signed request missing the event id header rejected; verify-before-consume ordering (forged signature + fresh event id never consumes it); raw-bytes proof at the HTTP boundary; `razorpayWebhook: "disabled"` mounts no route (404)
 
 
 
-\* packages/api/tests/integration/razorpay-settlement.integration.test.ts — full lifecycle through the real app against MockRazorpayServer: \`POST /execute\` creates a mock refund, a simulated correctly-signed webhook is POSTed to the real route, \`runOnce()\` produces a signed \`SETTLED\` confirmation, and \`GET /verification/{id}\` surfaces it
+---
 
 
 
-\* packages/api/tests/integration/razorpay-live.integration.test.ts — the money-moving describe block's new case: live poll of \`razorpay:refund-fetch\` to \`"processed"\`, a locally-injected signed webhook, and a live-run \`SETTLED\` confirmation against the real captured payment's real refund
+## 3.6 Razorpay Refund Lifecycle Closure (M4b, Scoped)
 
 
 
-\---
+`RazorpaySettlementProcessor` (packages/api/src/webhooks/RazorpaySettlementProcessor.ts) drains M4a's verified, deduplicated pending-events store into signed Settlement Confirmations, closing a Razorpay refund's lifecycle on its correlated Execution Trust Record. This is the first code in this codebase that reads `razorpay_webhook_events` back to act on anything — M4a's own claim explicitly stopped short of this.
 
 
 
-\## 3.7 Real Razorpay-Initiated Webhook Delivery (Scoped)
+Only `refund.processed` and `refund.failed` events are acted on; every other event type is acknowledged as ignored and audited, never treated as an error. Correlation extracts the parmana transaction id from the refund entity's `notes` tag (the same `parmana_txn` key `RazorpayConnector.createRefund` already writes) and looks up the Trust Record. Not found (the webhook can legitimately arrive before the synchronous execution path finishes writing) parks the event with bounded-attempt retry (default 5 attempts, configurable); the window exhausting produces a flagged (elevated-severity) audit event and the event is never reprocessed again — no crash, no infinite loop.
 
 
 
-Closes the gap 3.6 explicitly left open: a real \`refund.processed\` webhook, delivered by Razorpay's own webhook infrastructure — not constructed or signed by this codebase's own test code — has been received, signature-verified, correlated, and closed into a signed Settlement Confirmation through the real production chain, exactly once, in test mode.
+FETCH-VERIFY is load-bearing, not decorative: a webhook is treated strictly as a doorbell, never a delivery. Before any confirmation is written, an authenticated `razorpay:refund-fetch` GET (a new capability added to `RazorpayConnector` this session, reusing the exact same connector/credential wiring `razorpay:refund-create` already uses) confirms the refund's status directly from Razorpay's API. The FETCHED status — never the webhook's own claimed event type — decides `SettlementConfirmation.status` (`SETTLED` when fetched status is `"processed"`, `SETTLEMENT_FAILED` otherwise). A webhook claiming `refund.processed` whose fetched state is actually `"failed"` is recorded as `SETTLEMENT_FAILED`; the fetch call itself being unreachable parks and, on window exhaustion, produces a flagged audit event and writes no confirmation at all (fail closed: no unverified closure).
 
 
 
-Procedure: a real API server was run locally with \`POST /webhooks/razorpay\` mounted behind a fresh, randomly generated, single-use secret, exposed via a \`cloudflared\` quick tunnel (no account, no standing infrastructure). That URL and secret were registered in the Razorpay Dashboard under \*\*Test Mode\*\* specifically — a Live Mode registration silently receives nothing for test-mode activity, which cost real debugging time before the correct mode was found. A real 100-paise refund was then created through the full production \`POST /execute\` chain (the same path 3.4 exercises), and Razorpay delivered a genuine \`refund.processed\` webhook to the tunnel — HMAC-SHA256 signature verified against the registered secret, event persisted through \`RazorpayWebhookEventStore.recordIfUnseen\`, \`200\` returned. \`RazorpaySettlementProcessor.runOnce()\`, run against that same process's stores, correlated the event to its Execution Trust Record, fetch-verified the refund's real status directly from Razorpay (\`razorpay:refund-fetch\`, not the webhook's own claimed status), and appended a real, independently signed \`SETTLED\` Settlement Confirmation — observed live: refund id redacted \`rfnd\_\*\*\*\*\*\*\*\*1vGG\`, confirmation id \`69c44cff-568a-4161-a66c-c6906aba2e42\`, \`fetchedRefundStatus: "processed"\`, surfaced correctly on \`GET /verification/{businessTransactionId}\`.
+The Settlement Confirmation is a SECOND, independently signed artifact — the original Receipt is never mutated, and neither is the Trust Record's own `trustRecordHash`/`signature` (`SettlementConfirmationCrypto`, structurally identical to `ReceiptCrypto`: same `TrustRecordHasher`/`ArtifactSigner`/`FileKeyProvider`/`DEFAULT_KEY_ID` composition, so a confirmation is signed exactly the way a Receipt is and its signature verifies with the same `SignatureVerifier` used to verify Receipt signatures elsewhere in this document). It references the original Receipt id (when one exists — never a blocking dependency), the business transaction id, the triggering webhook event id, and the fetched refund status. `ExecutionTrustRecordRepository.appendSettlementConfirmation` follows the identical append-only pattern as `appendReceipt`/`appendVerification`/`appendOverride` (in-memory and Supabase, the latter backed by a new `settlement_confirmations` table mirroring `receipts`'s shape).
 
 
 
-A second, earlier refund's webhook was also observed during this exercise: Razorpay retried the same event id nine times total (the initial capture-tap implementation had a bug — a second \`express.raw()\` layered in front of the real route's own broke under real network conditions, though it never affected refund-authorization or money-movement correctness) before the fixed path accepted a retry successfully. Its own settlement never confirmed, purely as an artifact of the demo harness being restarted mid-exercise (losing its in-memory-only Trust Record, since the exercise ran with \`NODE\_ENV=test\` storage semantics) — not a defect in \`RazorpaySettlementProcessor\`, which parks and eventually flags exactly this "correlated record not found" case rather than crashing or silently dropping the event.
+A `SETTLEMENT_FAILED` confirmation additionally emits a flagged (elevated-severity) audit event, and the read paths never go silent: `GET /verification/{businessTransactionId}` surfaces the latest confirmation's status, id, fetched status, and refund id alongside the verification result (a verifier sees "executed, settlement failed," not an unremarked VERIFIED); `GET /trust-records/{businessTransactionId}` surfaces the full `settlementConfirmations` array as part of the whole record.
 
 
 
-The captured delivery (redacted for PII — see below — and committed) is replayed in a permanent, always-running hermetic test, not a one-time manual exercise: \`packages/api/tests/integration/razorpay-real-webhook-fixture.integration.test.ts\` feeds the real captured bytes through the actual \`/webhooks/razorpay\` route and through \`RazorpaySettlementProcessor.processEvent()\` directly, asserting that \`extractSafeMetadata\`'s and the processor's correlation-extraction logic's shape assumptions — previously checked only against this codebase's own synthetic payloads — hold against what Razorpay actually sends (notably: a real refund event carries \`payload.payment\` and \`payload.refund\` as siblings, which every synthetic payload elsewhere in this suite already assumed but had never been checked against a real delivery).
+Processing is out-of-band from the webhook request cycle by design — M4a's `200` has already returned by the time settlement processing runs. Simplest pattern consistent with the codebase: no new queue infrastructure (none existed before this session — see 3.5's own note). `RazorpaySettlementProcessor.runOnce()` is a single idempotent drain, callable directly (what the test suite does, deterministically, with no timers) or from a thin poll loop (`scripts/process-razorpay-settlements.ts`, a `setInterval` calling `runOnce()` — no cron, no job-queue dependency added). Idempotency has two independent layers: durably, a confirmation is never written twice for the same webhook event id (checked against the Trust Record itself, safe across restarts); in-process, park-retry attempt counts reset on restart, which is safe precisely because the durable check is what actually prevents a duplicate confirmation.
 
 
 
-PII redacted from the committed fixture after capture: \`payload.payment.entity.email\`, \`.contact\`, \`.card.{id,iin,issuer,last4,network,token\_iin}\`, \`.card\_id\`, \`.token\_id\`, \`.acquirer\_data.auth\_code\`, \`payload.refund.entity.acquirer\_data.arn\`, and the top-level \`account\_id\`. Test-mode payment/refund/order entity ids were kept exactly as captured. Redacting the body invalidated Razorpay's original signature over the original bytes, so the fixture's stored signature is a freshly computed HMAC-SHA256 over the redacted bytes under a dedicated, non-sensitive \`FIXTURE\_SECRET\` constant — not a claim that this exact signature is one Razorpay produced (see the fixture file's header comment for the precise distinction between what the shape proves and what the signature proves).
+Live-verified (test mode): the gated live suite (3.4, `razorpay-live.integration.test.ts`) was extended with a case that, after creating a real 100-paise refund against the manually captured payment, polls live `razorpay:refund-fetch` through the full production `POST /execute` chain until Razorpay reports the refund `"processed"`, then submits a locally-injected, correctly-signed webhook event (signed with `RAZORPAY_TEST_WEBHOOK_SECRET` if configured, else the built-in test-mode placeholder) and drives `RazorpaySettlementProcessor.runOnce()` against the real Razorpay API. Run live, this produced a real signed `SETTLED` confirmation with `fetchedRefundStatus: "processed"`, referencing the real refund id. This proves fetch-verify and settlement closure work end to end against a real Razorpay test-mode account, without a public URL — but it does NOT prove Razorpay itself ever delivered a webhook: the event this test submits is constructed and signed by the test itself, not received from Razorpay's servers (see Future Claims for exactly what closes this gap).
+
+
+
+Evidence
+
+
+
+* packages/api/src/webhooks/RazorpaySettlementProcessor.ts (correlation, park/retry with bounded window, fetch-verify, fetched-state-wins confirmation, audit trail, runOnce/processEvent)
+
+
+
+* packages/api/src/bootstrap/createRazorpaySettlementProcessor.ts (fail-closed: undefined when no Razorpay credential is configured, mirroring createConnectorRegistry.ts)
+
+
+
+* scripts/process-razorpay-settlements.ts (the out-of-band poll-loop trigger; `npm run process:razorpay-settlements`)
+
+
+
+* packages/shared/src/domain/settlement-confirmation.ts (SettlementConfirmation, SettlementStatus), packages/crypto/src/SettlementConfirmationCrypto.ts (signing, structurally identical to ReceiptCrypto.ts)
+
+
+
+* packages/shared/src/repositories/execution-trust-record-repository.ts (appendSettlementConfirmation), packages/storage/src/memory/MemoryExecutionTrustRecordRepository.ts, packages/storage/src/supabase/SupabaseExecutionTrustRecordRepository.ts, supabase/migrations/20260718190412_add_settlement_confirmations_and_audit_severity.sql (settlement_confirmations table; widened razorpay_webhook_audit_events type constraint plus severity/confirmation_id/fetched_refund_status columns)
+
+
+
+* packages/connector-sdk/src/connectors/razorpay/RazorpayConnector.ts (new `razorpay:refund-fetch` capability, GET /refunds/:id), MockRazorpayServer.ts (GET /refunds/:id simulation, setRefundStatus test hook)
+
+
+
+* packages/api/src/routes/verify-get.ts (settlement surfaced on the verification read path, never silently)
+
+
+
+* packages/api/tests/unit/webhooks/razorpay-settlement-processor.test.ts — processed event through signed, verifier-checked confirmation; failed event through flagged audit; webhook-claims-processed-but-fetch-says-failed (fetched state wins); park-and-retry race resolving once the Trust Record appears; park-window exhaustion (flagged, never reprocessed); fetch-verify unreachable (no confirmation, flagged, no crash); Receipt byte-identical and `trustRecordHash`/`signature` unchanged after settlement; irrelevant event types ignored, never an error; `runOnce` summary counts
+
+
+
+* packages/api/tests/integration/razorpay-settlement.integration.test.ts — full lifecycle through the real app against MockRazorpayServer: `POST /execute` creates a mock refund, a simulated correctly-signed webhook is POSTed to the real route, `runOnce()` produces a signed `SETTLED` confirmation, and `GET /verification/{id}` surfaces it
+
+
+
+* packages/api/tests/integration/razorpay-live.integration.test.ts — the money-moving describe block's new case: live poll of `razorpay:refund-fetch` to `"processed"`, a locally-injected signed webhook, and a live-run `SETTLED` confirmation against the real captured payment's real refund
+
+
+
+---
+
+
+
+## 3.7 Real Razorpay-Initiated Webhook Delivery (Scoped)
+
+
+
+Closes the gap 3.6 explicitly left open: a real `refund.processed` webhook, delivered by Razorpay's own webhook infrastructure — not constructed or signed by this codebase's own test code — has been received, signature-verified, correlated, and closed into a signed Settlement Confirmation through the real production chain, exactly once, in test mode.
+
+
+
+Procedure: a real API server was run locally with `POST /webhooks/razorpay` mounted behind a fresh, randomly generated, single-use secret, exposed via a `cloudflared` quick tunnel (no account, no standing infrastructure). That URL and secret were registered in the Razorpay Dashboard under **Test Mode** specifically — a Live Mode registration silently receives nothing for test-mode activity, which cost real debugging time before the correct mode was found. A real 100-paise refund was then created through the full production `POST /execute` chain (the same path 3.4 exercises), and Razorpay delivered a genuine `refund.processed` webhook to the tunnel — HMAC-SHA256 signature verified against the registered secret, event persisted through `RazorpayWebhookEventStore.recordIfUnseen`, `200` returned. `RazorpaySettlementProcessor.runOnce()`, run against that same process's stores, correlated the event to its Execution Trust Record, fetch-verified the refund's real status directly from Razorpay (`razorpay:refund-fetch`, not the webhook's own claimed status), and appended a real, independently signed `SETTLED` Settlement Confirmation — observed live: refund id redacted `rfnd_********1vGG`, confirmation id `69c44cff-568a-4161-a66c-c6906aba2e42`, `fetchedRefundStatus: "processed"`, surfaced correctly on `GET /verification/{businessTransactionId}`.
+
+
+
+A second, earlier refund's webhook was also observed during this exercise: Razorpay retried the same event id nine times total (the initial capture-tap implementation had a bug — a second `express.raw()` layered in front of the real route's own broke under real network conditions, though it never affected refund-authorization or money-movement correctness) before the fixed path accepted a retry successfully. Its own settlement never confirmed, purely as an artifact of the demo harness being restarted mid-exercise (losing its in-memory-only Trust Record, since the exercise ran with `NODE_ENV=test` storage semantics) — not a defect in `RazorpaySettlementProcessor`, which parks and eventually flags exactly this "correlated record not found" case rather than crashing or silently dropping the event.
+
+
+
+The captured delivery (redacted for PII — see below — and committed) is replayed in a permanent, always-running hermetic test, not a one-time manual exercise: `packages/api/tests/integration/razorpay-real-webhook-fixture.integration.test.ts` feeds the real captured bytes through the actual `/webhooks/razorpay` route and through `RazorpaySettlementProcessor.processEvent()` directly, asserting that `extractSafeMetadata`'s and the processor's correlation-extraction logic's shape assumptions — previously checked only against this codebase's own synthetic payloads — hold against what Razorpay actually sends (notably: a real refund event carries `payload.payment` and `payload.refund` as siblings, which every synthetic payload elsewhere in this suite already assumed but had never been checked against a real delivery).
+
+
+
+PII redacted from the committed fixture after capture: `payload.payment.entity.email`, `.contact`, `.card.{id,iin,issuer,last4,network,token_iin}`, `.card_id`, `.token_id`, `.acquirer_data.auth_code`, `payload.refund.entity.acquirer_data.arn`, and the top-level `account_id`. Test-mode payment/refund/order entity ids were kept exactly as captured. Redacting the body invalidated Razorpay's original signature over the original bytes, so the fixture's stored signature is a freshly computed HMAC-SHA256 over the redacted bytes under a dedicated, non-sensitive `FIXTURE_SECRET` constant — not a claim that this exact signature is one Razorpay produced (see the fixture file's header comment for the precise distinction between what the shape proves and what the signature proves).
 
 
 
@@ -976,51 +976,51 @@ Evidence
 
 
 
-\* packages/api/tests/fixtures/razorpay-webhook-real-delivery.ts (the captured, redacted, re-signed real delivery; full provenance in the header comment)
+* packages/api/tests/fixtures/razorpay-webhook-real-delivery.ts (the captured, redacted, re-signed real delivery; full provenance in the header comment)
 
 
 
-\* packages/api/tests/integration/razorpay-real-webhook-fixture.integration.test.ts — always-running (not gated): the real payload verifies and extracts through the actual \`/webhooks/razorpay\` route; \`RazorpaySettlementProcessor\` correlates and settles the real payload via \`processEvent\`
+* packages/api/tests/integration/razorpay-real-webhook-fixture.integration.test.ts — always-running (not gated): the real payload verifies and extracts through the actual `/webhooks/razorpay` route; `RazorpaySettlementProcessor` correlates and settles the real payload via `processEvent`
 
 
 
-\* packages/connector-sdk/src/connectors/razorpay/MockRazorpayServer.ts (\`seedExistingRefund\` — additive test-only hook letting a hermetic test seed a refund carrying a real, externally-captured id, which the normal create flow's randomly generated id cannot reproduce)
+* packages/connector-sdk/src/connectors/razorpay/MockRazorpayServer.ts (`seedExistingRefund` — additive test-only hook letting a hermetic test seed a refund carrying a real, externally-captured id, which the normal create flow's randomly generated id cannot reproduce)
 
 
 
-\* packages/api/README.md — "Real webhook delivery fixture" section: what the fixture proves and does not prove, PII redacted, and the tunnel procedure for reproducing a fresh capture
+* packages/api/README.md — "Real webhook delivery fixture" section: what the fixture proves and does not prove, PII redacted, and the tunnel procedure for reproducing a fresh capture
 
 
 
-\---
+---
 
 
 
-\## 3.8 Deployed Environment: Full Chain via a Permanent Public Endpoint (Scoped)
+## 3.8 Deployed Environment: Full Chain via a Permanent Public Endpoint (Scoped)
 
 
 
-Closes the last gap 3.7 left open: 3.7's real Razorpay-initiated webhook delivery was proven against a temporary \`cloudflared\` tunnel run locally, with no standing infrastructure. This claim proves the identical full chain — a real refund, a real Razorpay-initiated webhook, signature-verified, correlated, and closed into a signed Settlement Confirmation — against Parmana's actual deployed instance, reachable at a permanent public URL, continuously running, not a one-time local exercise.
+Closes the last gap 3.7 left open: 3.7's real Razorpay-initiated webhook delivery was proven against a temporary `cloudflared` tunnel run locally, with no standing infrastructure. This claim proves the identical full chain — a real refund, a real Razorpay-initiated webhook, signature-verified, correlated, and closed into a signed Settlement Confirmation — against Parmana's actual deployed instance, reachable at a permanent public URL, continuously running, not a one-time local exercise.
 
 
 
-\*\*Deployment\*\*: \`parmana-api\`, a single Docker image (see DEPLOYMENT.md), running on Fly.io across two machines in the \`lhr\` region (\`fly.toml\` declares \`primary\_region = 'bom'\`; the actually running machines are \`lhr\` — this claim states the observed region, not the configured one). Durable storage (\`PARMANA\_STORAGE=supabase\`) and the webhook/settlement event stores are Supabase-backed, shared across both machines. The API requires caller authentication at every route except \`/health\`: an unauthenticated \`POST /execute\` was observed returning \`401\` with \`WWW-Authenticate: Bearer realm="Parmana"\`, never falling open.
+**Deployment**: `parmana-api`, a single Docker image (see DEPLOYMENT.md), running on Fly.io across two machines in the `lhr` region (`fly.toml` declares `primary_region = 'bom'`; the actually running machines are `lhr` — this claim states the observed region, not the configured one). Durable storage (`PARMANA_STORAGE=supabase`) and the webhook/settlement event stores are Supabase-backed, shared across both machines. The API requires caller authentication at every route except `/health`: an unauthenticated `POST /execute` was observed returning `401` with `WWW-Authenticate: Bearer realm="Parmana"`, never falling open.
 
 
 
-\`POST /webhooks/razorpay\` is registered permanently — not through a tunnel — at \`https://parmana-api.fly.dev/webhooks/razorpay\`, in the Razorpay Dashboard's Test Mode, for \`refund.processed\` and \`refund.failed\`.
+`POST /webhooks/razorpay` is registered permanently — not through a tunnel — at `https://parmana-api.fly.dev/webhooks/razorpay`, in the Razorpay Dashboard's Test Mode, for `refund.processed` and `refund.failed`.
 
 
 
-\*\*Procedure\*\*: one authenticated, gated 100-paise refund was created through the full production \`POST /execute\` chain against the same manually captured test-mode payment 3.4/3.7 use, executed against the deployed instance. Razorpay created the refund (id redacted \`rfnd\_\*\*\*\*\*\*\*\*\*\*T9Cj\`) and, independently, delivered a genuine \`refund.processed\` webhook to the permanent endpoint above. The deployed instance's webhook route verified its signature against the rotated \`RAZORPAY\_WEBHOOK\_SECRET\`, persisted the event, and the deployed settlement poll loop (\`scripts/process-razorpay-settlements.ts\`, \`pollIntervalMs: 15000\`) drained it: fetch-verified the refund's real status directly from Razorpay, and appended a signed \`SETTLED\` Settlement Confirmation (\`confirmationId dcb06247-6e7a-4adf-b709-5da407f0b054\`, \`fetchedRefundStatus: "processed"\`) to the Execution Trust Record, surfaced correctly on \`GET /verification/{businessTransactionId}\`. Elapsed time from \`POST /execute\` to the signed \`SETTLED\` confirmation: approximately 48 seconds.
+**Procedure**: one authenticated, gated 100-paise refund was created through the full production `POST /execute` chain against the same manually captured test-mode payment 3.4/3.7 use, executed against the deployed instance. Razorpay created the refund (id redacted `rfnd_**********T9Cj`) and, independently, delivered a genuine `refund.processed` webhook to the permanent endpoint above. The deployed instance's webhook route verified its signature against the rotated `RAZORPAY_WEBHOOK_SECRET`, persisted the event, and the deployed settlement poll loop (`scripts/process-razorpay-settlements.ts`, `pollIntervalMs: 15000`) drained it: fetch-verified the refund's real status directly from Razorpay, and appended a signed `SETTLED` Settlement Confirmation (`confirmationId dcb06247-6e7a-4adf-b709-5da407f0b054`, `fetchedRefundStatus: "processed"`) to the Execution Trust Record, surfaced correctly on `GET /verification/{businessTransactionId}`. Elapsed time from `POST /execute` to the signed `SETTLED` confirmation: approximately 48 seconds.
 
 
 
-Correlation is proven by construction, not just observation: \`RazorpaySettlementProcessor\` never queries Razorpay for refunds on its own — \`runOnce()\` only drains events already sitting in the durable webhook event store, and the only code path that ever writes to that store is the webhook route, only after signature verification succeeds. Since the business transaction id driving this refund was freshly generated for this exercise, a matching event could only have entered the store via a genuinely delivered, correctly signed webhook POST from Razorpay to the permanent endpoint above.
+Correlation is proven by construction, not just observation: `RazorpaySettlementProcessor` never queries Razorpay for refunds on its own — `runOnce()` only drains events already sitting in the durable webhook event store, and the only code path that ever writes to that store is the webhook route, only after signature verification succeeds. Since the business transaction id driving this refund was freshly generated for this exercise, a matching event could only have entered the store via a genuinely delivered, correctly signed webhook POST from Razorpay to the permanent endpoint above.
 
 
 
-This claim is scoped narrowly: one real delivery, test mode only, against a permanent endpoint. It does not claim live-mode operation, load-bearing traffic, or high availability — the deployment runs two machines for redundancy, not for capacity or failover behavior that has been tested. \[FUTURE\] live-mode operation remains open (see 3.4/Future Claims).
+This claim is scoped narrowly: one real delivery, test mode only, against a permanent endpoint. It does not claim live-mode operation, load-bearing traffic, or high availability — the deployment runs two machines for redundancy, not for capacity or failover behavior that has been tested. [FUTURE] live-mode operation remains open (see 3.4/Future Claims).
 
 
 
@@ -1028,55 +1028,55 @@ Evidence
 
 
 
-\* \`fly.toml\`, \`Dockerfile\`, \`docker/entrypoint.sh\` (deployment shape)
+* `fly.toml`, `Dockerfile`, `docker/entrypoint.sh` (deployment shape)
 
 
 
-\* \`packages/api/src/routes/ready.ts\` (readiness probe distinguishing Supabase-backed storage from in-memory)
+* `packages/api/src/routes/ready.ts` (readiness probe distinguishing Supabase-backed storage from in-memory)
 
 
 
-\* \`packages/api/src/middleware/caller-auth.ts\` (401 + \`WWW-Authenticate\` on missing credential, observed live against the deployed instance)
+* `packages/api/src/middleware/caller-auth.ts` (401 + `WWW-Authenticate` on missing credential, observed live against the deployed instance)
 
 
 
-\* \`scripts/process-razorpay-settlements.ts\` (the deployed settlement poll loop; \`RAZORPAY\_SETTLEMENT\_POLL\_INTERVAL\_MS\`)
+* `scripts/process-razorpay-settlements.ts` (the deployed settlement poll loop; `RAZORPAY_SETTLEMENT_POLL_INTERVAL_MS`)
 
 
 
-\* Live smoke test performed against \`https://parmana-api.fly.dev\` this session: unauthenticated \`POST /execute\` → \`401\`; one authenticated 100-paise refund via \`POST /execute\`; \`GET /verification/{businessTransactionId}\` polled until \`settlement.status: "SETTLED"\` (confirmationId \`dcb06247-6e7a-4adf-b709-5da407f0b054\`, \`fetchedRefundStatus: "processed"\`, refund id redacted \`rfnd\_\*\*\*\*\*\*\*\*\*\*T9Cj\`)
+* Live smoke test performed against `https://parmana-api.fly.dev` this session: unauthenticated `POST /execute` → `401`; one authenticated 100-paise refund via `POST /execute`; `GET /verification/{businessTransactionId}` polled until `settlement.status: "SETTLED"` (confirmationId `dcb06247-6e7a-4adf-b709-5da407f0b054`, `fetchedRefundStatus: "processed"`, refund id redacted `rfnd_**********T9Cj`)
 
 
 
-\---
+---
 
 
 
-\## 3.9 Deployed Environment: Live-Mode Full Chain (Scoped)
+## 3.9 Deployed Environment: Live-Mode Full Chain (Scoped)
 
 
 
-Closes the gap 3.4/3.8 left open: every live claim before this one was against Razorpay's test-mode API only. This claim proves the identical full chain — a real refund, a real Razorpay-initiated webhook, signature-verified, correlated, and closed into a signed Settlement Confirmation — in Razorpay \*\*Live Mode\*\*, against a second, separately deployed instance.
+Closes the gap 3.4/3.8 left open: every live claim before this one was against Razorpay's test-mode API only. This claim proves the identical full chain — a real refund, a real Razorpay-initiated webhook, signature-verified, correlated, and closed into a signed Settlement Confirmation — in Razorpay **Live Mode**, against a second, separately deployed instance.
 
 
 
-\*\*Deployment\*\*: \`parmana-api-live\`, the same Docker image (see DEPLOYMENT.md), running on Fly.io in the \`sin\` region (\`fly.live.toml\` declares \`primary\_region = 'sin'\`; the actually running machines are also \`sin\` — no region mismatch this time, unlike 3.8's \`parmana-api\`). Durable storage (\`PARMANA\_STORAGE=supabase\`) and the webhook/settlement event stores are Supabase-backed, shared across both machines. \`RAZORPAY\_KEY\_ID\`/\`RAZORPAY\_KEY\_SECRET\` are a live-mode (\`rzp\_live\_\`) key pair, distinct from every other credential used elsewhere in this document. Caller authentication is enforced identically to 3.8: an unauthenticated \`POST /execute\` was observed returning \`401\` with \`WWW-Authenticate: Bearer realm="Parmana"\` against this deployment specifically.
+**Deployment**: `parmana-api-live`, the same Docker image (see DEPLOYMENT.md), running on Fly.io in the `sin` region (`fly.live.toml` declares `primary_region = 'sin'`; the actually running machines are also `sin` — no region mismatch this time, unlike 3.8's `parmana-api`). Durable storage (`PARMANA_STORAGE=supabase`) and the webhook/settlement event stores are Supabase-backed, shared across both machines. `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are a live-mode (`rzp_live_`) key pair, distinct from every other credential used elsewhere in this document. Caller authentication is enforced identically to 3.8: an unauthenticated `POST /execute` was observed returning `401` with `WWW-Authenticate: Bearer realm="Parmana"` against this deployment specifically.
 
 
 
-\`POST /webhooks/razorpay\` is registered permanently at \`https://parmana-api-live.fly.dev/webhooks/razorpay\`, in the Razorpay Dashboard's \*\*Live Mode\*\* specifically (not Test Mode — see 3.7/3.8 for the debugging cost of getting this wrong), for \`refund.processed\` and \`refund.failed\`.
+`POST /webhooks/razorpay` is registered permanently at `https://parmana-api-live.fly.dev/webhooks/razorpay`, in the Razorpay Dashboard's **Live Mode** specifically (not Test Mode — see 3.7/3.8 for the debugging cost of getting this wrong), for `refund.processed` and `refund.failed`.
 
 
 
-\*\*Procedure\*\*: a real ₹10.00 Payment Link was created and paid with a real card, live, through Razorpay-hosted checkout. One authenticated, policy-gated 100-paise refund was then created through the full production \`POST /execute\` chain against that payment (\`pay\_\` id redacted below). Razorpay created the refund (id redacted \`rfnd\_\*\*\*\*\*\*\*\*\*\*WnNG\`) and, independently, delivered a genuine \`refund.processed\` webhook to the permanent endpoint above. The deployed instance's webhook route verified its signature, persisted the event, and the deployed settlement poll loop drained it: fetch-verified the refund's real status directly from Razorpay, and appended a signed \`SETTLED\` Settlement Confirmation (\`confirmationId 6a334df8-190d-4835-9050-b54e6657e05f\`, \`fetchedRefundStatus: "processed"\`), surfaced correctly on \`GET /verification/{businessTransactionId}\`. Elapsed time from \`POST /execute\` to the signed \`SETTLED\` confirmation: approximately 43 seconds.
+**Procedure**: a real ₹10.00 Payment Link was created and paid with a real card, live, through Razorpay-hosted checkout. One authenticated, policy-gated 100-paise refund was then created through the full production `POST /execute` chain against that payment (`pay_` id redacted below). Razorpay created the refund (id redacted `rfnd_**********WnNG`) and, independently, delivered a genuine `refund.processed` webhook to the permanent endpoint above. The deployed instance's webhook route verified its signature, persisted the event, and the deployed settlement poll loop drained it: fetch-verified the refund's real status directly from Razorpay, and appended a signed `SETTLED` Settlement Confirmation (`confirmationId 6a334df8-190d-4835-9050-b54e6657e05f`, `fetchedRefundStatus: "processed"`), surfaced correctly on `GET /verification/{businessTransactionId}`. Elapsed time from `POST /execute` to the signed `SETTLED` confirmation: approximately 43 seconds.
 
 
 
-Correlation is proven by construction, for the same reason 3.8 states: the settlement processor never queries Razorpay on its own initiative — \`runOnce()\` only drains events already sitting in the durable webhook event store, and the only writer to that store is the webhook route, only after signature verification succeeds. The \`businessTransactionId\` driving this refund was freshly generated for this exercise, so a matching event could only have entered the store via a genuinely delivered, correctly signed Live Mode webhook POST from Razorpay.
+Correlation is proven by construction, for the same reason 3.8 states: the settlement processor never queries Razorpay on its own initiative — `runOnce()` only drains events already sitting in the durable webhook event store, and the only writer to that store is the webhook route, only after signature verification succeeds. The `businessTransactionId` driving this refund was freshly generated for this exercise, so a matching event could only have entered the store via a genuinely delivered, correctly signed Live Mode webhook POST from Razorpay.
 
 
 
-This claim is scoped narrowly and deliberately: \*\*one\*\* real-money refund (₹1.00 / 100 paise), one deployed instance, one live-mode webhook delivery. It does not claim volume, sustained load, high availability, or tested failover behavior — \`parmana-api-live\` runs the same two-machine shape as \`parmana-api\` for redundancy, not capacity or failover that has been exercised. It does not claim Razorpay payout creation (RazorpayX remains a distinct, unimplemented item — see Future Claims), and it does not claim any change to Phase 1's Runtime, Policy Engine, Execution Gateway, Replay, Receipt Generation, Verification, or REST API.
+This claim is scoped narrowly and deliberately: **one** real-money refund (₹1.00 / 100 paise), one deployed instance, one live-mode webhook delivery. It does not claim volume, sustained load, high availability, or tested failover behavior — `parmana-api-live` runs the same two-machine shape as `parmana-api` for redundancy, not capacity or failover that has been exercised. It does not claim Razorpay payout creation (RazorpayX remains a distinct, unimplemented item — see Future Claims), and it does not claim any change to Phase 1's Runtime, Policy Engine, Execution Gateway, Replay, Receipt Generation, Verification, or REST API.
 
 
 
@@ -1084,23 +1084,23 @@ Evidence
 
 
 
-\* \`fly.live.toml\` (app \`parmana-api-live\`, \`primary\_region = 'sin'\`)
+* `fly.live.toml` (app `parmana-api-live`, `primary_region = 'sin'`)
 
 
 
-\* \`packages/api/src/middleware/caller-auth.ts\` (401 + \`WWW-Authenticate\` on missing credential, observed live against this deployment)
+* `packages/api/src/middleware/caller-auth.ts` (401 + `WWW-Authenticate` on missing credential, observed live against this deployment)
 
 
 
-\* Live execution performed against \`https://parmana-api-live.fly.dev\` this session: unauthenticated \`POST /execute\` → \`401\`; a real ₹10 Payment Link paid live with a real card; one authenticated 100-paise refund via \`POST /execute\` against that payment; \`GET /verification/{businessTransactionId}\` polled until \`settlement.status: "SETTLED"\` (confirmationId \`6a334df8-190d-4835-9050-b54e6657e05f\`, \`fetchedRefundStatus: "processed"\`, refund id redacted \`rfnd\_\*\*\*\*\*\*\*\*\*\*WnNG\`)
+* Live execution performed against `https://parmana-api-live.fly.dev` this session: unauthenticated `POST /execute` → `401`; a real ₹10 Payment Link paid live with a real card; one authenticated 100-paise refund via `POST /execute` against that payment; `GET /verification/{businessTransactionId}` polled until `settlement.status: "SETTLED"` (confirmationId `6a334df8-190d-4835-9050-b54e6657e05f`, `fetchedRefundStatus: "processed"`, refund id redacted `rfnd_**********WnNG`)
 
 
 
-\---
+---
 
 
 
-\# Maturity Assessment (TRL)
+# Maturity Assessment (TRL)
 
 
 
@@ -1108,7 +1108,7 @@ This is the repo owner's own maturity assessment, layered on the evidence alread
 
 
 
-Parmana is assessed at \*\*Technology Readiness Level 7\*\*: system prototype demonstration in an operational environment. Evidence for this assessment is exactly 3.8 and 3.9 above — the full authorize → verify → execute → confirm chain, deployed on public infrastructure (Fly.io), with a real refund created, delivered via a genuine Razorpay-initiated webhook, and settled end to end, in both test mode (3.8) and live mode (3.9).
+Parmana is assessed at **Technology Readiness Level 7**: system prototype demonstration in an operational environment. Evidence for this assessment is exactly 3.8 and 3.9 above — the full authorize → verify → execute → confirm chain, deployed on public infrastructure (Fly.io), with a real refund created, delivered via a genuine Razorpay-initiated webhook, and settled end to end, in both test mode (3.8) and live mode (3.9).
 
 
 
@@ -1116,11 +1116,11 @@ Not claimed by this assessment: sustained volume, load-bearing traffic, high ava
 
 
 
-\---
+---
 
 
 
-\# 4. Future Claims (Pending Evidence)
+# 4. Future Claims (Pending Evidence)
 
 
 
@@ -1128,45 +1128,45 @@ The following claims are planned but are intentionally withheld until supported 
 
 
 
-\* \[FUTURE\] Razorpay payout creation (RazorpayX): no implementation exists. The Razorpay connector implemented in this milestone covers refund creation only.
+* [FUTURE] Razorpay payout creation (RazorpayX): no implementation exists. The Razorpay connector implemented in this milestone covers refund creation only.
 
-\* \[FUTURE\] Stripe connector — no implementation exists; would implement @parmana/connector-sdk's Connector interface.
+* [FUTURE] Stripe connector — no implementation exists; would implement @parmana/connector-sdk's Connector interface.
 
-\* \[FUTURE\] GitHub connector — no implementation exists.
+* [FUTURE] GitHub connector — no implementation exists.
 
-\* \[FUTURE\] Salesforce connector — no implementation exists.
+* [FUTURE] Salesforce connector — no implementation exists.
 
-\* \[FUTURE\] SAP connector — no implementation exists.
+* [FUTURE] SAP connector — no implementation exists.
 
-\* \[FUTURE\] ServiceNow connector — no implementation exists.
+* [FUTURE] ServiceNow connector — no implementation exists.
 
-\* \[FUTURE\] Workday connector — no implementation exists.
+* [FUTURE] Workday connector — no implementation exists.
 
-\* \[FUTURE\] Slack connector — no implementation exists.
+* [FUTURE] Slack connector — no implementation exists.
 
-\* \[FUTURE\] Jira connector — no implementation exists.
+* [FUTURE] Jira connector — no implementation exists.
 
-\* \[FUTURE\] Database connector — no implementation exists.
+* [FUTURE] Database connector — no implementation exists.
 
-\* \[FUTURE\] Cloud credential providers — HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, and Google Secret Manager CredentialProvider implementations. Only the CredentialProvider interface seam exists today (StaticCredentialProvider, EnvironmentCredentialProvider); no cloud SDK dependency has been added.
+* [FUTURE] Cloud credential providers — HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, and Google Secret Manager CredentialProvider implementations. Only the CredentialProvider interface seam exists today (StaticCredentialProvider, EnvironmentCredentialProvider); no cloud SDK dependency has been added.
 
-\* Every production Runtime enforces the canonical trust pipeline.
+* Every production Runtime enforces the canonical trust pipeline.
 
-\* Every production API request executes through the canonical runtime.
+* Every production API request executes through the canonical runtime.
 
-\* Replay semantically verifies every trust artifact.
+* Replay semantically verifies every trust artifact.
 
-\* Every guarantee is fully proven through conformance testing.
+* Every guarantee is fully proven through conformance testing.
 
-\* Every guarantee includes complete independent verification evidence.
+* Every guarantee includes complete independent verification evidence.
 
-\* AI systems never possess or hold Parmana's execution credentials — no credential-brokering mechanism exists in the current implementation.
+* AI systems never possess or hold Parmana's execution credentials — no credential-brokering mechanism exists in the current implementation.
 
-\* Enterprise-grade key custody — current key storage is local PEM files read by FileKeyProvider; no KMS, HSM, or cloud key vault integration exists.
+* Enterprise-grade key custody — current key storage is local PEM files read by FileKeyProvider; no KMS, HSM, or cloud key vault integration exists.
 
-\* Authority, Intent, and Evidence verification checks in verification-service.ts. Only integrity, signature, and authorization binding are implemented today (2.15). The prior six-stage pipeline package (@parmana/verification) was retired in Session 5 — it had no real implementation and no real test coverage; its stage architecture is not being resurrected. Authority/Intent/Evidence checks, if built, will be added directly to verification-service.ts. Tracked for Session 6.
+* Authority, Intent, and Evidence verification checks in verification-service.ts. Only integrity, signature, and authorization binding are implemented today (2.15). The prior six-stage pipeline package (@parmana/verification) was retired in Session 5 — it had no real implementation and no real test coverage; its stage architecture is not being resurrected. Authority/Intent/Evidence checks, if built, will be added directly to verification-service.ts. Tracked for Session 6.
 
-\* Algorithm migration — re-keying from one signature provider to another (for example Ed25519 to ML-DSA-65) while retaining the ability to verify previously-signed records. AuthorizationVerifier does not dispatch verification based on the envelope's algorithm field; a verifying process supports exactly one configured SIGNATURE\_PROVIDER at a time.
+* Algorithm migration — re-keying from one signature provider to another (for example Ed25519 to ML-DSA-65) while retaining the ability to verify previously-signed records. AuthorizationVerifier does not dispatch verification based on the envelope's algorithm field; a verifying process supports exactly one configured SIGNATURE_PROVIDER at a time.
 
 
 
@@ -1174,11 +1174,11 @@ These claims will be promoted to the Supported Technical Claims section only aft
 
 
 
-\---
+---
 
 
 
-\# 5. Claims We Intentionally Do Not Make
+# 5. Claims We Intentionally Do Not Make
 
 
 
@@ -1190,23 +1190,23 @@ Examples include:
 
 
 
-\* Execution is impossible to bypass under all circumstances.
+* Execution is impossible to bypass under all circumstances.
 
-\* Mathematical proof of execution correctness.
+* Mathematical proof of execution correctness.
 
-\* Cryptographic proof of every aspect of runtime behavior.
+* Cryptographic proof of every aspect of runtime behavior.
 
-\* Guaranteed regulatory compliance.
+* Guaranteed regulatory compliance.
 
-\* Absolute prevention of all unauthorized execution.
+* Absolute prevention of all unauthorized execution.
 
-\* Tamper-proof operation in every deployment environment.
+* Tamper-proof operation in every deployment environment.
 
-\* Elimination of all software defects or operational risks.
+* Elimination of all software defects or operational risks.
 
-\* "Non-bypassable" or "the single execution authority" as an unscoped, system-wide claim. Envelope verification (@parmana/envelope-verifier) is opt-in per receiving endpoint and enforces nothing at the network level — see Conditional Claim 3.1 for the scoped version of this claim that is actually supported.
+* "Non-bypassable" or "the single execution authority" as an unscoped, system-wide claim. Envelope verification (@parmana/envelope-verifier) is opt-in per receiving endpoint and enforces nothing at the network level — see Conditional Claim 3.1 for the scoped version of this claim that is actually supported.
 
-\* Deterministic signature output for post-quantum (ML-DSA-65) signing. ML-DSA-65 signatures are randomized by design — signing the same message twice with the same key produces two different, independently valid signatures. Only signature verification is deterministic. Determinism-of-output claims (2.8) apply to Ed25519 only.
+* Deterministic signature output for post-quantum (ML-DSA-65) signing. ML-DSA-65 signatures are randomized by design — signing the same message twice with the same key produces two different, independently valid signatures. Only signature verification is deterministic. Determinism-of-output claims (2.8) apply to Ed25519 only.
 
 
 
@@ -1214,11 +1214,11 @@ Such claims depend on deployment environments, operational controls, and assumpt
 
 
 
-\---
+---
 
 
 
-\# Claim Lifecycle
+# Claim Lifecycle
 
 
 
@@ -1274,11 +1274,11 @@ A claim SHOULD NOT be published before completing this lifecycle.
 
 
 
-\---
+---
 
 
 
-\# Engineering Principle
+# Engineering Principle
 
 
 
@@ -1290,15 +1290,15 @@ Every public technical claim should be traceable to:
 
 
 
-\* implementation
+* implementation
 
-\* automated tests
+* automated tests
 
-\* audit evidence
+* audit evidence
 
-\* documented proofs
+* documented proofs
 
-\* independent verification (where applicable)
+* independent verification (where applicable)
 
 
 
