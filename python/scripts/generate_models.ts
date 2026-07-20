@@ -281,6 +281,7 @@ const DOMAIN_FILES = [
   "override.ts",
   "receipt.ts",
   "verification.ts",
+  "settlement-confirmation.ts",
   "execution-trust-record.ts",
   "execution-authorization.ts",
 ];
@@ -375,6 +376,11 @@ const MODULES: ModuleSpec[] = [
     file: "verification",
     types: ["VerificationStatus", "Verification"],
     docSource: "domain/verification.ts",
+  },
+  {
+    file: "settlement_confirmation",
+    types: ["SettlementStatus", "SettlementConfirmation"],
+    docSource: "domain/settlement-confirmation.ts",
   },
   {
     file: "trust_record",

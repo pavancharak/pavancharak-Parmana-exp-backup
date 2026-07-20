@@ -30,6 +30,7 @@ from .execution import (
 from .override import Override
 from .receipt import Receipt
 from .verification import VerificationStatus, Verification
+from .settlement_confirmation import SettlementStatus, SettlementConfirmation
 from .trust_record import ExecutionTrustRecord
 from .execution_authorization import (
     ExecutionAuthorizationPayload,
@@ -57,6 +58,8 @@ __all__ = [
     "PolicyReference",
     "Receipt",
     "ReplayResult",
+    "SettlementConfirmation",
+    "SettlementStatus",
     "Signature",
     "SignatureAlgorithm",
     "SignedExecutionAuthorization",

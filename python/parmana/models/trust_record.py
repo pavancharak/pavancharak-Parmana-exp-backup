@@ -15,6 +15,7 @@ from .business_transaction import BusinessTransaction
 from .execution import Execution
 from .override import Override
 from .receipt import Receipt
+from .settlement_confirmation import SettlementConfirmation
 from .signature import Signature
 from .verification import Verification
 

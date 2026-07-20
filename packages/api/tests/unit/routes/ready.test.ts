@@ -35,10 +35,17 @@ describe("GET /ready", () => {
   });
 
   it("reports READY without touching Supabase when storage is memory-backed outside test", async () => {
+    // Built under NODE_ENV=test (see the next test's comment for why:
+    // createNonceStore.ts's own eager check always requires Supabase
+    // outside NODE_ENV=test, by design, independent of PARMANA_STORAGE
+    // -- so flipping env before buildApp() would throw for a reason
+    // unrelated to what this test exercises).
+    const app = buildApp();
+
     process.env.NODE_ENV = "production";
     process.env.PARMANA_STORAGE = "memory";
 
-    const response = await request(buildApp()).get("/ready");
+    const response = await request(app).get("/ready");
 
     expect(response.status).toBe(200);
     expect(response.body.status).toBe("READY");
