@@ -82,6 +82,15 @@ packages/crypto/keys/*.pem
 ###############################################################################
 
 .flysecrets/
+.flysecrets*/
+
+###############################################################################
+# Claude Code local settings (may capture literal historical command
+# arguments in permission rules; keep out of the repo regardless of any
+# per-machine global gitignore)
+###############################################################################
+
+.claude/
 
 ###############################################################################
 # Archives

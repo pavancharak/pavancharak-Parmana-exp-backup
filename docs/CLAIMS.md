@@ -1052,6 +1052,74 @@ Evidence
 
 
 
+\## 3.9 Deployed Environment: Live-Mode Full Chain (Scoped)
+
+
+
+Closes the gap 3.4/3.8 left open: every live claim before this one was against Razorpay's test-mode API only. This claim proves the identical full chain — a real refund, a real Razorpay-initiated webhook, signature-verified, correlated, and closed into a signed Settlement Confirmation — in Razorpay \*\*Live Mode\*\*, against a second, separately deployed instance.
+
+
+
+\*\*Deployment\*\*: \`parmana-api-live\`, the same Docker image (see DEPLOYMENT.md), running on Fly.io in the \`sin\` region (\`fly.live.toml\` declares \`primary\_region = 'sin'\`; the actually running machines are also \`sin\` — no region mismatch this time, unlike 3.8's \`parmana-api\`). Durable storage (\`PARMANA\_STORAGE=supabase\`) and the webhook/settlement event stores are Supabase-backed, shared across both machines. \`RAZORPAY\_KEY\_ID\`/\`RAZORPAY\_KEY\_SECRET\` are a live-mode (\`rzp\_live\_\`) key pair, distinct from every other credential used elsewhere in this document. Caller authentication is enforced identically to 3.8: an unauthenticated \`POST /execute\` was observed returning \`401\` with \`WWW-Authenticate: Bearer realm="Parmana"\` against this deployment specifically.
+
+
+
+\`POST /webhooks/razorpay\` is registered permanently at \`https://parmana-api-live.fly.dev/webhooks/razorpay\`, in the Razorpay Dashboard's \*\*Live Mode\*\* specifically (not Test Mode — see 3.7/3.8 for the debugging cost of getting this wrong), for \`refund.processed\` and \`refund.failed\`.
+
+
+
+\*\*Procedure\*\*: a real ₹10.00 Payment Link was created and paid with a real card, live, through Razorpay-hosted checkout. One authenticated, policy-gated 100-paise refund was then created through the full production \`POST /execute\` chain against that payment (\`pay\_\` id redacted below). Razorpay created the refund (id redacted \`rfnd\_\*\*\*\*\*\*\*\*\*\*WnNG\`) and, independently, delivered a genuine \`refund.processed\` webhook to the permanent endpoint above. The deployed instance's webhook route verified its signature, persisted the event, and the deployed settlement poll loop drained it: fetch-verified the refund's real status directly from Razorpay, and appended a signed \`SETTLED\` Settlement Confirmation (\`confirmationId 6a334df8-190d-4835-9050-b54e6657e05f\`, \`fetchedRefundStatus: "processed"\`), surfaced correctly on \`GET /verification/{businessTransactionId}\`. Elapsed time from \`POST /execute\` to the signed \`SETTLED\` confirmation: approximately 43 seconds.
+
+
+
+Correlation is proven by construction, for the same reason 3.8 states: the settlement processor never queries Razorpay on its own initiative — \`runOnce()\` only drains events already sitting in the durable webhook event store, and the only writer to that store is the webhook route, only after signature verification succeeds. The \`businessTransactionId\` driving this refund was freshly generated for this exercise, so a matching event could only have entered the store via a genuinely delivered, correctly signed Live Mode webhook POST from Razorpay.
+
+
+
+This claim is scoped narrowly and deliberately: \*\*one\*\* real-money refund (₹1.00 / 100 paise), one deployed instance, one live-mode webhook delivery. It does not claim volume, sustained load, high availability, or tested failover behavior — \`parmana-api-live\` runs the same two-machine shape as \`parmana-api\` for redundancy, not capacity or failover that has been exercised. It does not claim Razorpay payout creation (RazorpayX remains a distinct, unimplemented item — see Future Claims), and it does not claim any change to Phase 1's Runtime, Policy Engine, Execution Gateway, Replay, Receipt Generation, Verification, or REST API.
+
+
+
+Evidence
+
+
+
+\* \`fly.live.toml\` (app \`parmana-api-live\`, \`primary\_region = 'sin'\`)
+
+
+
+\* \`packages/api/src/middleware/caller-auth.ts\` (401 + \`WWW-Authenticate\` on missing credential, observed live against this deployment)
+
+
+
+\* Live execution performed against \`https://parmana-api-live.fly.dev\` this session: unauthenticated \`POST /execute\` → \`401\`; a real ₹10 Payment Link paid live with a real card; one authenticated 100-paise refund via \`POST /execute\` against that payment; \`GET /verification/{businessTransactionId}\` polled until \`settlement.status: "SETTLED"\` (confirmationId \`6a334df8-190d-4835-9050-b54e6657e05f\`, \`fetchedRefundStatus: "processed"\`, refund id redacted \`rfnd\_\*\*\*\*\*\*\*\*\*\*WnNG\`)
+
+
+
+\---
+
+
+
+\# Maturity Assessment (TRL)
+
+
+
+This is the repo owner's own maturity assessment, layered on the evidence already cited above. It is not a new technical claim in the sense sections 2 and 3 use that word, and it does not carry its own separate test evidence — it is an interpretation of evidence that does.
+
+
+
+Parmana is assessed at \*\*Technology Readiness Level 7\*\*: system prototype demonstration in an operational environment. Evidence for this assessment is exactly 3.8 and 3.9 above — the full authorize → verify → execute → confirm chain, deployed on public infrastructure (Fly.io), with a real refund created, delivered via a genuine Razorpay-initiated webhook, and settled end to end, in both test mode (3.8) and live mode (3.9).
+
+
+
+Not claimed by this assessment: sustained volume, load-bearing traffic, high availability, or multi-tenant production operation. None of 3.8 or 3.9 exercised any of those, and this assessment does not imply they were.
+
+
+
+\---
+
+
+
 \# 4. Future Claims (Pending Evidence)
 
 
@@ -1061,8 +1129,6 @@ The following claims are planned but are intentionally withheld until supported 
 
 
 \* \[FUTURE\] Razorpay payout creation (RazorpayX): no implementation exists. The Razorpay connector implemented in this milestone covers refund creation only.
-
-\* \[FUTURE\] Razorpay live-mode operation: every live claim in 3.4 is against Razorpay's test-mode API only. No test in this codebase has ever made a network call against Razorpay live mode, and none is planned — live-mode operation is a deployment/production-configuration concern (\`RAZORPAY\_KEY\_ID\`/\`RAZORPAY\_KEY\_SECRET\` pointing at a live-mode key pair), not something this suite proves.
 
 \* \[FUTURE\] Stripe connector — no implementation exists; would implement @parmana/connector-sdk's Connector interface.
 

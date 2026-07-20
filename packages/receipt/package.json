@@ -13,5 +13,6 @@
   "dependencies": {
     "@parmana/crypto": "0.1.0",
     "@parmana/shared": "0.1.0"
-  }
+  },
+  "license": "SEE LICENSE IN LICENSE"
 }

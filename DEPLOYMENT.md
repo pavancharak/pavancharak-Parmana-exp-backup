@@ -246,3 +246,34 @@ Validated this session against a real `parmana-api` Fly app.
   produces a clean two-process shutdown with no hang and no force-exit.
 - `npm test` (530 passed / 35 skipped), `npm run lint`, and `npx tsc -b`
   all clean on the code shipped in this image.
+
+## Live-mode deployment (`parmana-api-live`)
+
+A second Fly app, `parmana-api-live` (`fly.live.toml`, `primary_region =
+'sin'`), runs the identical image against a Razorpay **live-mode**
+(`rzp_live_`) credential pair instead of test-mode — see CLAIMS.md 3.9 for
+the full evidentiary claim. Operationally this app is identical to
+`parmana-api`; the only differences are the Razorpay credential pair and
+the webhook registration mode.
+
+- **Webhook registration**: register `https://parmana-api-live.fly.dev/webhooks/razorpay`
+  in the Razorpay Dashboard against **Live Mode** specifically, for
+  `refund.processed` and `refund.failed`. A Test Mode registration silently
+  receives nothing for live-mode activity — the same failure mode CLAIMS.md
+  3.7/3.8 already documents in the opposite direction.
+- **Smoke test performed this session**: `GET /health` and `GET /ready`
+  both returned `200` (`/ready` took the Supabase-probe path, not the
+  `not-supabase-backed` fallback); an unauthenticated `POST /execute`
+  returned `401` with a `WWW-Authenticate: Bearer realm="Parmana"` header;
+  `fly logs` showed only routine `razorpay_settlement_poll_tick` entries,
+  no errors.
+- **Live refund executed**: one authenticated, policy-gated 100-paise
+  refund against a real, card-paid ₹10 Payment Link, through the same
+  production `POST /execute` chain. Razorpay delivered a genuine
+  `refund.processed` webhook to the permanent live endpoint above; the
+  deployed settlement poll loop fetch-verified it and produced a signed
+  `SETTLED` Settlement Confirmation roughly 43 seconds after the refund was
+  requested. Full trace in CLAIMS.md 3.9.
+- **Scope**: this validates one real-money transaction end-to-end, not
+  sustained live-mode operation, volume, or failover — see CLAIMS.md 3.9's
+  own scope statement.

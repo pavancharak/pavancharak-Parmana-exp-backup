@@ -78,13 +78,11 @@ const app =
 // local development, so this is the only place that needs to change to
 // stop hardcoding it.
 const PORT = loadConfig().api.port;
+const HOST = process.env.HOST ?? "0.0.0.0";
 
-const server = app.listen(PORT, () => {
-  console.log(
-    `API running on http://localhost:${PORT}`,
-  );
+const server = app.listen(PORT, HOST, () => {
+  console.log(`API running on http://${HOST}:${PORT}`);
 });
-
 // Graceful shutdown on SIGTERM/SIGINT — see createGracefulShutdown.ts
 // for the full reasoning and what it guards against.
 const SHUTDOWN_TIMEOUT_MS = Number(process.env.SHUTDOWN_TIMEOUT_MS ?? 10_000);
