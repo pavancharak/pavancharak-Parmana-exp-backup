@@ -42,3 +42,5 @@ class ExecutionTrustRecord:
     created_at: datetime
 
     updated_at: datetime
+
+    settlement_confirmations: list[SettlementConfirmation] | None = None

@@ -578,5 +578,5 @@ Cons
 
 
 
-The Parmana architecture emphasizes deterministic execution, immutable evidence, independent verification, and modular design. These decisions collectively support trustworthy execution governance while balancing operational simplicity, security, and long-term maintainability.
+The Parmana architecture emphasizes deterministic execution, immutable evidence, independent verification, and modular design. These decisions collectively support trustworthy execution authorization while balancing operational simplicity, security, and long-term maintainability.
 

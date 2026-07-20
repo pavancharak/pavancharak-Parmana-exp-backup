@@ -336,5 +336,5 @@ Verify Deployment
 
 
 
-A production Parmana deployment combines secure configuration, protected cryptographic keys, reliable persistence, monitoring, and high availability to provide deterministic and verifiable execution governance for enterprise workloads.
+A production Parmana deployment combines secure configuration, protected cryptographic keys, reliable persistence, monitoring, and high availability to provide deterministic and verifiable execution authorization for enterprise workloads.
 

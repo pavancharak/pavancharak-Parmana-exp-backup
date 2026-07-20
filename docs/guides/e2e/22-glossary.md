@@ -398,5 +398,5 @@ Typical values include:
 
 
 
-Understanding these terms provides a consistent vocabulary for discussing execution governance, cryptographic verification, immutable audit evidence, and the runtime architecture of the Parmana Execution Trust Platform.
+Understanding these terms provides a consistent vocabulary for discussing execution authorization, cryptographic verification, immutable audit evidence, and the runtime architecture of the Parmana Execution Trust Platform.
 

@@ -60,7 +60,7 @@ The `packages` directory contains the implementation of the Parmana platform.
 
 | crypto | Hashing, signing, verification, key management |
 
-| governance | Policy evaluation and execution governance |
+| governance | Policy evaluation and execution authorization |
 
 | execution | Execution pipeline and execution models |
 

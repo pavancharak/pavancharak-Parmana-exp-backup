@@ -462,5 +462,5 @@ Document
 
 
 
-Operating Parmana in production requires continuous monitoring, structured incident response, secure key management, reliable backup procedures, and regular operational reviews. These practices help ensure that execution governance remains available, trustworthy, and auditable throughout the platform's lifecycle.
+Operating Parmana in production requires continuous monitoring, structured incident response, secure key management, reliable backup procedures, and regular operational reviews. These practices help ensure that execution authorization remains available, trustworthy, and auditable throughout the platform's lifecycle.
 
