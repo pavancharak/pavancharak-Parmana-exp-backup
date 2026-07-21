@@ -1,15 +1,9 @@
 ---
 title: "@parmana/storage"
-description: "Append-only persistence for Business Transactions, Trust Records, and policies. memory and supabase are real, postgres and sqlite are declared but not implemented."
+description: "Package reference for @parmana/storage. For the conceptual overview and configuration, see Storage."
 ---
 
-<Info>**[AVAILABLE]** for `memory` and `supabase`. **Declared but unimplemented, throws at startup** for `postgres`/`sqlite`.</Info>
-
-## Purpose
-
-Append-only repositories backing the [Execution trust record](/concepts/execution-trust-records)
-ledger, business transactions, and (for `FilePolicyRepository`, in `@parmana/policy`)
-policies.
+<Info>**[AVAILABLE]** for `memory` and `supabase`. **Declared but unimplemented, throws at startup** for `postgres`/`sqlite`. See [Storage](/storage/overview) for providers, configuration, and what's actually stored.</Info>
 
 ## Install
 
@@ -19,42 +13,15 @@ npm install @parmana/storage
 
 ## Key exports
 
-### Factory, [AVAILABLE]
-
-```typescript
-// packages/storage/src/StorageFactory.ts
-switch (configuration.provider) {
-  case "memory":   return new MemoryStorageProvider();
-  case "supabase": return new SupabaseStorageProvider();
-  case "postgres": throw new Error("Postgres storage provider not implemented.");
-  case "sqlite":   throw new Error("SQLite storage provider not implemented.");
-}
-```
-
-`PARMANA_STORAGE` is the only variable read for this choice, see [Deploy patterns](/guides/deploy-patterns).
-
-### Providers
-
-| Export | Stability |
-|---|---|
-| `MemoryStorageProvider`, `MemoryBusinessTransactionRepository`, `MemoryExecutionTrustRecordRepository`, `MemoryPolicyRepository` | [AVAILABLE]. In-process, non-persistent. Used throughout this site's live examples. |
-| `SupabaseStorageProvider`, `SupabaseBusinessTransactionRepository`, `SupabaseExecutionTrustRecordRepository` | [AVAILABLE] (source), not independently re-verified against a live Supabase instance in this documentation pass. This repo's committed `.env` defaults to this. |
-
-### Interfaces and ledger, [AVAILABLE]
-
 | Export | Purpose |
 |---|---|
-| `StorageProvider`, `StorageBuilder`, `StorageConfiguration` | The provider contract and its typed configuration |
-| `AppendOnlyLedger`, `LedgerEntry`, `LedgerSerializer` | The append-only primitive repositories are built on |
-| `ExecutionRepository`, `VerificationRepository`, `CryptoProofRepository` | Additional repository interfaces |
-| `StorageError` | Thrown on provider misconfiguration, including the retired `DATABASE_PROVIDER` variable, see below |
-
-## A retired variable fails loudly, not silently
-
-An older `DATABASE_PROVIDER` variable existed briefly as a second, disconnected path to the
-same setting `PARMANA_STORAGE` now controls. If it's present in the environment, config
-loading fails at startup naming `PARMANA_STORAGE` as the replacement, rather than silently
-ignoring it or picking one arbitrarily.
+| `StorageFactory` | Constructs a `StorageProvider` from `StorageConfiguration.provider` (`"memory" \| "supabase" \| "postgres" \| "sqlite"`), throws for the two unimplemented providers. |
+| `MemoryStorageProvider`, `MemoryBusinessTransactionRepository`, `MemoryExecutionTrustRecordRepository`, `MemoryPolicyRepository` | [AVAILABLE]. In-process, non-persistent. |
+| `SupabaseStorageProvider`, `SupabaseBusinessTransactionRepository`, `SupabaseExecutionTrustRecordRepository` | [AVAILABLE] (source), not independently re-verified against a live Supabase instance in this documentation pass. |
+| `StorageProvider`, `StorageBuilder`, `StorageConfiguration` | The provider contract and its typed configuration. |
+| `AppendOnlyLedger`, `LedgerEntry`, `LedgerSerializer` | The append-only primitive repositories are built on. |
+| `ExecutionRepository`, `VerificationRepository`, `CryptoProofRepository` | Additional repository interfaces. |
+| `StorageError` | Thrown on provider misconfiguration, including the retired `DATABASE_PROVIDER` variable, see [Storage](/storage/overview). |
 
 ## Minimal example
 
@@ -69,8 +36,8 @@ const storage = new MemoryStorageProvider();
 ## Next
 
 <CardGroup cols={2}>
-  <Card title="Deploy patterns" icon="server" href="/guides/deploy-patterns">
-    Choosing a storage provider as part of a full deployment.
+  <Card title="Storage" icon="database" href="/storage/overview">
+    Providers, configuration, and what's actually stored, the conceptual overview.
   </Card>
   <Card title="Execution trust records" icon="file-shield" href="/concepts/execution-trust-records">
     What actually gets stored, and what's append-only versus signed.
