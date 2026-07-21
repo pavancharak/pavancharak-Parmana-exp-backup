@@ -7,7 +7,9 @@ description: "How to authenticate API requests: the bearer key model, what gets 
 
 ## Send a bearer key
 
-Every route requires `Authorization: Bearer <key>` except `GET /health`.
+Every route requires `Authorization: Bearer <key>` except `GET /health`, `GET /ready`,
+`GET /openapi.yaml`, and `GET /documentation` (liveness/readiness probes and API
+documentation, `packages/api/src/app.ts`).
 
 ```bash
 curl http://localhost:3000/version \
