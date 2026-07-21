@@ -51,10 +51,13 @@ isn't set to an absolute, correct path. Set it explicitly, as shown in
 
 ## A resubmitted, modified transaction under the same ID isn't rejected the way I expected
 
-You're likely expecting content-binding protection from the plain API. It isn't there by
-default, read [Content Binding & TOCTOU](/concepts/content-binding-toctou) before
-debugging further; this is very likely working as currently (if incompletely) designed,
-not a bug.
+As of commit `651497a`, content-binding protection **is** wired in by default for
+`POST /execute` against the default server, see [Content Binding &
+TOCTOU](/concepts/content-binding-toctou) and [The gateway](/concepts/the-gateway) before
+debugging further. If you're seeing a resubmitted, modified transaction succeed anyway, check
+that you're actually hitting the Execution Gateway path (the default server always does) and
+not a lower-level API call that bypasses it, this is more likely a setup mismatch than a
+regression.
 
 ## The TypeScript SDK isn't throwing on a 4xx/5xx response
 
