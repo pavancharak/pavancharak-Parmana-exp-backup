@@ -5,7 +5,7 @@ description: "Real client code and a full error taxonomy, neither is tested, and
 
 <Warning>
 **[PARTIAL].** Downgraded from an initial [AVAILABLE] label after checking source
-directly. Two specific, unfixed problems, stated precisely below, this page exists so you
+directly. Three specific, unfixed problems, stated precisely below, this page exists so you
 know them before relying on this SDK, not to discourage using it.
 </Warning>
 
@@ -13,6 +13,14 @@ know them before relying on this SDK, not to discourage using it.
 
 `typescript/src/` has genuine structure: a `client/`, per-resource API classes, a
 `transport/HttpTransport`, `models/`, and `config/`. It builds. Version `1.0.0`.
+
+<Warning>
+**The package is named `@parmana/legacy-reference` in `typescript/package.json`**, private,
+not published under any `@parmana/...` name a normal `npm install` could resolve. The
+`README.md` in the same directory and this page both describe it as "the" TypeScript SDK.
+That's the intent, but there is no install command on this site today that actually works
+against a published package, install from a local path or a git reference instead.
+</Warning>
 
 ## Problem 1, the entire test suite is empty
 
@@ -41,9 +49,11 @@ $ wc -l typescript/test/*.test.ts
 `typescript/src/errors/` declares `ExecutionRejectedError`, `ValidationError`,
 `InternalServerError`, `VerificationError`, `ReplayError`, `NetworkError`,
 `TimeoutError`, `ConfigurationError`, a well-named taxonomy.
-(`AuthenticationError` and `AuthorizationError` were removed in a later
-session: the Runtime enforces no authentication or authorization, so a
-client-side taxonomy implying it does was misleading, see docs/CLAIMS.md.)
+(`AuthenticationError` and `AuthorizationError` were removed in an earlier session, when the
+Runtime enforced no caller authentication at all. That's no longer true, see
+[Authentication](/api-reference/authentication), and this SDK has not been updated to catch
+up: there is still no `AuthenticationError`, and, more importantly, no way to send the
+bearer key a real deployment now requires, see the warning below.)
 Checked directly: **none of `ExecutionRejectedError`, `ValidationError`, or
 `InternalServerError` is ever constructed anywhere in the SDK source.**
 
@@ -70,8 +80,18 @@ in the returned object yourself**, do not rely on a thrown, typed exception for 
 from the Runtime. Compare with the [Python SDK](/sdks/python), where this exact problem was
 found and fixed this session, with tests proving each status code raises its specific type.
 
+## Problem 3, no way to send the caller bearer key
+
+Checked directly: neither `ParmanaClient`'s constructor nor `HttpTransport` accepts an API
+key or sets an `Authorization` header anywhere in `typescript/src/`. Against any server with
+caller authentication enabled, the default and only supported production configuration, see
+[Authentication](/api-reference/authentication), every request from this SDK gets a `401`.
+There is no supported workaround short of patching the transport locally. This is a real,
+current gap, not a documentation omission.
+
 ## What to use this SDK for today
 
-Reading/writing requests against a well-behaved server (2xx responses) works as expected.
-Don't build production error-handling logic on top of it without first fixing Problem 2
-locally, or falling back to inspecting `.status` yourself on every call.
+Reading/writing requests against a well-behaved, unauthenticated server (2xx responses, for
+example with `PARMANA_AUTH_DISABLED=true` set locally) works as expected. Don't build
+production error-handling logic on top of it without first fixing Problem 2 locally, and
+don't point it at an authenticated deployment until Problem 3 is fixed.

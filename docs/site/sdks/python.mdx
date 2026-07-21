@@ -5,6 +5,16 @@ description: "The actively maintained SDK, generated models, structured errors, 
 
 <Info>**[AVAILABLE]**, `python/`, v1.0.0. 26 passing tests, 0 placeholders. ruff/black/mypy all pass clean.</Info>
 
+<Warning>
+**No way to send the caller bearer key yet.** Checked directly: `ParmanaClient.__init__`
+(`python/parmana/client.py`) has no `api_key` parameter, and `HttpTransport`
+(`python/parmana/transport/http_transport.py`) never sets an `Authorization` header. Against
+any server with caller authentication enabled, the default and only supported production
+configuration, see [Authentication](/api-reference/authentication), every request from this
+SDK gets a `401`. There is no supported workaround today short of patching the transport
+locally. This is real and current, not a documentation gap, tracked as a [FUTURE] item.
+</Warning>
+
 ## Install
 
 ```bash
