@@ -3,7 +3,7 @@ title: "Connector Development Guide"
 description: "How to implement a Connector against @parmana/connector-sdk, every example uses MockConnector or HttpConnector, no enterprise-specific example."
 ---
 
-<Info>**[AVAILABLE] as a library.** `packages/connector-sdk`.</Info>
+<Info>**[AVAILABLE] as a library**, `packages/connector-sdk`, **[AVAILABLE] wired into the default server for `vendor-payment` and Razorpay specifically**, a code change for anything beyond those two today, see the warning below.</Info>
 
 ## Connector responsibilities, and what a Connector must never do
 
@@ -78,16 +78,28 @@ without a real target system:
 ```typescript
 import { MockConnector, connectorCapabilities } from "@parmana/connector-sdk";
 
-const connector = new MockConnector({
+const mock = new MockConnector({
   connectorId: "example",
   capabilities: connectorCapabilities(["crm:read"]),
   script: { respond: () => ({ success: true, metadata: { recordId: "example-1" } }) },
 });
+
+const result = await mock.execute(
+  { capability: "crm:read", businessTransactionId: "t1", action: "crm:read", target: "crm://record/1", parameters: {} },
+  { credential: undefined as never },
+);
+```
+
+Real output, checked directly against this exact code:
+
+```
+mock result: { success: true, metadata: { recordId: 'example-1' } }
+mock invocations: 1
 ```
 
 To test failure handling, use `script: { failWith: new Error("upstream unavailable") }`.
-`connector.invocations` records every `ConnectorRequest` the connector received, so tests
-can assert exactly what was executed.
+`mock.invocations` records every `ConnectorRequest` the connector received, so tests can
+assert exactly what was executed.
 
 ## Version and health checks fail closed
 
@@ -106,3 +118,59 @@ ID, redacted request/response summaries, timestamps, and a hash computed by the 
 `TrustRecordHasher`, attached at `ExecutionResult.metadata.connector`. See
 [Execution Trust Record](/concepts/execution-trust-records) for how this reaches the Trust Record
 without any change to its schema or hashing pipeline.
+
+## What reaching the default server actually requires
+
+<Warning>
+This is the part that's easy to assume is configuration and isn't. The default server
+registers exactly one connector, `vendor-payment`
+(`packages/api/src/bootstrap/createVendorPaymentConnector.ts`), following this real,
+running pattern:
+
+```typescript
+// packages/api/src/bootstrap/createConnectorRegistry.ts (abridged, real source)
+const registry = new ConnectorSdkRegistry();
+registry.register({
+  connector: createVendorPaymentConnector(),
+  metadata: { connectorId: "vendor-payment", displayName: "Vendor Payment", version: { major: 1, minor: 0, patch: 0 }, health: { status: "healthy", checkedAt: new Date().toISOString() } },
+  connectorIdentity: { connectorId: "vendor-payment", publicIdentity: "spiffe://parmana/connectors/vendor-payment", authenticationMetadata: {} },
+  credentialProvider: createCredentialProvider(),
+  policy: new CapabilityConnectorPolicy(new DefaultConnectorPolicy(authenticator, sessions)),
+  gatewayAuthentication,
+  crypto,
+  audit,
+});
+```
+
+Adding a second connector to the running server means editing three files:
+`createConnectorRoute.ts` (add a `case` mapping an action to your connector's ID),
+`createConnectorRegistry.ts` (register it, following the shape above), and
+`createConnectorAuthenticator.ts` (trust its identity). There is no dynamic registration
+path, no environment variable that adds a connector, this is a code change today. Razorpay
+is the one exception wired beyond `vendor-payment` in the default server, see
+[Razorpay](/integrations/razorpay) for that connector specifically.
+</Warning>
+
+## Troubleshoot
+
+- **`does not declare capability "..."` thrown by `MockConnector` or your own connector.**
+  `request.capability` didn't match anything in `connectorCapabilities([...])`. Check for a
+  typo, capability strings are exact, case-sensitive matches.
+- **`SdkConnectorExecutor` rejects with a version mismatch.** An `expectedVersion` was
+  configured at registration and your connector's `metadata.version` doesn't match, this
+  guards a rolling deployment that swapped connector builds underneath a pinned expectation.
+- **Registered your connector but `POST /execute` still says "No connector registered for
+  action."** Registration in a `ConnectorSdkRegistry` you constructed yourself doesn't reach
+  the running default server, that server builds its own registry in
+  `createConnectorRegistry.ts`, see the Warning above.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Issue and verify session credentials" icon="key" href="/guides/session-credentials">
+    What your connector's `context.credential` actually is, and its lifecycle.
+  </Card>
+  <Card title="Credential isolation" icon="shield" href="/concepts/credential-isolation">
+    The concept this guide's credential handling exercises.
+  </Card>
+</CardGroup>
