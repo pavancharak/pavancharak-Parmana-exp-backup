@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+#
+# Secret-scanning pre-commit hook. Blocks a commit if gitleaks finds a
+# likely secret in the staged changes. Wired in automatically by the
+# root package.json "prepare" script (git config core.hooksPath
+# scripts/git-hooks), which runs on every `npm install`, no manual setup
+# step for contributors.
+#
+# Added 2026-07-21 after an incident review found real Supabase and
+# Razorpay test-mode credentials in a local, gitignored .env file. That
+# specific file was never committed (verified against full git history
+# on every ref), but the review found no automated guard that would have
+# caught it if it had been staged by mistake, this hook is that guard.
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CONFIG="$REPO_ROOT/.gitleaks.toml"
+
+run_gitleaks() {
+  if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks protect --staged --config "$CONFIG" --redact
+    return $?
+  fi
+
+  if command -v docker >/dev/null 2>&1; then
+    docker run --rm -v "$REPO_ROOT:/repo" -w /repo \
+      zricethezav/gitleaks:latest \
+      protect --staged --config .gitleaks.toml --redact
+    return $?
+  fi
+
+  return 127
+}
+
+if run_gitleaks; then
+  status=0
+else
+  status=$?
+fi
+
+if [ "$status" -eq 0 ]; then
+  exit 0
+fi
+
+if [ "$status" -eq 127 ]; then
+  echo ""
+  echo "pre-commit: gitleaks is not installed and Docker is not available, cannot scan staged changes for secrets."
+  echo "Install gitleaks (https://github.com/gitleaks/gitleaks#installing) or install Docker, then retry."
+  echo "This commit is blocked until one of those is available. Do not bypass with --no-verify unless you have"
+  echo "manually reviewed every staged file for credentials."
+  echo ""
+  exit 1
+fi
+
+echo ""
+echo "pre-commit: gitleaks found a likely secret in staged changes, see above. Commit blocked."
+echo "If this is a false positive (a placeholder, a test fixture, a known-fake example value), add it to"
+echo "the [allowlist] section of .gitleaks.toml with a comment explaining why it's safe, do not bypass with"
+echo "--no-verify to skip a real finding."
+echo ""
+exit "$status"

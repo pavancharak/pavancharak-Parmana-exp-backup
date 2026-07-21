@@ -1,0 +1,188 @@
+---
+title: "Razorpay"
+description: "The one real, money-moving connector in this codebase. Policy-gated refunds, a verified webhook, and a signed settlement confirmation, proven end to end in both test mode and live mode."
+---
+
+<Info>
+**[AVAILABLE]**, test mode and live mode both proven end to end against a real, deployed
+Razorpay account. `packages/connector-sdk/src/connectors/razorpay/`,
+`packages/api/src/webhooks/`, `docs/CLAIMS.md` §3.4 through §3.9. This is the only connector
+in this codebase that talks to a real external system, everything else registered by default
+(`vendor-payment`) or offered as a reference (SAP, Salesforce, Workday, Oracle) is a mock, see
+[The gateway](/concepts/the-gateway).
+</Info>
+
+## What this connector does
+
+Refund creation against Razorpay, policy-gated, idempotent, and closed out by a signed
+settlement confirmation once Razorpay actually processes the refund. Nothing else. It does
+not create payments, does not handle payouts (RazorpayX is a distinct, unimplemented
+capability, [FUTURE]), and does not change anything about Policy Engine, Execution Gateway,
+Replay, Receipt Generation, Verification, or the REST API, those work exactly as documented
+elsewhere on this site.
+
+## Why it's different from the other four connectors on this site
+
+`packages/connector-sdk/src/connectors/{sap,oracle,workday,salesforce}/` exist as explicit,
+self-documented mocks, deterministic and in-memory, standing in for a real integration that
+hasn't been built. Razorpay is not that. `RazorpayConnector` calls
+`https://api.razorpay.com/v1` over real HTTP with HTTP Basic auth
+(`Authorization: Basic base64(keyId:keySecret)`), and the codebase's live integration test
+suite (gated, see below) has executed a real refund against it, in both Razorpay's test mode
+and, once, in live mode against real money.
+
+## The three pieces
+
+A Razorpay-backed refund lifecycle has three moving parts, each independently real and
+tested:
+
+1. **Refund creation.** Your server calls `POST /execute` with a `razorpay-refund` policy
+   reference. If the policy approves, the connector calls Razorpay's refund-create API.
+2. **Webhook receipt.** Razorpay calls back to `POST /webhooks/razorpay` when the refund's
+   status changes. This milestone stops at verifying the signature and durably recording the
+   event, it does not yet act on it. See [Verify Razorpay
+   webhooks](/guides/verify-razorpay-webhooks).
+3. **Settlement confirmation.** A background poll loop picks up the recorded event, fetches
+   the refund's real status directly from Razorpay (never trusting the webhook's own claimed
+   event type), and appends a signed `SettlementConfirmation` to the Execution Trust Record.
+   See [Settlement](/concepts/settlement).
+
+## Requesting a refund
+
+```typescript
+import { RazorpayRefundService } from "@parmana/connector-sdk";
+
+const outcome = await refundService.requestRefund({
+  businessTransactionId: "eed2a972-1bf5-4166-8472-761f76fbf1b2",
+  paymentId: "pay_XYZ789",
+  amountPaise: 100,          // omit for a full refund of the remaining refundable amount
+  reason: "Customer requested refund",
+  scopeId: "customer-42",    // groups requests under the daily cumulative cap
+});
+
+console.log(outcome.receipt.approved, outcome.receipt.razorpayRefundId, outcome.replayed);
+```
+
+`RazorpayRefundOutcome.replayed` is `true` when this exact `businessTransactionId` was seen
+before, the service answers from a local outcome cache with zero policy evaluation and zero
+HTTP calls to Razorpay, stronger than, and separate from, the connector's own idempotency
+check against Razorpay's own refund list (matching on
+`notes["parmana_txn"] === businessTransactionId`). `key_secret` never appears anywhere in the
+receipt, `keyIdRedacted` shows only the first 8 characters.
+
+## The reference policy
+
+`policies/razorpay-refund/1.0.0/policy.json` is a real, loaded policy, not a stub. It rejects
+a refund unless every condition holds: the payment is `captured`, the currency is `INR`, the
+requested amount is positive, the amount does not exceed the payment's refundable remainder,
+the amount does not exceed a **500000 paise (₹5000) per-refund cap**, and the running daily
+total does not exceed a **2000000 paise (₹20000) cumulative cap**. Anything that fails any
+condition is rejected by an explicit, matching rule, `reject-default` is the catch-all if
+somehow none of the specific rules match.
+
+## Try it without touching Razorpay at all
+
+```bash
+npx tsx examples/tutorials/61-razorpay-refund/run.ts
+```
+
+No environment variables, no network calls. This spins up an in-process
+`MockRazorpayServer` with fake test-mode credentials and runs the real
+`RazorpayRefundService` against it, loading the real policy above from disk. Real output from
+a run against this exact code:
+
+```
+==================================================
+Tutorial 61 - Razorpay Refund Connector
+==================================================
+
+Outcome 1 - Approved and Executed
+--------------------------------------------------
+Approved         : true
+Razorpay Refund  : rfnd_b5e7e281c6cb7b
+Amount (paise)   : 250000
+Policy Reason    : Refund authorized. Payment status, currency, refundable remainder, per-refund cap, and daily cumulative cap requirements were satisfied.
+Key ID (redacted): rzp_test...
+
+Outcome 2 - Denied by Policy
+--------------------------------------------------
+Approved      : false
+Matched Rule  : reject-payment-not-captured
+Reason        : Refund rejected because the payment status is not captured.
+
+Outcome 3 - Replay Returns Recorded Result
+--------------------------------------------------
+Replayed              : true
+Same Refund Returned  : true
+Refunds On Razorpay   : 1 (unchanged from 1)
+
+Outcome 4 - Tamper Rejected
+--------------------------------------------------
+Rejected      : true
+Reason        : Execution Gateway rejected request: failed checks [businessTransactionHashMatches, nonceUnseen]. businessTransactionHash mismatch: expected 475f50869e44bded75ef1c152ba1f8cb5c5cd1e0ddba48b79cb573664a05c878, got 844d9307d40ebd22245894767ceddd8052c31f535a70b4ff27358254bf10a78f.
+
+==================================================
+Tutorial completed successfully.
+==================================================
+```
+
+Refund ids and hash values are random per run, everything else in the output is stable.
+Covers refund creation only, payout creation is not demonstrated.
+
+## Configuration
+
+| Variable | Purpose |
+|---|---|
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Production credential pair. Unset outside test mode means the connector is not registered at all, degrades gracefully rather than failing to boot. |
+| `RAZORPAY_TEST_KEY_ID` / `RAZORPAY_TEST_KEY_SECRET` | Test-mode override, read directly when `NODE_ENV=test`. |
+| `RAZORPAY_WEBHOOK_SECRET` | Enables `POST /webhooks/razorpay`. Unset in production means the route is never mounted at all (404), mirroring the connector. Set but blank is a hard startup failure, never an accept-everything bug. |
+| `RAZORPAY_SETTLEMENT_POLL_INTERVAL_MS` | Poll interval for the settlement processor, default `15000` ms. |
+
+Once any Razorpay credential is set, Supabase becomes required too, the webhook and
+settlement event stores have no in-memory fallback in production. See [Production
+deployment](/deployment/production).
+
+## What's proven where, precisely
+
+This is the part worth reading in full before deciding how much to trust this connector.
+
+- **`packages/api/tests/integration/razorpay-refund.integration.test.ts`** and
+  **`razorpay-settlement.integration.test.ts`** hit `MockRazorpayServer`, not the real
+  network. They run on every `npm test`, no gate required.
+- **`packages/api/tests/integration/razorpay-real-webhook-fixture.integration.test.ts`**
+  always runs too, it replays a real, captured Razorpay-delivered webhook payload (redacted
+  for PII) through the live route code, no live network call, but real captured bytes, not a
+  synthetic fixture.
+- **`packages/api/tests/integration/razorpay-live.integration.test.ts`** is the only test in
+  this codebase that calls a real Razorpay endpoint. It is gated behind
+  `ALLOW_LIVE_RAZORPAY=1` plus real `RAZORPAY_TEST_KEY_ID` / `RAZORPAY_TEST_KEY_SECRET`
+  credentials (which must start with `rzp_test_`, or the suite aborts before any network
+  call), and does not run in a default `npm test`. Even fully enabled, this suite only proves
+  **Razorpay test-mode** reachability and money movement, one ₹1.00 (100 paise) refund against
+  a manually captured test-mode payment, never live-mode.
+- **True live-mode operation** (real money, real bank settlement) is proven once, manually,
+  against a permanent production deployment, not by the automated test suite: one
+  authenticated, policy-gated 100-paise refund against a real, card-paid ₹10 Payment Link,
+  producing a genuine `refund.processed` webhook from Razorpay's own infrastructure and a
+  signed `SETTLED` settlement confirmation roughly 43 seconds later. This validates one
+  real-money transaction end to end, not sustained live-mode operation, volume, or failover.
+  See `docs/CLAIMS.md` §3.9 for the full trace.
+
+## [FUTURE]
+
+- **RazorpayX payouts.** No implementation exists. This connector covers refund creation
+  only.
+- **A general-purpose way to add a new external connector.** Adding anything beyond Razorpay
+  and the four reference mocks means editing bootstrap code today, see [Add a
+  connector](/integrations/connector-development-guide).
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Verify Razorpay webhooks" icon="webhook" href="/guides/verify-razorpay-webhooks">
+    The signature scheme and the fetch-verify pattern that closes the loop.
+  </Card>
+  <Card title="Settlement" icon="badge-check" href="/concepts/settlement">
+    The signed object this whole lifecycle produces.
+  </Card>
+</CardGroup>

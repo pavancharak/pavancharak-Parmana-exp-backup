@@ -1,0 +1,93 @@
+---
+title: "Changelog"
+description: "What actually shipped, by commit, newest first. Not a marketing summary, generated from git log."
+---
+
+<Info>
+Pulled directly from `git log` on `main` in `pavancharak/parmana-exp`, commit hashes are
+real and checkable. This page covers the commits that changed what a reader of this site can
+actually do or rely on, not every commit in the repository's history, run `git log` yourself
+for the complete record, 128 commits as of this page's last update.
+</Info>
+
+## 2026-07-20
+
+- **`f453713`** docs: fix CLAIMS.md escaping corruption, lead README/CLAIMS with
+  execution-trust framing, scope key-compromise notice to what's verifiable
+- **`03aed1a`** / **`48320b3`** docs: add founder case study and update E2E documentation
+- **`8a72f1a`** chore: production hardening and live deployment improvements
+
+## 2026-07-19
+
+- **`e13dd2a`** feat: production deployment, execution hardening, and live Razorpay
+  validation, the live-mode refund validated against `parmana-api-live`, see
+  [Razorpay](/integrations/razorpay) and `docs/CLAIMS.md` §3.9.
+- **`731465c`** feat(razorpay): add webhook processing, settlement confirmations, and live
+  integration support, `POST /webhooks/razorpay`, `RazorpaySettlementProcessor`, see
+  [Verify Razorpay webhooks](/guides/verify-razorpay-webhooks) and
+  [Settlement](/concepts/settlement).
+
+## 2026-07-18
+
+- **`5fddced`** feat(api): add Razorpay connector and credential provider, refund creation
+  against real Razorpay, see [Razorpay](/integrations/razorpay).
+- **`4df5cf6`** Add end-to-end documentation, Swagger UI, authentication improvements, and
+  OpenAPI tooling.
+- **`ce02554`** refactor(storage): improve repository initialization and availability
+  handling.
+- **`5c688b4`** feat(platform): Execution Integrity Platform v0.3, this commit added caller
+  bearer-key authentication, `createCallerAuthenticator.ts`, gating every route except
+  `/health`, `/ready`, `/openapi.yaml`, and `/documentation`, see
+  [Authentication](/api-reference/authentication). If you're reading an older capture of
+  this site's Quickstart or FAQ that describes an unauthenticated API, that description
+  predates this commit and is stale.
+
+## 2026-07-17
+
+- **`de503e6`** docs(architecture): add implementation-backed execution flow audit.
+
+## 2026-07-14
+
+- **`ec3735e`** feat(api): publish OpenAPI specification and add execution connector
+  framework.
+
+## 2026-07-11 to 2026-07-13
+
+- **`c282b8d`**, **`850e7ab`**, **`7c0f186`** Test and naming alignment: gateway session
+  hardening, `BusinessTrustRecordBuilder` rename, separating the business trust pipeline
+  from the execution trust builder.
+- **`651497a`** feat: implement credential isolation and secure enterprise connectors, the
+  commit most of this site's `[AVAILABLE]` credential-isolation and content-binding claims
+  are pinned to, see [Credential isolation](/concepts/credential-isolation) and [Content
+  binding & TOCTOU](/concepts/content-binding-toctou).
+- **`5cc0c2e`** feat: add deterministic trust record ordering and verification hardening.
+- **`7c529c4`** / **`82ebd31`** feat: add Execution Trust pipeline, hybrid signatures, and
+  tutorials 47-56.
+
+## Earlier milestones
+
+- **2026-07-07 to 2026-07-10**: connector SDK and business transaction model
+  (`4740aee`), runtime stabilization (`ddf4bc5`), execution system bootstrap composition
+  root (`6484349`), tutorial series expansion through tutorial 56.
+- **2026-07-01**: Python SDK `v1.0.0` tagged and released, see [Python
+  SDK](/sdks/python). This is a package version, not the overall product version, the
+  running server's `/version` route reports its own version independently.
+- **2026-06-25**: first commit, `ba7bc45`, "initialize Parmana architecture v1."
+
+## A note on terminology in older commits
+
+Commit messages and some earlier internal documents use "Execution Governance" as an
+architecture name. The product's current, public-facing language avoids that framing, see
+[Trust and claims](/trust-and-claims/claims-discipline) for the discipline this site follows
+today. Commit messages are historical record and are quoted here as written, not edited to
+match current terminology.
+
+## Full history
+
+```bash
+git log --oneline
+```
+
+For the evidentiary detail behind what each milestone actually proves, not just what it
+claims, see `docs/CLAIMS.md` in the repository, cited throughout this site wherever a
+specific claim needs it.
