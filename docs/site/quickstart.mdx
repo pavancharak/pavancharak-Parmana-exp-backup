@@ -4,8 +4,8 @@ description: "Install to your first authorized execution in under 10 minutes, us
 ---
 
 <Info>
-**[AVAILABLE]**, every command below was run against a live local server on 2026-07-12
-(commit `651497a`), including `python/examples/quickstart/run.py` itself.
+**[AVAILABLE]**, every command below was re-run against a live local server on 2026-07-21
+(commit `5c688b4`), including `python/examples/quickstart/run.py` itself.
 </Info>
 
 ## 1. Install dependencies
@@ -27,19 +27,25 @@ npm run generate:gateway-keys
 This runs `scripts/generate-keypair.ts --algorithm ed25519 --key-id gateway`, writing
 `keys/gateway.private.pem` / `keys/gateway.public.pem`. `keys/` is gitignored, this stays
 local. See
-[`createGatewayKeyPair.ts`](https://github.com/parmana-ai/parmana/blob/main/packages/api/src/bootstrap/createGatewayKeyPair.ts)
+[`createGatewayKeyPair.ts`](https://github.com/pavancharak/parmana-exp/blob/main/packages/api/src/bootstrap/createGatewayKeyPair.ts)
 for why this key is deliberately separate from the authorization key, and
-[Deploy patterns](/deployment/local) for how to manage it outside local dev.
+[Deploy patterns](/guides/deploy-patterns) for how to manage it outside local dev.
 
 ## 3. Start the Runtime locally
 
 The committed `.env` defaults to Supabase-backed storage. To run fully locally with no
-external dependency, override storage to `memory`. The one connector wired into the default
-server, `vendor-payment`, is a reference mock that reads its credential from an environment
-variable, set a placeholder value for it:
+external dependency, override storage to `memory` **and** set `NODE_ENV=test`. Both are
+required: `PARMANA_STORAGE=memory` alone only affects where Business Transactions and Trust
+Records are stored, two other components, the Execution Gateway's replay-nonce store
+(`createNonceStore.ts`) and the caller-authentication audit trail
+(`createCallerAuditSink.ts`), independently default to Supabase outside `NODE_ENV=test` and
+will fail closed against this repo's demo Supabase credentials otherwise. The one connector
+wired into the default server, `vendor-payment`, is a reference mock that reads its
+credential from an environment variable, set a placeholder value for it:
 
 ```bash
-PARMANA_STORAGE=memory \
+NODE_ENV=test \
+  PARMANA_STORAGE=memory \
   PARMANA_POLICY_DIR=/absolute/path/to/policies \
   VENDOR_PAYMENT_TOKEN=quickstart-demo-token \
   npm run dev
@@ -50,8 +56,6 @@ Confirm it's up:
 ```bash
 curl http://localhost:3000/health
 # {"status":"UP"}
-curl http://localhost:3000/version
-# {"name":"Parmana","version":"0.4.0","api":"v1"}
 ```
 
 <Note>
@@ -62,13 +66,60 @@ action with no registered connector fails closed with `"No connector registered 
 it does not silently skip enforcement. See [The gateway](/concepts/the-gateway).
 </Note>
 
-## 4. Install the Python SDK
+## 4. Every other route requires a bearer key
+
+`/health` is the one route exempt from caller authentication (along with `/ready`,
+`/openapi.yaml`, and `/documentation`). Everything else, including `/version`, fails closed
+with a `401` before a Business Transaction is even constructed:
+
+```bash
+curl http://localhost:3000/version
+# {"error":"authentication required"}
+```
+
+The committed `.env` ships one demo caller key for local development, `callerId: "demo"`,
+raw key `my-secret-api-key` (only its SHA-256 hash is ever stored, see
+[Authentication](/api-reference/authentication)). Send it as a bearer token and the same
+route succeeds:
+
+```bash
+curl http://localhost:3000/version \
+  -H "Authorization: Bearer my-secret-api-key"
+# {"name":"Parmana","version":"0.4.0","api":"v1"}
+```
+
+This is real, fail-closed authentication, not a placeholder, see
+[Authentication](/api-reference/authentication) for how keys are minted and rotated outside
+this demo key.
+
+## 5. Install the Python SDK
 
 ```bash
 pip install -e ./python
 ```
 
-## 5. Execute a Business Transaction
+<Warning>
+**The Python SDK cannot send the bearer key above yet.** `ParmanaClient.__init__`
+(`python/parmana/client.py`) has no `api_key` parameter, and `HttpTransport` never sets an
+`Authorization` header, checked directly against source. Submitting the transaction below
+against the authenticated server from step 4 gets a `401`. To run this specific example,
+restart the server from step 3 with `PARMANA_AUTH_DISABLED=true` added, local development
+only, never in a real deployment, see [Authentication](/api-reference/authentication):
+
+```bash
+NODE_ENV=test \
+  PARMANA_STORAGE=memory \
+  PARMANA_POLICY_DIR=/absolute/path/to/policies \
+  VENDOR_PAYMENT_TOKEN=quickstart-demo-token \
+  PARMANA_AUTH_DISABLED=true \
+  npm run dev
+```
+
+This gap is tracked on [Python SDK](/sdks/python), it's a real, current limitation, not
+something this walkthrough is working around cosmetically.
+</Warning>
+
+## 6. Execute a Business Transaction
 
 ```python
 from datetime import UTC, datetime
@@ -123,12 +174,12 @@ print(trust_record.trust_record_hash)
 Full runnable version: `python/examples/quickstart/run.py`, this is the same transaction it
 sends.
 
-## 6. Real output
+## 7. Real output
 
-Captured from an actual run, 2026-07-12 (IDs and hashes differ on every run):
+Captured from an actual run, 2026-07-21 (IDs and hashes differ on every run):
 
 ```
-Trust Record Hash: fdb313e82c7cd86cf5f1dfb0ab90ac72f550a67a91891ebfce9462a73e9da103
+Trust Record Hash: 3f0f63f879b55b83fa22f19f59348336899114e5315b40ad78dfa3849cfe63cd
 ```
 
 The full `ExecutionTrustRecord` includes the `signature` block, `executions[0].decision`
