@@ -42,7 +42,8 @@
               "concepts/gateway-attestation",
               "concepts/execution-trust-records",
               "concepts/determinism-and-clocks",
-              "concepts/content-binding-toctou"
+              "concepts/content-binding-toctou",
+              "concepts/settlement"
             ]
           },
           {
@@ -55,7 +56,8 @@
               "guides/verify-independently",
               "guides/detect-tampering",
               "guides/choose-a-signature-provider",
-              "guides/deploy-patterns"
+              "guides/deploy-patterns",
+              "guides/verify-razorpay-webhooks"
             ]
           },
           {
@@ -121,14 +123,16 @@
             "group": "Security & Deployment",
             "pages": [
               "security/overview",
-              "deployment/local"
+              "deployment/local",
+              "deployment/production"
             ]
           },
           {
             "group": "Integrations",
             "pages": [
               "integrations/overview",
-              "integrations/connector-development-guide"
+              "integrations/connector-development-guide",
+              "integrations/razorpay"
             ]
           },
           {
@@ -153,6 +157,12 @@
               "glossary",
               "contributing"
             ]
+          },
+          {
+            "group": "Changelog",
+            "pages": [
+              "changelog"
+            ]
           }
         ]
       }
@@ -171,13 +181,13 @@
     "links": [
       {
         "label": "GitHub",
-        "href": "https://github.com/parmana-ai/parmana"
+        "href": "https://github.com/pavancharak/parmana-exp"
       }
     ]
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/parmana-ai/parmana"
+      "github": "https://github.com/pavancharak/parmana-exp"
     }
   }
 }
