@@ -29,8 +29,16 @@ describe("Caller authentication (HTTP boundary)", () => {
     const application = createApplication(executionSystem);
 
     const authenticator = new StaticKeyAuthenticator([
-      { callerId: "caller-a", keyHash: hashApiKey(CALLER_A_KEY) },
-      { callerId: "caller-b", keyHash: hashApiKey(CALLER_B_KEY) },
+      {
+        callerId: "caller-a",
+        keyHash: hashApiKey(CALLER_A_KEY),
+        allowedPrincipalIds: ["integration-test"],
+      },
+      {
+        callerId: "caller-b",
+        keyHash: hashApiKey(CALLER_B_KEY),
+        allowedPrincipalIds: ["integration-test"],
+      },
     ]);
 
     const callerAuditSink = new InMemoryCallerAuditSink();
@@ -142,8 +150,16 @@ describe("Caller authentication (HTTP boundary)", () => {
 
       // Rotation in progress: both keys active.
       const duringRotation = new StaticKeyAuthenticator([
-        { callerId: "orchestrator-1", keyHash: hashApiKey(oldKey) },
-        { callerId: "orchestrator-1", keyHash: hashApiKey(newKey) },
+        {
+          callerId: "orchestrator-1",
+          keyHash: hashApiKey(oldKey),
+          allowedPrincipalIds: ["integration-test"],
+        },
+        {
+          callerId: "orchestrator-1",
+          keyHash: hashApiKey(newKey),
+          allowedPrincipalIds: ["integration-test"],
+        },
       ]);
 
       const appDuringRotation = createApp(application, {
@@ -164,7 +180,11 @@ describe("Caller authentication (HTTP boundary)", () => {
       // Rotation complete: the old entry is removed (revoked), matching
       // what a config reload after "add-new, migrate, revoke-old" does.
       const afterRevocation = new StaticKeyAuthenticator([
-        { callerId: "orchestrator-1", keyHash: hashApiKey(newKey) },
+        {
+          callerId: "orchestrator-1",
+          keyHash: hashApiKey(newKey),
+          allowedPrincipalIds: ["integration-test"],
+        },
       ]);
 
       const appAfterRevocation = createApp(application, {
@@ -211,6 +231,42 @@ describe("Caller authentication (HTTP boundary)", () => {
       const serialized = JSON.stringify(callerAuditSink.events);
       expect(serialized).not.toContain(CALLER_A_KEY);
       expect(serialized).not.toContain(CALLER_B_KEY);
+    });
+  });
+
+  describe("principal identity binding", () => {
+    it("blocks the exact live exploit: an ordinary caller cannot self-declare an unrelated authority.principalId (e.g. impersonating a CEO)", async () => {
+      const { app } = buildApp();
+
+      const spoofedTransaction = createBusinessTransaction();
+      // @ts-expect-error -- test fixture's authority is typed loosely
+      // enough upstream that this direct mutation is the simplest way
+      // to reproduce the live exploit: caller-a authenticates as
+      // itself but claims to be acting as a completely different,
+      // self-declared authority never verified against its own
+      // identity.
+      spoofedTransaction.authority.principalId = "ceo@victim-corp.example";
+
+      const response = await request(app)
+        .post("/execute")
+        .set("Authorization", `Bearer ${CALLER_A_KEY}`)
+        .send(spoofedTransaction);
+
+      expect(response.status).toBe(403);
+    });
+
+    it("still allows a caller to assert a principalId it is explicitly permitted to assert", async () => {
+      const { app } = buildApp();
+
+      // createBusinessTransaction()'s fixture authority.principalId is
+      // "integration-test", which buildApp()'s authenticator grants to
+      // both caller-a and caller-b via allowedPrincipalIds.
+      const response = await request(app)
+        .post("/execute")
+        .set("Authorization", `Bearer ${CALLER_A_KEY}`)
+        .send(createBusinessTransaction());
+
+      expect(response.status).toBe(200);
     });
   });
 

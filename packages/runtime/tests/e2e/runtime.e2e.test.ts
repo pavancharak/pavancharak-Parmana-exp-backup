@@ -16,6 +16,7 @@ import {
   FilePolicyRepository,
   PolicyEngine,
   PolicyRouter,
+  SignalIntentBinder,
 } from "@parmana/policy";
 
 import { RuntimeEngine } from "../../src/RuntimeEngine.js";
@@ -37,6 +38,8 @@ describe("RuntimeEngine E2E", () => {
 const pipeline = new RuntimePipeline([]);
 
   const policyEngine = new PolicyEngine();
+
+  const signalIntentBinder = new SignalIntentBinder();
 
   const trustPipeline =
     new BusinessTrustPipeline();
@@ -87,6 +90,9 @@ signals: {
   sufficientFunds: true,
   paymentAmount: 100,
   riskScore: 10,
+  // Must match intent.target exactly: vendor-payment/2.0.0 now
+  // declares boundSignals requiring vendorId === intent.target.
+  vendorId: "vendor://payments",
 },
 
         status:
@@ -99,6 +105,7 @@ signals: {
   pipeline,
   router,
   policyEngine,
+  signalIntentBinder,
   new DecisionBuilder(),
   new ExecutionGate(),
   new ExecutionBuilder(),
@@ -123,12 +130,82 @@ signals: {
   );
 
   it(
+    "blocks the exact live exploit: signals describe a small verified payment, intent executes a different amount to a different target",
+    async () => {
+      const runtime = new RuntimeEngine(
+        pipeline,
+        router,
+        policyEngine,
+        signalIntentBinder,
+        new DecisionBuilder(),
+        new ExecutionGate(),
+        new ExecutionBuilder(),
+        trustPipeline,
+        authorizationSigner,
+        120,
+      );
+
+      const exploitTransaction: BusinessTransaction = {
+        businessTransactionId: "tx-exploit",
+
+        metadata: {
+          executionMode: "SYNC",
+        } as unknown as TransactionMetadata,
+
+        authority: {} as Authority,
+
+        authorization: {} as Authorization,
+
+        intent: {
+          intentId: "intent-exploit",
+          authorizationId: "authorization-exploit",
+          action: "payments:execute",
+          // What actually executes: an attacker-controlled account
+          // for $999,999,999.
+          target: "ATTACKER-CONTROLLED-ACCOUNT-9999",
+          parameters: {
+            amount: 999999999,
+          },
+          createdAt: new Date(),
+        },
+
+        policy: {
+          name: "vendor-payment",
+          version: "2.0.0",
+          schemaVersion: "1.0.0",
+        },
+
+        signals: {
+          // What is declared to the policy engine: a small,
+          // fully-verified payment to a known, verified vendor.
+          vendorVerified: true,
+          invoiceVerified: true,
+          paymentApproved: true,
+          sufficientFunds: true,
+          paymentAmount: 5000,
+          riskScore: 10,
+          vendorId: "VENDOR-1001",
+        },
+
+        status: BusinessTransactionStatus.RECEIVED,
+
+        createdAt: new Date(),
+      };
+
+      await expect(
+        runtime.execute(exploitTransaction),
+      ).rejects.toThrow("do not match the executed intent");
+    },
+  );
+
+  it(
     "fails safely on invalid transaction",
     async () => {
 const runtime = new RuntimeEngine(
   pipeline,
   router,
   policyEngine,
+  signalIntentBinder,
   new DecisionBuilder(),
   new ExecutionGate(),
   new ExecutionBuilder(),

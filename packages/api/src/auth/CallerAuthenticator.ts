@@ -1,5 +1,12 @@
 export interface CallerIdentity {
   readonly callerId: string;
+
+  /**
+   * The set of Authority.principalId values this caller may assert.
+   * Undefined means the caller-auth middleware defaults to "only the
+   * callerId itself" — see ApiKeyEntry.allowedPrincipalIds.
+   */
+  readonly allowedPrincipalIds?: readonly string[];
 }
 
 /**

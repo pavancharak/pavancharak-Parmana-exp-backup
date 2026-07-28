@@ -107,9 +107,29 @@ export function parseApiKeys(value?: string): ApiKeyEntry[] {
       );
     }
 
+    const allowedPrincipalIds = record.allowedPrincipalIds;
+
+    if (allowedPrincipalIds !== undefined) {
+      const validAllowedPrincipalIds =
+        Array.isArray(allowedPrincipalIds) &&
+        allowedPrincipalIds.every(
+          (id) => typeof id === "string" && id !== "",
+        );
+
+      if (!validAllowedPrincipalIds) {
+        throw new Error(
+          `PARMANA_API_KEYS[${index}].allowedPrincipalIds must be an array ` +
+            "of non-empty strings when present.",
+        );
+      }
+    }
+
     return {
       callerId: record.callerId as string,
       keyHash: record.keyHash as string,
+      ...(allowedPrincipalIds !== undefined
+        ? { allowedPrincipalIds: allowedPrincipalIds as readonly string[] }
+        : {}),
     };
   });
 }

@@ -6,6 +6,7 @@ import {
 import {
   PolicyEngine,
   PolicyRouter,
+  SignalIntentBinder,
 } from "@parmana/policy";
 
 import type {
@@ -141,6 +142,9 @@ export class RuntimeBuilder {
     const engine =
       new PolicyEngine();
 
+    const signalIntentBinder =
+      new SignalIntentBinder();
+
     //
     // Trust subsystem
     //
@@ -165,6 +169,7 @@ export class RuntimeBuilder {
         pipeline,
         router,
         engine,
+        signalIntentBinder,
         new DecisionBuilder(),
         new ExecutionGate(),
         new ExecutionBuilder(),

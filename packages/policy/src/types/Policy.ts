@@ -242,6 +242,42 @@ export interface Policy {
   signalsSchema?: Record<string, string>;
 
   /**
+   * Declares signals that MUST equal a specific field of the
+   * Business Transaction's Intent (the same intent whose
+   * action/target/parameters become the ExecutableContent that
+   * actually executes).
+   *
+   * Signals are caller-declared and are what PolicyEngine.evaluate
+   * decides approval on; Intent is what ExecutionGateway actually
+   * signs and executes. Nothing else in the system requires these
+   * two to describe the same real-world action — a caller could
+   * otherwise declare a small, fully-verified signals payload while
+   * Intent silently targets something else entirely, and receive a
+   * signed APPROVED trust record for it. boundSignals closes that
+   * gap for exactly the signals a policy author designates: before
+   * PolicyEngine.evaluate ever runs, every entry here must match the
+   * value at the given dot-path into { target, parameters } read
+   * from the real Intent, or the transaction is rejected outright,
+   * before any authorization is generated.
+   *
+   * Only signals with a genuine Intent-side equivalent belong here
+   * (e.g. an amount or a target/vendor identifier). Signals that
+   * represent an external fact with no Intent-side equivalent (for
+   * example vendorVerified or riskScore) are not expressible as a
+   * binding and remain ordinary caller-declared signals — binding
+   * them is a separate, larger problem (deriving them from an
+   * independently verified source) than this mechanism solves.
+   *
+   * Example:
+   *
+   * {
+   *   "paymentAmount": "parameters.amount",
+   *   "vendorId": "target"
+   * }
+   */
+  boundSignals?: Record<string, string>;
+
+  /**
    * Ordered evaluation rules.
    *
    * Rules are evaluated sequentially.

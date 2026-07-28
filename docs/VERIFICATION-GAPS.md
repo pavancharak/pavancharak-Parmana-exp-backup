@@ -126,16 +126,150 @@ accurate record of what this specific session did and did not do.)*
 
 ## Remaining gaps, by severity
 
-**Status note, as of the audit-sink/G-1 hardening session:** every `blocks-pilot` entry
-(G-1, G-2, G-3) is now resolved. Every gap still open below (`pre-production`: G-4, G-5,
-G-6, G-7, G-8, G-9; `cosmetic`: G-10, G-11) is, by its own text, either explicitly not a
-security defect (G-9), unreachable from any HTTP path (G-8), disconnected from the live
-request path (G-6), a permanent-skip test-coverage gap rather than a vulnerability (G-7), or
-a documentation/citation gap (G-10, G-11) — none describes a live, exploitable security
-defect. This is an assessment of the entries as written, not a new audit pass; re-verify
-before relying on it if significant time has passed or the code has changed since.
+**Status note, updated in the adversarial-testing hardening session that added G-24:**
+every `blocks-pilot` entry (G-1, G-2, G-3, G-24) is now resolved. **This note's own prior
+claim — "none describes a live, exploitable security defect" — was wrong at the time it
+was written**, not because anything regressed, but because G-24 was a real, live,
+exploitable bypass of the core execution-authorization invariant that this document's own
+internal audit process had not found; an external adversarial exercise found it. Left here
+deliberately, struck through in spirit rather than silently rewritten, as the concrete
+reason this document's own "re-verify before relying on it" caveat exists. Every gap still
+open below (`pre-production`: G-4, G-5, G-6, G-7, G-8, G-9; `cosmetic`: G-10, G-11) is, by
+its own text, either explicitly not a security defect (G-9), unreachable from any HTTP path
+(G-8), disconnected from the live request path (G-6), a permanent-skip test-coverage gap
+rather than a vulnerability (G-7), or a documentation/citation gap (G-10, G-11) — this is
+again an assessment of those entries as written, not a fresh audit pass against them, and
+carries the same re-verify caveat G-24 just demonstrated the cost of skipping.
 
 ### blocks-pilot
+
+**G-24. Policy-evaluation signals were never bound to the executed Intent — the most
+severe gap found in this document, a live, reproducible bypass of the core "no
+unauthorized execution" invariant, not merely an operational or data-consistency gap
+like the rest of this tier. RESOLVED in the adversarial-testing hardening session that
+found it.** Found via an external adversarial security exercise (not this codebase's own
+internal audit process) run against a disposable local clone: `BusinessTransactionMapper.
+fromRequest` (`packages/api/src/mappers/BusinessTransactionMapper.ts:34,36`) takes
+`policy` and `signals` verbatim from the client request body — `SignalValidator`
+(`packages/policy/src/SignalValidator.ts`) only checks that `signals` is a well-shaped
+object, never that its *values* are true. `RuntimeEngine.execute`
+(`packages/runtime/src/RuntimeEngine.ts`) evaluated `PolicyEngine.evaluate(policy,
+signals)` against exactly those caller-declared signals, with no server-side enrichment
+or derivation anywhere in the codebase (confirmed by a repo-wide grep for
+enrichment/derivation patterns at the time: zero hits). Separately, `ExecutableContent`
+(`packages/shared/src/domain/executable-content.ts`) — the thing `ExecutionGateway`
+actually signs and executes — is built from `intent.action`/`intent.target`/
+`intent.parameters`, a completely disjoint set of fields from `signals`. Nothing
+cross-validated that the two described the same real-world action. `docs/CLAIMS.md`
+§3.4 already documented half of this precisely, neutrally, without flagging it as a
+risk: "policy is evaluated against caller-supplied signals, the same generic mechanism
+vendor-payment already uses" — the authors knew signals were caller-supplied; nothing in
+the document connected that fact to the missing binding.
+
+Live proof-of-concept, reproduced against an isolated disposable clone (no production
+system, no real credentials, no live traffic — see that session's own isolation
+confirmation) and again against this repository directly after the fix, both via `POST
+/execute` with a real, valid API key and no other privilege: `signals` declared a fully
+verified, policy-approved $5,000 payment to a known vendor
+(`vendorVerified/invoiceVerified/paymentApproved/sufficientFunds: true, paymentAmount:
+5000, riskScore: 10, vendorId: "VENDOR-1001"`), while `intent` — the part that actually
+executes — targeted `"ATTACKER-CONTROLLED-ACCOUNT-9999"` for `999999999`. Before the fix:
+`200`, policy decision `APPROVED`, execution `COMPLETED`, a real Ed25519-signed Execution
+Trust Record and receipt issued for it — the exact artifacts this project's "independently
+verifiable execution" claim rests on, attesting to something that never happened as
+described. A related, compounding finding from the same session: `authority.principalId`
+(who the trust record says approved the action) was likewise caller-declared with no
+binding to the identity `callerId` actually proves — any caller holding any valid API key
+could claim to be any human or role, including an "impersonate the CEO" PoC that also
+succeeded before this fix.
+
+Fix, two parts, deliberately scoped to *bind the signals a policy actually evaluates to
+the intent it actually executes* rather than the larger, separate problem of
+independently re-verifying every signal's truth (most signals — `vendorVerified`,
+`riskScore`, and similar — have no Intent-side equivalent at all; deriving *those* from an
+independently verified source, the way `RazorpaySettlementProcessor` already correctly
+does for webhook-derived settlement facts — "the webhook is a doorbell, not a delivery" —
+is real, valuable, future work, not done this session):
+
+- **`Policy.boundSignals`** (`packages/policy/src/types/Policy.ts`), an opt-in map from
+  signal key to an intent dot-path (`{ "paymentAmount": "parameters.amount", "vendorId":
+  "target" }`), validated structurally by `PolicyValidator`. **`SignalIntentBinder`**
+  (`packages/policy/src/SignalIntentBinder.ts`) checks every declared binding — strict
+  equality, a missing signal counts as a violation, not a pass — and `RuntimeEngine.
+  execute` runs this check immediately before `PolicyEngine.evaluate`, over the exact
+  signals about to be evaluated and the exact intent that will be signed and executed if
+  approved. A violation is built into an ordinary `PolicyDecision` with outcome `REJECT`
+  and a reason naming every mismatched field — it flows through the same `ExecutionGate.
+  enforce` rejection path as any other policy rejection, so **no authorization is ever
+  generated** for a mismatched request, the same fail-closed shape as every other gate in
+  this document. `policies/vendor-payment/2.0.0/policy.json` and
+  `policies/razorpay-refund/1.0.0/policy.json` were patched in place (not new versions —
+  this is a security fix to existing behavior, the same precedent G-1's in-place atomicity
+  fix set, not a new business capability) to declare `boundSignals` for their
+  amount/target-shaped signals.
+- **`isPrincipalAllowed`** (`packages/api/src/auth/isPrincipalAllowed.ts`): an
+  authenticated caller may only submit a transaction whose `authority.principalId` is in
+  its `ApiKeyEntry.allowedPrincipalIds` grant (`packages/shared/src/config/
+  ApiKeyEntry.ts`), defaulting — when unset — to requiring `principalId === callerId`
+  exactly, never "anything." Enforced in `routes/execute.ts` and `routes/transactions.ts`
+  before `application.execute` is ever called; a mismatch is `403`, no transaction
+  constructed. Composed with a second, independent fix for the compounding IDOR finding
+  from the same session (any authenticated caller could read any other caller's complete
+  transaction/trust-record/receipt history via `/transactions`, `/trust-records`,
+  `/verify`, `/verification`, `/replay`, `/receipt*` — none of them scoped by caller at
+  all): `metadata.submittedBy` is now stamped server-side from the authenticated
+  `callerId` (any client-supplied value is overwritten, never trusted), and
+  `isOwnedByCaller` (`packages/api/src/auth/isOwnedByCaller.ts`) gates all six read routes
+  plus `GET /transactions`'s list (filtered post-fetch) and `GET /transactions/:id` —
+  cross-caller access now reads as a clean `404`, not a `403` that would confirm the
+  target id exists. Both principal-binding and ownership checks are skipped only when
+  caller-auth itself is disabled (`req.callerId === undefined`), matching that mode's
+  existing no-caller-identity posture.
+
+A third, unrelated finding from the same session was fixed alongside these because it was
+already well-scoped: `FilePolicyRepository.load` (`packages/policy/src/
+FilePolicyRepository.ts`) built its file path from `name`/`version` with no input
+validation — the same bug class G-20 (this table's item 20, FileKeyProvider) had already
+been hardened against, just not applied here. Live PoC: `policy: { name:
+"../examples/tutorials/01-hello-world", version: "." }` produced a *different, content-
+dependent* error (`400 "policyId is required."`) than the clean `404 "not found"` a
+genuinely absent path returns — proof the file was read and parsed from outside
+`PARMANA_POLICY_DIR`. Now rejected by the same `^[A-Za-z0-9._-]+$` allowlist
+`FileKeyProvider` already uses, before any filesystem access, collapsing both cases to an
+identical `404` with no differential signal. A fourth, lower-severity finding (malformed
+JSON and oversized request bodies on `/execute` surfaced as a generic `500`, indistinguish-
+able from a crash, even though the identical `entity.too.large` error type already had
+dedicated `413` handling on the webhook route) was fixed the same way, in
+`middleware/error-handler.ts`.
+
+Verified: 28 new tests across `packages/policy` and `packages/api` (`SignalIntentBinder.
+test.ts`, `file-policy-repository.test.ts`, `isPrincipalAllowed.test.ts`,
+`caller-scoping.integration.test.ts`, `error-handler-body-parsing.test.ts`, plus new cases
+in `runtime.e2e.test.ts` and `caller-auth.integration.test.ts`), each reproducing the
+specific live exploit shape found and asserting it is now rejected, alongside positive
+controls proving legitimate matching requests still succeed and cross-caller access to a
+caller's *own* data is unaffected. Full suite: 597 tests (558 passed, 35 skipped — the
+same pre-existing Supabase-gated skip count as before this session, nothing newly
+skipped), `npm run lint` and `npm run typecheck` both clean. The exact live exploit
+sequence (signal/intent mismatch, principal spoofing, path traversal, cross-caller read)
+was re-run via real HTTP against a freshly built, isolated clone with the fix applied —
+not only the automated suite — and confirmed blocked in every case, with a positive
+control confirming a legitimate, correctly-bound request still executes successfully.
+
+**Residual, explicitly not addressed by this session, flagged for a future pass:**
+`boundSignals` only closes the *decoupling* between what a policy evaluates and what
+executes for the specific fields a policy author declares bound — it does not verify that
+an unbound signal (`vendorVerified`, `paymentApproved`, `sufficientFunds`, `riskScore`,
+and similar) is actually *true*. Those remain caller-declared attestations with no
+independent verification, same as before this session; closing that gap for real would
+mean extending the `RazorpaySettlementProcessor` fetch-verify pattern to policy signals
+generally, a materially larger project than this session's scope. `razorpay-refund/1.0.0`
+was bound only on `requestedRefundAmountPaise`; a `paymentId`-shaped binding (so a
+declared `paymentStatus: "captured"` claim cannot be about a different payment than the
+one `intent` actually refunds) was considered and deliberately not added, since the
+policy's `signalsSchema` has no existing field cleanly mappable to `intent.parameters.
+paymentId` without inventing new policy-author-facing surface beyond this session's
+scope — flagged here rather than silently left unmentioned.
 
 **G-1. Duplicate Business Transaction ID: real, deterministic data-loss race in
 `MemoryBusinessTransactionRepository`. RESOLVED (Option A, as written in D-1 below,

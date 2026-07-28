@@ -14,6 +14,7 @@ declare global {
   namespace Express {
     interface Request {
       callerId?: string;
+      callerAllowedPrincipalIds?: readonly string[];
     }
   }
 }
@@ -113,6 +114,10 @@ return;
     }
 
     req.callerId = identity.callerId;
+
+    if (identity.allowedPrincipalIds !== undefined) {
+      req.callerAllowedPrincipalIds = identity.allowedPrincipalIds;
+    }
 
     const recorded = await recordOrFailClosed(
       auditSink,

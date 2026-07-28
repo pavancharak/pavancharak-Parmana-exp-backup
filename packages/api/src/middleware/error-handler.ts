@@ -17,6 +17,38 @@ import {
 } from "@parmana/policy";
 
 /**
+ * True for the two body-parser (express.json()) failure shapes every
+ * route mounted after the global express.json() middleware can hit
+ * before any route handler ever runs: an oversized body
+ * ("entity.too.large") and malformed JSON ("entity.parse.failed").
+ * Mirrors the dedicated handling routes/webhooks-razorpay.ts already
+ * has for its own express.raw() body parser, applied here so every
+ * other route gets the same clean 413/400 instead of falling through
+ * to the generic 500 below.
+ */
+function bodyParserErrorStatus(error: unknown): number | undefined {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("type" in error)
+  ) {
+    return undefined;
+  }
+
+  const type = (error as { type?: unknown }).type;
+
+  if (type === "entity.too.large") {
+    return 413;
+  }
+
+  if (type === "entity.parse.failed") {
+    return 400;
+  }
+
+  return undefined;
+}
+
+/**
  * Centralized API error handler.
  */
 export function errorHandler(
@@ -25,6 +57,23 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
+  //
+  // Malformed / oversized request body (express.json(), before any
+  // route handler runs)
+  //
+  const bodyParserStatus = bodyParserErrorStatus(error);
+
+  if (bodyParserStatus !== undefined) {
+    res.status(bodyParserStatus).json({
+      error:
+        bodyParserStatus === 413
+          ? "Payload too large."
+          : "Malformed JSON body.",
+    });
+
+    return;
+  }
+
   //
   // Request / validation errors
   //

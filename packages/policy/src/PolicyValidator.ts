@@ -111,6 +111,38 @@ export class PolicyValidator {
       );
     }
 
+    //
+    // boundSignals
+    //
+
+    if (policy.boundSignals !== undefined) {
+
+      if (
+        typeof policy.boundSignals !== "object" ||
+        policy.boundSignals === null ||
+        Array.isArray(policy.boundSignals)
+      ) {
+        throw new PolicyValidationError(
+          "Policy boundSignals must be an object.",
+        );
+      }
+
+      for (const [signalKey, intentPath] of Object.entries(policy.boundSignals)) {
+
+        if (!signalKey.trim()) {
+          throw new PolicyValidationError(
+            "Policy boundSignals keys cannot be empty.",
+          );
+        }
+
+        if (typeof intentPath !== "string" || !intentPath.trim()) {
+          throw new PolicyValidationError(
+            `Policy boundSignals['${signalKey}'] must be a non-empty string dot-path.`,
+          );
+        }
+      }
+    }
+
     const ruleIds = new Set<string>();
 
     for (const rule of policy.rules) {

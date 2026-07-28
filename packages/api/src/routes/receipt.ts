@@ -6,6 +6,7 @@ import type {
 } from "express";
 
 import type { ExecutionTrustApplication } from "@parmana/runtime";
+import { isOwnedByCaller } from "../auth/isOwnedByCaller.js";
 
 export function createReceiptRouter(
   application: ExecutionTrustApplication,
@@ -66,6 +67,21 @@ router.post(
         res.status(400).json({
           error:
             "businessTransactionId must be a valid UUID.",
+        });
+        return;
+      }
+
+      if (
+        req.callerId !== undefined &&
+        !(await isOwnedByCaller(
+          application,
+          businessTransactionId,
+          req.callerId,
+        ))
+      ) {
+        res.status(404).json({
+          error:
+            "Execution Trust Record not found.",
         });
         return;
       }

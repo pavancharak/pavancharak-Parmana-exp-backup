@@ -45,6 +45,9 @@ describe("Runtime Integration", () => {
             sufficientFunds: true,
             paymentAmount: 5000,
             riskScore: 10,
+            // Must match intent.target exactly: vendor-payment/2.0.0
+            // declares boundSignals requiring vendorId === intent.target.
+            vendorId: "vendor://payments",
           },
 
           authority: {

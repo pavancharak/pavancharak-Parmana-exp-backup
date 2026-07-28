@@ -13,6 +13,10 @@
     "dailyCumulativeAfterThisRefundPaise": "number"
   },
 
+  "boundSignals": {
+    "requestedRefundAmountPaise": "parameters.amountPaise"
+  },
+
   "rules": [
     {
       "id": "reject-payment-not-captured",

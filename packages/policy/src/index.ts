@@ -9,6 +9,11 @@
 // -----------------------------------------------------------------------------
 
 export { PolicyEngine } from "./PolicyEngine.js";
+export { SignalIntentBinder } from "./SignalIntentBinder.js";
+export type {
+  IntentSnapshot,
+  SignalIntentBindingViolation,
+} from "./SignalIntentBinder.js";
 
 // -----------------------------------------------------------------------------
 // Routing & Registry

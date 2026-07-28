@@ -32,7 +32,12 @@ export class StaticKeyAuthenticator implements CallerAuthenticator {
       const stored = Buffer.from(entry.keyHash, "hex");
 
       if (stored.length === candidate.length && timingSafeEqual(stored, candidate)) {
-        return { callerId: entry.callerId };
+        return {
+          callerId: entry.callerId,
+          ...(entry.allowedPrincipalIds !== undefined
+            ? { allowedPrincipalIds: entry.allowedPrincipalIds }
+            : {}),
+        };
       }
     }
 

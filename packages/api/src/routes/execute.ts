@@ -6,6 +6,7 @@ import type {
 } from "express";
 
 import { BusinessTransactionMapper } from "../mappers/BusinessTransactionMapper.js";
+import { isPrincipalAllowed } from "../auth/isPrincipalAllowed.js";
 import type {
   ExecutionTrustApplication,
 } from "@parmana/runtime";
@@ -56,10 +57,53 @@ export function createExecuteRouter(
           return;
         }
 
-        const transaction =
+        let transaction =
           BusinessTransactionMapper.fromRequest(
             req.body,
           );
+
+        //
+        // Caller identity binding: an authenticated caller may only
+        // submit a transaction under an authority.principalId it is
+        // actually permitted to assert (see isPrincipalAllowed.ts).
+        // Skipped only when caller-auth itself is disabled (no
+        // req.callerId at all), matching that mode's existing
+        // no-caller-identity posture.
+        //
+        if (req.callerId !== undefined) {
+          const principalId = transaction.authority?.principalId;
+
+          if (
+            !isPrincipalAllowed(
+              principalId,
+              req.callerId,
+              req.callerAllowedPrincipalIds,
+            )
+          ) {
+            res.status(403).json({
+              error:
+                "Caller is not permitted to assert this authority.principalId.",
+            });
+            return;
+          }
+        }
+
+        //
+        // metadata.submittedBy is server-set from the authenticated
+        // caller, never trusted from the client (any client-supplied
+        // value is overwritten here) — this is what
+        // isOwnedByCaller.ts scopes /trust-records, /verify,
+        // /verification, /replay, and /receipt* by.
+        //
+        if (req.callerId !== undefined) {
+          transaction = {
+            ...transaction,
+            metadata: {
+              ...transaction.metadata,
+              submittedBy: req.callerId,
+            },
+          };
+        }
 
 console.log("[ROUTE] before execute");
 

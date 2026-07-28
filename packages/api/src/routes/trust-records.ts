@@ -6,6 +6,7 @@ import type {
 } from "express";
 
 import type { ExecutionTrustApplication } from "@parmana/runtime";
+import { isOwnedByCaller } from "../auth/isOwnedByCaller.js";
 
 interface TrustRecordParams {
   businessTransactionId: string;
@@ -29,6 +30,20 @@ export function createTrustRecordsRouter(
       next: NextFunction,
     ): Promise<void> => {
       try {
+        if (
+          req.callerId !== undefined &&
+          !(await isOwnedByCaller(
+            application,
+            req.params.businessTransactionId,
+            req.callerId,
+          ))
+        ) {
+          res.status(404).json({
+            error: "Execution Trust Record not found.",
+          });
+          return;
+        }
+
         const record = await application.getTrustRecord(
           req.params.businessTransactionId,
         );

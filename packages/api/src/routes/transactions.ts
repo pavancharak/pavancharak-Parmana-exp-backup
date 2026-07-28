@@ -7,6 +7,7 @@ import type {
 
 import type { ExecutionTrustApplication } from "@parmana/runtime";
 import { BusinessTransactionMapper } from "../mappers/BusinessTransactionMapper.js";
+import { isPrincipalAllowed } from "../auth/isPrincipalAllowed.js";
 
 export function createTransactionsRouter(
   application: ExecutionTrustApplication,
@@ -54,7 +55,22 @@ router.get(
           pageSize,
         );
 
-      res.json(transactions);
+      // Filtered post-fetch, not pushed into the repository query —
+      // a smaller, route-level change than threading callerId through
+      // the storage layer. Trade-off: a page can legitimately return
+      // fewer than pageSize items (or none) when other callers' rows
+      // occupy that page's window; it never over-discloses, only
+      // under-fills a page, which is a pagination-correctness
+      // follow-up, not a security gap.
+      const scoped =
+        req.callerId === undefined
+          ? transactions
+          : transactions.filter(
+              (transaction) =>
+                transaction.metadata?.submittedBy === req.callerId,
+            );
+
+      res.json(scoped);
       return;
     } catch (error) {
       next(error);
@@ -81,7 +97,11 @@ router.get(
           String(req.params.id),
         );
 
-      if (!transaction) {
+      if (
+        !transaction ||
+        (req.callerId !== undefined &&
+          transaction.metadata?.submittedBy !== req.callerId)
+      ) {
         res.status(404).json({
           error:
             "Business Transaction not found.",
@@ -127,10 +147,36 @@ router.post(
         return;
       }
 
-      const transaction =
+      let transaction =
         BusinessTransactionMapper.fromRequest(
           req.body,
         );
+
+      if (req.callerId !== undefined) {
+        const principalId = transaction.authority?.principalId;
+
+        if (
+          !isPrincipalAllowed(
+            principalId,
+            req.callerId,
+            req.callerAllowedPrincipalIds,
+          )
+        ) {
+          res.status(403).json({
+            error:
+              "Caller is not permitted to assert this authority.principalId.",
+          });
+          return;
+        }
+
+        transaction = {
+          ...transaction,
+          metadata: {
+            ...transaction.metadata,
+            submittedBy: req.callerId,
+          },
+        };
+      }
 
       const result =
         await application.execute(

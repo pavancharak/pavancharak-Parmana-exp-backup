@@ -10,7 +10,13 @@
     "paymentApproved": "boolean",
     "sufficientFunds": "boolean",
     "paymentAmount": "number",
-    "riskScore": "number"
+    "riskScore": "number",
+    "vendorId": "string"
+  },
+
+  "boundSignals": {
+    "paymentAmount": "parameters.amount",
+    "vendorId": "target"
   },
 
   "rules": [

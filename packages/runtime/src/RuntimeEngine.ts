@@ -14,7 +14,10 @@ import {
 
 import {
   PolicyEngine,
+  PolicyOutcome,
   PolicyRouter,
+  SignalIntentBinder,
+  type PolicyDecision,
 } from "@parmana/policy";
 
 import type {
@@ -50,6 +53,7 @@ export class RuntimeEngine {
     private readonly pipeline: RuntimePipeline,
     private readonly policyRouter: PolicyRouter,
     private readonly policyEngine: PolicyEngine,
+    private readonly signalIntentBinder: SignalIntentBinder,
     private readonly decisionBuilder: DecisionBuilder,
     private readonly executionGate: ExecutionGate,
     private readonly executionBuilder: ExecutionBuilder,
@@ -68,6 +72,10 @@ export class RuntimeEngine {
 
     if (!policyEngine) {
       throw new Error("PolicyEngine is required.");
+    }
+
+    if (!signalIntentBinder) {
+      throw new Error("SignalIntentBinder is required.");
     }
 
     if (!trustPipeline) {
@@ -122,6 +130,31 @@ export class RuntimeEngine {
     );
 
     //
+    // Signal/Intent binding
+    //
+    // Runs before policy evaluation, over the exact signals
+    // PolicyEngine is about to evaluate and the exact Intent
+    // ExecutionGateway will sign and execute if this is approved.
+    // A policy that declares boundSignals is asserting that these
+    // particular signals must describe the same real-world action
+    // as Intent — closing the gap where a caller could declare a
+    // small, fully-verified signals payload while Intent silently
+    // targets something else. A violation is treated as an ordinary
+    // policy rejection: no rule is evaluated, no authorization is
+    // ever generated for it.
+    //
+
+    const bindingViolations =
+      this.signalIntentBinder.findViolations(
+        policy,
+        signals,
+        {
+          target: transaction.intent.target,
+          parameters: transaction.intent.parameters,
+        },
+      );
+
+    //
     // Policy evaluation
     //
 
@@ -130,11 +163,29 @@ export class RuntimeEngine {
       policy,
     );
 
-    const policyDecision =
-      this.policyEngine.evaluate(
-        policy,
-        signals,
-      );
+    const policyDecision: PolicyDecision =
+      bindingViolations.length > 0
+        ? {
+            policyId: policy.policyId,
+            policyVersion: policy.policyVersion,
+            outcome: PolicyOutcome.REJECT,
+            reason:
+              "Rejected: declared signal(s) do not match the executed intent (" +
+              bindingViolations
+                .map(
+                  (violation) =>
+                    `${violation.signalKey}=${JSON.stringify(violation.signalValue)} != intent.${violation.intentPath}=${JSON.stringify(violation.intentValue)}`,
+                )
+                .join(", ") +
+              ").",
+            matchedRuleId: "signal-intent-binding-violation",
+            evaluatedRules: 0,
+            matchedPath: [],
+          }
+        : this.policyEngine.evaluate(
+            policy,
+            signals,
+          );
 
     await this.hookRunner.afterPolicyEvaluation(
       transaction,
