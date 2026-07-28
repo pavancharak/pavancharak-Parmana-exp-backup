@@ -555,6 +555,38 @@ Verified:
   this is the direct proof Part 2 closes the collection-crash bug.
 - `npm run lint` and `npm run build` both clean throughout.
 
+**G-19. `POST /execute` returns HTTP 500 for an expected policy rejection, and neither the
+rejection nor the approval response surfaces the policy's plain-language `reason`.** Found
+2026-07-21 while building a parmanasystems.com live-proof widget route
+(`packages/api/src/routes/public-demo.ts`, since removed 2026-07-21 along with the widget
+it backed — see the frontend's own history for why) that worked around both issues by
+calling `PolicyEngine.evaluate()` directly rather than relying on `/execute`'s response.
+That workaround route is gone; this gap is not — it is a property of `/execute` and the
+shared `runtime`/`shared` packages, entirely independent of the now-deleted route, and was
+never fixed. Two distinct issues on the real, existing `/execute` route:
+1. **Status code.** `ExecutionGate.enforce()` (`packages/runtime/src/ExecutionGate.ts:31-44`)
+   throws a bare `RuntimeError` for a rejected `Decision`, which defaults to `status: 500`
+   (`packages/runtime/src/errors/RuntimeError.ts:6-20`) — every policy rejection currently
+   reaches the caller looking identical to a server crash, even though
+   `DecisionOutcome.REJECTED` is an ordinary, expected outcome of policy evaluation, not a
+   fault.
+2. **Missing reason field.** `Decision.reason` (`packages/shared/src/domain/decision.ts:52`)
+   already carries the exact plain-language string from the matched policy rule
+   (`policies/<name>/<version>/policy.json`'s `outcome.reason`) all the way through
+   `DecisionBuilder.build()` (`packages/runtime/src/DecisionBuilder.ts:57-67`), and
+   `ExecutionGate.enforce` does interpolate it into its thrown message
+   (`packages/runtime/src/ExecutionGate.ts:38-42`) — but `ExecutionTrustRecord`
+   (`packages/shared/src/domain/execution-trust-record.ts`) has no `decision` field at all,
+   so on the APPROVED path the reason is dropped entirely, and on the REJECTED path a caller
+   only gets it as an unstructured substring of `error` inside the generic `RuntimeError`
+   message (`"Execution rejected: <reason>"`), never a dedicated field.
+
+Neither issue touches this codebase's core CLAIMS.md claims — fail-closed still holds,
+nothing here weakens the signature or verification chain — but any real API consumer today
+has no clean way to distinguish "policy said no" from "the server broke," and no structured
+access to why. **Not fixed this pass**, flagged only, per explicit instruction to keep the
+live-proof-widget work scoped and avoid touching the shared runtime/API packages.
+
 ---
 
 ### Decision record: audit-sink fail-closed
