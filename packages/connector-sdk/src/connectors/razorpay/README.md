@@ -15,7 +15,7 @@ Payout creation (RazorpayX) is not implemented. It is future work only.
 
 ## The policy pack
 
-`policies/razorpay-refund/1.0.0/policy.json` is evaluated deterministically, before any refund-creating call is made, against the payment state fetched fresh from Razorpay:
+`policies/razorpay-refund/1.0.0/policy.json` is evaluated deterministically, before any refund-creating call is made:
 
 * the payment must exist and have status `captured`
 * the currency must be `INR`
@@ -24,6 +24,11 @@ Payout creation (RazorpayX) is not implemented. It is future work only.
 * the day's cumulative authorized amount for the policy scope must not exceed the daily cap (2000000 paise / 20000 INR)
 
 Every denial carries a specific, human-readable reason naming which rule failed.
+
+**Whether these facts are fetched fresh from Razorpay or caller-declared depends on how you reach this policy — this matters, read it before trusting either path.** The policy declares `boundSignals: { "requestedRefundAmountPaise": "parameters.amountPaise" }` (`SignalIntentBinder`, see `docs/VERIFICATION-GAPS.md` G-24): only the refund *amount* is checked against what's actually executed, for every caller of this policy, no matter how they reach it.
+
+* **`RazorpayRefundService.requestRefund()`** (below) fetches the real payment from Razorpay first and builds every signal — `paymentStatus`, `paymentCurrency`, the refundable remainder — from that fetched state. Nothing here is caller-declared.
+* **The generic `POST /execute` route**, reaching this same policy directly, does not. Only the amount is bound; `paymentStatus`, `paymentCurrency`, the refundable remainder, and the daily cumulative cap remain caller-declared attestations for that path, unverified. See `docs/site/integrations/razorpay.mdx` for the same caveat with more detail.
 
 ## How to run tutorial 61
 

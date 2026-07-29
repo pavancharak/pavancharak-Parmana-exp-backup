@@ -47,6 +47,22 @@ tested:
    event type), and appends a signed `SettlementConfirmation` to the Execution Trust Record.
    See [Settlement](/concepts/settlement).
 
+<Warning>
+**What "the policy approves" actually checks, precisely, for the `POST /execute` path above.**
+`razorpay-refund/1.0.0` declares `boundSignals: { "requestedRefundAmountPaise":
+"parameters.amountPaise" }` (see [Policies and the decision](/concepts/policies-and-the-decision)
+and [Security](/security/overview) for why this binding exists): the refund *amount* a caller
+declares is checked against the amount actually executed, before policy evaluation runs.
+Every other signal this policy evaluates — `paymentStatus`, `paymentCurrency`,
+`refundableRemainingPaise`, `requestedExceedsRemainder`, `dailyCumulativeAfterThisRefundPaise`
+— is **not** independently verified for this path; it remains a caller-declared attestation,
+same as before. `RazorpayRefundService`, described below, is different: it fetches the real
+payment from Razorpay first and builds every signal from that fetched state, so nothing there
+is caller-declared. If your integration reaches `razorpay-refund` through the generic
+`POST /execute` route rather than `RazorpayRefundService` directly, only the amount binding
+protects you.
+</Warning>
+
 ## Requesting a refund
 
 ```typescript

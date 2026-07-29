@@ -46,6 +46,7 @@ class ParmanaClient:
         self,
         *,
         endpoint: str,
+        api_key: str | None = None,
         timeout: int = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
         backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
@@ -60,6 +61,15 @@ class ParmanaClient:
         ----------
         endpoint:
             Base URL of the Parmana Runtime.
+
+        api_key:
+            Caller bearer key, minted by scripts/generate-api-key.ts. Sent
+            as `Authorization: Bearer <api_key>` on every request. Omit
+            only against a Runtime started with PARMANA_AUTH_DISABLED=true
+            (local development only); every other deployment rejects an
+            unauthenticated request with a 401 before a Business
+            Transaction is even constructed. See
+            /api-reference/authentication.
 
         timeout:
             HTTP timeout in seconds, applied per request.
@@ -78,6 +88,7 @@ class ParmanaClient:
 
         self._transport = HttpTransport(
             endpoint=endpoint,
+            api_key=api_key,
             timeout=timeout,
             max_retries=max_retries,
             backoff_factor=backoff_factor,

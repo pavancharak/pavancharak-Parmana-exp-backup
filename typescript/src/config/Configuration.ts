@@ -20,10 +20,10 @@ import type { Transport } from "./Transport.js";
 /**
  * Immutable SDK configuration.
  *
- * No authentication is enforced by the Parmana Runtime (see
- * docs/CLAIMS.md, "API-layer authentication and authorization") — this
- * configuration has no credentials field for that reason; do not build
- * a client that assumes one.
+ * The Parmana Runtime gates every route except GET /health, GET /ready,
+ * GET /openapi.yaml, and GET /documentation behind a caller bearer key
+ * (packages/api/src/middleware/caller-auth.ts). See apiKey below and
+ * /api-reference/authentication.
  */
 export interface Configuration {
   /**
@@ -33,6 +33,17 @@ export interface Configuration {
    * https://runtime.example.com
    */
   readonly endpoint: string;
+
+  /**
+   * Caller bearer key, minted by scripts/generate-api-key.ts.
+   *
+   * Sent as `Authorization: Bearer <apiKey>` on every request. Omit only
+   * against a Runtime started with PARMANA_AUTH_DISABLED=true (local
+   * development only); every other deployment rejects an unauthenticated
+   * request with a 401 before a Business Transaction is even
+   * constructed.
+   */
+  readonly apiKey?: string;
 
   /**
    * Request timeout (milliseconds).

@@ -1,6 +1,7 @@
 from .api_error import ApiError
 from .http_error import (
     AuthenticationError,
+    AuthorizationError,
     ConflictError,
     ExecutionRejectedError,
     NotFoundError,
@@ -13,6 +14,7 @@ from .network_error import NetworkError
 __all__ = [
     "ApiError",
     "AuthenticationError",
+    "AuthorizationError",
     "ConflictError",
     "ExecutionRejectedError",
     "NetworkError",

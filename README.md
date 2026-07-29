@@ -37,7 +37,15 @@ Parmana's own runtime or database.
 
 What's actually been demonstrated, not just built:
 
-- **530+ automated tests** across the workspace ([DEPLOYMENT.md](DEPLOYMENT.md#local-verification-performed-this-session)).
+- **597 automated tests** across the workspace (558 passed, 35 skipped — the skips are
+  Supabase/live-credential-gated suites that skip cleanly with no credentials configured;
+  re-verified 2026-07-29, see [docs/VERIFICATION-GAPS.md](docs/VERIFICATION-GAPS.md) G-24).
+- A live, reproducible execution-authorization bypass was found and fixed the same session:
+  policy-evaluation signals are now bound to the executed Intent before any rule evaluates
+  (`Policy.boundSignals` + `SignalIntentBinder`), closing the gap where a caller could declare
+  a small, fully-verified action while `intent` executed something else entirely. See
+  [docs/VERIFICATION-GAPS.md](docs/VERIFICATION-GAPS.md) G-24 for the full incident, including
+  the live proof-of-concept figures, and what's deliberately still open.
 - **Full chain against a real payment provider**: Razorpay refunds, authorized by policy, executed through the signed gateway pipeline, confirmed by a genuine Razorpay-initiated webhook, not one constructed by this codebase's own tests ([CLAIMS.md 3.6](docs/CLAIMS.md), [3.7](docs/CLAIMS.md)).
 - **Deployed on public infrastructure**, reachable, with caller authentication enforced at every route except health checks ([CLAIMS.md 3.8](docs/CLAIMS.md)).
 - **A live-mode, real-money refund**, created, delivered by Razorpay's own webhook infrastructure, fetch-verified, and settled into a signed confirmation in about 43 seconds end to end ([CLAIMS.md 3.9](docs/CLAIMS.md)).

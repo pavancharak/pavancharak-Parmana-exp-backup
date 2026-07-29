@@ -78,6 +78,15 @@ rejects (fail-closed is the engine's default, not something the policy has to op
 but writing it explicitly documents the reject-by-default behavior for anyone reading the
 policy file itself.
 
+<Note>
+This policy declares no `boundSignals`, and that's fine here — `high-value-payment` is a
+tutorial policy with no `target`/`parameters`-shaped signal to bind. If a signal in your
+own policy is supposed to describe a fact about `intent` (an amount, a target account, a
+vendor id), declare it in `boundSignals` so `SignalIntentBinder` checks it before
+evaluation runs, rather than trusting a caller's declaration unchecked — see [Policies and
+the decision](/concepts/policies-and-the-decision) for the mechanism and why it exists.
+</Note>
+
 ### 2. Reference it from a Business Transaction
 
 ```json

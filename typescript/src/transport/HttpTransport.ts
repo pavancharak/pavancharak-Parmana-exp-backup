@@ -26,12 +26,20 @@ import type {
 } from "../config/Configuration.js";
 
 import {
+  ParmanaError,
+} from "../errors/ParmanaError.js";
+
+import {
   NetworkError,
 } from "../errors/NetworkError.js";
 
 import {
   TimeoutError,
 } from "../errors/TimeoutError.js";
+
+import {
+  mapHttpErrorResponse,
+} from "./mapHttpErrorResponse.js";
 
 export class HttpTransport
   implements Transport
@@ -62,6 +70,10 @@ export class HttpTransport
         headers: {
           "Content-Type":
             "application/json",
+
+          ...(this.configuration.apiKey !== undefined && {
+            Authorization: `Bearer ${this.configuration.apiKey}`,
+          }),
 
           ...(request.headers ?? {}),
         },
@@ -111,8 +123,29 @@ export class HttpTransport
       ) {
         body = undefined as T;
       } else {
-        body =
-          (await response.json()) as T;
+        try {
+          body =
+            (await response.json()) as T;
+        } catch {
+          // A non-JSON or empty body. Real, error-envelope
+          // responses from this API are always JSON; this only
+          // guards mapHttpErrorResponse below against an
+          // unparseable body rather than throwing an opaque
+          // SyntaxError for it.
+          body = undefined as T;
+        }
+      }
+
+      if (
+        response.status >= 400 &&
+        !(request.nonThrowingStatuses ?? []).includes(
+          response.status,
+        )
+      ) {
+        throw mapHttpErrorResponse(
+          response.status,
+          body,
+        );
       }
 
       return {
@@ -127,6 +160,14 @@ export class HttpTransport
       clearTimeout(
         timer,
       );
+
+      if (
+        error instanceof ParmanaError
+      ) {
+        // Already the correct typed error (mapHttpErrorResponse,
+        // above) — rethrow as-is, do not fold it into NetworkError.
+        throw error;
+      }
 
       if (
         error instanceof DOMException &&

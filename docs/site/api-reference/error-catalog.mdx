@@ -3,13 +3,22 @@ title: "Error Catalog"
 description: "Every error this API can return: HTTP status, code (when present), the exact condition that produces it, and what a caller should do. Assembled from live-triggered captures, not inferred from code."
 ---
 
-<Info>**[AVAILABLE]**. Every row below was triggered against a live server this session or the session that produced [REST API Introduction](/api-reference/introduction), not inferred from reading source. See [Error handling](/api-reference/error-handling) for the envelope shape this table assumes.</Info>
+<Info>**[AVAILABLE]**. Every row below was triggered against a live server this session or a
+previous session that produced [REST API Introduction](/api-reference/introduction) or the
+TypeScript SDK fix pass, not inferred from reading source alone. See [Error
+handling](/api-reference/error-handling) for the envelope shape this table assumes.</Info>
 
 ## Authentication
 
 | Status | Code | Message | Condition | What to do |
 |---|---|---|---|---|
 | 401 | none | `authentication required` | `Authorization` header missing, not a `Bearer <key>`, or the key doesn't match a configured hash | Send a valid key from [Authentication](/api-reference/authentication). Not retryable without fixing the header. |
+
+## Authorization (caller is known; not permitted to act as this principal)
+
+| Status | Code | Message | Condition | Routes | What to do |
+|---|---|---|---|---|---|
+| 403 | none | `Caller is not permitted to assert this authority.principalId.` | `transaction.authority.principalId` is missing/empty, or doesn't equal the authenticated `callerId` (default, no `allowedPrincipalIds` configured for this key), or isn't present in that key's configured `allowedPrincipalIds` list (`isPrincipalAllowed`, `packages/api/src/routes/execute.ts` / `transactions.ts`) | `POST /execute`, `POST /transactions` | Set `authority.principalId` to an identity this caller's key is actually permitted to assert. Skipped entirely (no 403 possible) when caller authentication itself is disabled. |
 
 ## Validation (caller's request is malformed)
 

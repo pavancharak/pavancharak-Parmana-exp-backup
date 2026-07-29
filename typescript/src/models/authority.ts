@@ -12,7 +12,7 @@ export interface Authority {
 
   readonly principalId: string;
 
-  readonly displayName: string;
+  readonly displayName?: string;
 
   readonly issuedAt: Date;
 }

@@ -10,8 +10,8 @@
     "parameters": {
       "vendorId": "VENDOR-2001",
       "invoiceId": "INV-2026-002",
-      "paymentAmount": 18500,
-      "currency": "USD"
+      "currency": "USD",
+      "amount": 18500
     }
   },
   "signals": {
@@ -20,6 +20,7 @@
     "paymentApproved": true,
     "sufficientFunds": true,
     "paymentAmount": 18500,
-    "riskScore": 8
+    "riskScore": 8,
+    "vendorId": "vendor"
   }
 }

@@ -4,9 +4,20 @@ description: "Install to your first authorized execution in under 10 minutes, us
 ---
 
 <Info>
-**[AVAILABLE]**, every command below was re-run against a live local server on 2026-07-21
-(commit `5c688b4`), including `python/examples/quickstart/run.py` itself.
+**[AVAILABLE]**, every command below was re-run against a live local server on 2026-07-29
+(commit `0e69ed4`), including `python/examples/quickstart/run.py` itself.
 </Info>
+
+<Warning>
+**Step 6's transaction now declares a `vendorId` signal it didn't need before.**
+`vendor-payment@2.0.0` declares `boundSignals: { "vendorId": "target" }`
+(see [Policies and the decision](/concepts/policies-and-the-decision)):
+`SignalIntentBinder` rejects any transaction where a declared signal doesn't
+exactly match its bound `intent` field, checked before policy evaluation
+ever runs. This closed a real, previously live bypass — see [Security](/security/overview)
+for what it was. Before this fix, this same request executed successfully
+without `vendorId`; it no longer does.
+</Warning>
 
 ## 1. Install dependencies
 
@@ -162,6 +173,10 @@ transaction = BusinessTransaction(
     signals={
         "vendorVerified": True, "invoiceVerified": True, "paymentApproved": True,
         "sufficientFunds": True, "paymentAmount": 1000, "riskScore": 5,
+        # vendor-payment@2.0.0 declares boundSignals: { "vendorId": "target" } —
+        # this must exactly equal intent.target, checked before policy evaluation
+        # ever runs. See [Policies and the decision](/concepts/policies-and-the-decision).
+        "vendorId": "vendor://payments",
     },
     status="RECEIVED",
     created_at=now,
@@ -176,10 +191,10 @@ sends.
 
 ## 7. Real output
 
-Captured from an actual run, 2026-07-21 (IDs and hashes differ on every run):
+Captured from an actual run, 2026-07-29 (IDs and hashes differ on every run):
 
 ```
-Trust Record Hash: 3f0f63f879b55b83fa22f19f59348336899114e5315b40ad78dfa3849cfe63cd
+Trust Record Hash: 1a3130a6874c81cb9c178c2d14a96aa8c4104c19f71f63ca9d272196c819eb5a
 ```
 
 The full `ExecutionTrustRecord` includes the `signature` block, `executions[0].decision`

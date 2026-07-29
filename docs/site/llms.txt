@@ -1,0 +1,45 @@
+# Parmana
+
+> Parmana is an authorization layer between a caller — an AI agent, script, or person — and the business systems that carry out an action. A caller submits a Business Transaction describing an intended action, its target, its parameters, and a set of signals; the caller never holds or transmits execution credentials for the target system. A policy engine evaluates the transaction's signals against one named, versioned policy and returns a decision of APPROVED or REJECTED; an unmatched transaction defaults to REJECTED. Only an APPROVED decision produces a signed, single-use, time-bounded execution authorization. Execution against the target system happens only when a valid, unexpired, not-previously-used authorization is presented; a missing, expired, reused, or invalid authorization is rejected before execution occurs.
+
+Reflects `openapi/openapi.yaml` (`info.version: 1.0.0`) and `packages/api/src/app.ts`, as of commit
+`0e69ed4b153b217689aff69b68fd0b7d40ad1de8` (2026-07-28). `GET /version` on a running instance
+returns `{"name":"Parmana","version":"0.4.0","api":"v1"}` — a separate, hardcoded deployment
+identifier, not derived from this spec's version. Verified directly against source, not
+summarized from other docs pages, 2026-07-29.
+
+There is no fixed public base URL. `openapi/openapi.yaml` lists only `http://localhost:3000` as
+a server; every real deployment runs on its own operator-chosen host. See
+[Production deployment](https://docs.parmanasystems.com/deployment/production) for what a
+specific deployment requires.
+
+For the complete integration surface concatenated into a single document, see
+[llms-full.txt](https://docs.parmanasystems.com/llms-full.txt).
+
+## Integration surface
+
+- [OpenAPI spec, bundled and self-contained](https://docs.parmanasystems.com/openapi.bundled.yaml): the single source of truth for every request/response schema, status code, and field type. Read this, not prose summaries, for exact shapes.
+- [Authentication](https://docs.parmanasystems.com/api-reference/authentication): the bearer-key model — `Authorization: Bearer <key>`, required on every route except `GET /health`, `GET /ready`, `GET /openapi.yaml`, and `GET /documentation`. Note: the OpenAPI spec's own top-level description names only `GET /health` as exempt; the other three are real exemptions in `packages/api/src/app.ts` that the spec text omits. This page states the verified, complete list.
+- [REST API introduction](https://docs.parmanasystems.com/api-reference/introduction): route inventory and what the spec can't express (base URL, auth summary, error-handling summary).
+- [Error handling](https://docs.parmanasystems.com/api-reference/error-handling): the shared `{"error": string}` envelope, when the optional `code` field is present versus absent, and two verified gaps where a route that looks coded is not.
+- [Error catalog](https://docs.parmanasystems.com/api-reference/error-catalog): every status code, `code` value, exact message, and triggering condition this API returns, one table.
+- [Idempotency and nonces](https://docs.parmanasystems.com/api-reference/idempotency-and-nonces): there is no `Idempotency-Key` header. `businessTransactionId` is the API-layer idempotency mechanism, and a duplicate is a `409`, not a replayed response.
+
+## Core model
+
+- [Policies and the decision](https://docs.parmanasystems.com/concepts/policies-and-the-decision): the policy/signal/intent model — deterministic, first-match-wins rule evaluation over caller-declared signals, and `boundSignals`, the mechanism that binds a signal to the executed `intent` so a policy can't be evaluated against different data than what actually executes.
+- [Execution authorization](https://docs.parmanasystems.com/concepts/execution-authorization): what an `APPROVED` decision becomes — a signed, single-use, time-bounded, content-bound envelope, and exactly what it does and does not prove.
+- [Glossary](https://docs.parmanasystems.com/glossary): every domain term (Authority, Authorization, Intent, Business Transaction, Decision, Execution, Execution Trust Record, Signed Execution Authorization) mapped to its source file.
+
+## SDKs
+
+- [Python SDK](https://docs.parmanasystems.com/sdks/python): actively maintained, generated (not hand-maintained, drift-guarded in CI) models, bearer-key auth, a typed exception per HTTP status (`ValidationError`/`AuthenticationError`/`AuthorizationError`/`NotFoundError`/`ConflictError`/`ExecutionRejectedError`/`ServerError`), tested against both mocked HTTP and a real running `@parmana/api` instance. `pip install -e ./python`.
+- [TypeScript SDK](https://docs.parmanasystems.com/sdks/typescript): actively maintained, bearer-key auth, a typed error thrown per HTTP status (`ValidationError`/`AuthenticationError`/`AuthorizationError`/`NotFoundError`/`ConflictError`/`ExecutionRejectedError`/`InternalServerError`), tested against both a mocked transport and a real running `@parmana/api` instance. Package name is `@parmana/legacy-reference`, not published to a registry — install from a local path or git reference.
+
+Both SDKs cover every real capability in the OpenAPI spec, including `POST /transactions` (a
+second entry point into the same execution pipeline as `POST /execute`, differing only in its
+`201` status code) — added to both this pass, previously missing from both.
+
+## Known limitations
+
+- [What Parmana does not claim](https://docs.parmanasystems.com/trust-and-claims/what-we-dont-claim): permanent refusals, scoped-not-absent guarantees, mocked connectors, and packages that are real but disconnected from the default server. Read before assuming a capability exists.

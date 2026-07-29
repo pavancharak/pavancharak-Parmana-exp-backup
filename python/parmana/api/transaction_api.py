@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from parmana.config.transport import Transport
 from parmana.models.business_transaction import BusinessTransaction
+from parmana.models.trust_record import ExecutionTrustRecord
+from parmana.serialization import encode
 
 
 class TransactionApi:
@@ -16,11 +18,11 @@ class TransactionApi:
 
     Responsibilities
     ----------------
+    - Create (execute) a Business Transaction via POST /transactions
     - Retrieve Business Transactions
     - List Business Transactions
 
     This API does NOT:
-    - execute Business Transactions
     - verify trust records
     - replay executions
     - generate receipts
@@ -31,6 +33,36 @@ class TransactionApi:
         transport: Transport,
     ) -> None:
         self._transport = transport
+
+    def create(
+        self,
+        transaction: BusinessTransaction,
+    ) -> ExecutionTrustRecord:
+        """
+        Create (execute) a Business Transaction.
+
+        Maps to POST /transactions: a second, independent entry point
+        into the identical application.execute() pipeline as
+        ExecutionApi.execute() (POST /execute). The only behavioral
+        difference is the success status code, 201 instead of 200; the
+        response body shape is otherwise identical.
+
+        Parameters
+        ----------
+        transaction:
+            Business Transaction submitted to the Parmana Runtime.
+
+        Returns
+        -------
+        Execution Trust Record.
+        """
+
+        return self._transport.send(
+            method="POST",
+            path="/transactions",
+            body=encode(transaction),
+            response_model=ExecutionTrustRecord,
+        )
 
     def get(
         self,

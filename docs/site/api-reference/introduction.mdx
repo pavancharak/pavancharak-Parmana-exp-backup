@@ -39,9 +39,10 @@ Non-2xx responses are `{ "error": string }`, sometimes with a `code` field. Full
 and two verified gaps on [Error handling](/api-reference/error-handling); every specific
 error this API returns on the [Error catalog](/api-reference/error-catalog).
 
-The Python SDK raises a specific exception per status code
-(`ValidationError`/`NotFoundError`/`ConflictError`/`ServerError`/etc.), see
-[Python SDK](/sdks/python). The TypeScript SDK does not, see
+Both maintained SDKs raise a specific exception per status code. The Python SDK:
+`ValidationError`/`NotFoundError`/`ConflictError`/`ServerError`/etc., see [Python
+SDK](/sdks/python). The TypeScript SDK: `ValidationError`/`AuthenticationError`/
+`AuthorizationError`/`NotFoundError`/`ConflictError`/`ExecutionRejectedError`/etc., see
 [TypeScript SDK](/sdks/typescript).
 
 ## Auth

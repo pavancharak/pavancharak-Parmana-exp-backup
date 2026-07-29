@@ -6,6 +6,7 @@
 
 import type {
   BusinessTransaction,
+  ExecutionTrustRecord,
 } from "../models/index.js";
 
 import type {
@@ -17,11 +18,11 @@ import type {
  *
  * Responsibilities
  * ----------------
+ * - Create (execute) a Business Transaction via POST /transactions
  * - Retrieve Business Transactions
  * - List Business Transactions
  *
  * This API does NOT:
- * - execute Business Transactions
  * - verify trust records
  * - replay executions
  * - generate receipts
@@ -30,6 +31,27 @@ export class TransactionApi {
   constructor(
     private readonly transport: Transport,
   ) {}
+
+  /**
+   * Create (execute) a Business Transaction. Maps to POST
+   * /transactions: a second, independent entry point into the
+   * identical application.execute() pipeline as ExecutionApi.execute()
+   * (POST /execute). The only behavioral difference is the success
+   * status code, 201 instead of 200; the response body shape is
+   * otherwise identical.
+   */
+  public async create(
+    transaction: BusinessTransaction,
+  ): Promise<ExecutionTrustRecord> {
+    const response =
+      await this.transport.send<ExecutionTrustRecord>({
+        method: "POST",
+        path: "/transactions",
+        body: transaction,
+      });
+
+    return response.body;
+  }
 
   /**
    * Retrieve a Business Transaction.

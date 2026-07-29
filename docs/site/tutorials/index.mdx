@@ -1,9 +1,9 @@
 ---
 title: "Tutorials"
-description: "All 60 numbered examples in examples/tutorials/, grouped by what they demonstrate. This page links to them, it does not duplicate their content."
+description: "All 62 numbered examples in examples/tutorials/, grouped by what they demonstrate. This page links to them, it does not duplicate their content."
 ---
 
-<Info>**[AVAILABLE]**, all 60 run in CI on every change via `npm run examples` (two are excluded from the unattended batch and run individually, noted below). See [Detect tampering](/guides/detect-tampering) and [Choose a signature provider](/guides/choose-a-signature-provider) for guides built directly on several of these.</Info>
+<Info>**[AVAILABLE]**, all 62 run in CI on every change via `npm run examples` (two are excluded from the unattended batch and run individually, noted below). See [Detect tampering](/guides/detect-tampering) and [Choose a signature provider](/guides/choose-a-signature-provider) for guides built directly on several of these.</Info>
 
 Run any of them directly: `node_modules/.bin/tsx examples/tutorials/<NN-name>/run.ts`.
 
@@ -107,6 +107,13 @@ None of these four reach `packages/api` or `packages/runtime`. They exercise
 | 58 | Session Credentials | Issue, consume, expire, reuse-reject, revoke, see [Issue and verify session credentials](/guides/session-credentials) |
 | 59 | Secure Connectors | Gateway attestation plus a `SessionCredentialSecureConnector`, including a spoofed-attestation rejection |
 | 60 | End-to-End Enterprise Execution | The full credential-isolated path, one run |
+
+## Connector integration and signal/intent binding (61-62)
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 61 | Razorpay Refund | A real connector fetch-verifying payment state before evaluating policy, then executing through the signed-authorization / Execution Gateway pipeline, unmodified — approval, denial, replay, and tamper rejection |
+| 62 | Signal/Intent Binding | `SignalIntentBinder` rejecting a caller-declared signal that doesn't match `intent`, and the same transaction approved once correctly bound — see [Trust and Claims](/trust-and-claims/claims-discipline) for the live bypass this closed |
 
 ## Scenarios
 

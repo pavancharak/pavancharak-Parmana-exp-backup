@@ -79,6 +79,12 @@ def main() -> None:
             "sufficientFunds": True,
             "paymentAmount": 1000,
             "riskScore": 5,
+            # vendor-payment@2.0.0 declares boundSignals: { "vendorId": "target" } —
+            # SignalIntentBinder rejects this transaction unless this signal exactly
+            # equals intent.target, checked before policy evaluation ever runs (see
+            # docs/VERIFICATION-GAPS.md G-24). Omitting it is the exact bug this
+            # example itself used to have.
+            "vendorId": "vendor://payments",
         },
         status="RECEIVED",
         created_at=now,

@@ -46,6 +46,20 @@ export class ExecutionApi {
   }
 
   /**
+   * Returns the Runtime name, version, and API version. Requires caller
+   * authentication, unlike GET /health.
+   */
+  public async version(): Promise<unknown> {
+    const response =
+      await this.transport.send({
+        method: "GET",
+        path: "/version",
+      });
+
+    return response.body;
+  }
+
+  /**
    * Execute a Business Transaction.
    */
   public async execute(

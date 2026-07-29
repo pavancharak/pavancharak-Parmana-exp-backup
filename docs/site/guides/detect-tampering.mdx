@@ -39,7 +39,7 @@ Tampered Hash
 Execution rejected.
 ```
 
-Changing `paymentAmount` in the executable content changes the recomputed
+Adding a `paymentAmount` field to the executable content's parameters changes the recomputed
 `businessTransactionHash`, this is the exact mechanism [The gateway](/concepts/the-gateway)
 runs on every real request, exercised directly here instead of through HTTP because the REST
 API generates and checks the authorization within one call, giving an external client no

@@ -35,6 +35,18 @@ invocation, which is how the project's own `"test": "vitest run"` script in each
 cd packages/runtime && ../../node_modules/.bin/vitest run   # passes
 ```
 
+## `POST /execute` (or `runtime.execute()`) rejects with "declared signal(s) do not match the executed intent"
+
+**Not a bug — this is `SignalIntentBinder` doing its job.** Your transaction's `policy`
+declares `boundSignals` (check `policies/<name>/<version>/policy.json`), and at least one
+signal you declared doesn't exactly equal the value at its bound `intent` dot-path — often
+because you never declared that signal at all (`vendorId=undefined` is the most common
+shape of this). See [Policies and the decision](/concepts/policies-and-the-decision) for the
+mechanism, and [Security](/security/overview) for why it exists: this closed a real,
+previously live bypass where a caller's declared signals didn't have to describe the same
+action `intent` actually executed. Fix: add the missing/mismatched signal so it equals the
+real `intent` field the policy binds it to, exactly.
+
 ## `POST /execute` returns 404 "Policy '...' was not found"
 
 **Cause:** the referenced `policy.version` doesn't match a real

@@ -199,6 +199,13 @@ export class ParmanaClient {
   }
 
   /**
+   * Returns the Runtime name, version, and API version.
+   */
+  public version(): Promise<unknown> {
+    return this.executionApi.version();
+  }
+
+  /**
    * Executes a Business Transaction.
    */
   public execute(
@@ -206,6 +213,20 @@ export class ParmanaClient {
   ): Promise<ExecutionTrustRecord> {
     return this.executionApi.execute(
       transaction,
+    );
+  }
+
+  /**
+   * Runs a fresh verification of an Execution Trust Record, appending a
+   * new Verification to its history. Distinct from
+   * getLatestVerification(), which reads the most recent one without
+   * re-verifying.
+   */
+  public verify(
+    businessTransactionId: string,
+  ): Promise<Verification> {
+    return this.verificationApi.verify(
+      businessTransactionId,
     );
   }
 
@@ -239,6 +260,19 @@ export class ParmanaClient {
   ): Promise<Receipt> {
     return this.receiptApi.generate(
       businessTransactionId,
+    );
+  }
+
+  /**
+   * Creates (executes) a Business Transaction via POST /transactions,
+   * a second, independent entry point into the identical execution
+   * pipeline as execute() (POST /execute). See TransactionApi.create.
+   */
+  public createTransaction(
+    transaction: BusinessTransaction,
+  ): Promise<ExecutionTrustRecord> {
+    return this.transactionApi.create(
+      transaction,
     );
   }
 

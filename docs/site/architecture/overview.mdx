@@ -40,8 +40,8 @@ argument (`server.ts` always supplies one). **`packages/execution-gateway` and
 against the stock local server gets independent content-binding re-verification, and an
 action with no registered connector fails closed rather than skipping the check. See
 [Quickstart](/quickstart) step 3 for a verified live run, and
-[Content Binding & TOCTOU](/concepts/content-binding-toctou), which still describes the old
-gateway-optional world and needs its own rewrite (tracked for the Core Concepts pass).
+[Content Binding & TOCTOU](/concepts/content-binding-toctou), which already reflects this
+same correction (checked directly this pass, not assumed).
 </Warning>
 
 ## Package map
@@ -72,7 +72,6 @@ responses, see [TypeScript SDK](/sdks/typescript)).
 The gateway and execution-control remain separate packages from `runtime` so a consuming
 service that embeds only the trust core (no HTTP server, no connectors) doesn't have to pay
 for a `Connector`, `NonceStore`, and public key it doesn't need. The default `packages/api`
-server is not that minimal case: it always builds the full gateway, as shown above. The
-[Content Binding & TOCTOU](/concepts/content-binding-toctou) page still documents the older,
-gateway-optional world and needs its own rewrite, tracked for the Core Concepts pass, before
-it can be trusted as current.
+server is not that minimal case: it always builds the full gateway, as shown above. See
+[Content Binding & TOCTOU](/concepts/content-binding-toctou) for the mechanism itself — it is
+current, not the older gateway-optional description this page's own history once implied.

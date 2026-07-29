@@ -71,9 +71,16 @@ answers only "should this HTTP request be entertained at all". It does not prove
 about who authorized the underlying business action, that is still [Execution
 Authorization](/concepts/execution-authorization) and [gateway
 attestation](/concepts/gateway-attestation)'s job, on separate signatures. See
-[Authentication](/api-reference/authentication) for the full model, including what it does
-not cover: there is still no per-caller authorization (any authenticated caller can call any
-route), no mutual TLS by default, and no self-service key rotation endpoint.
+[Authentication](/api-reference/authentication) for the full model.
+
+**What it still does not cover, precisely** (updated to reflect the G-24 fix, see
+[Security](/security/overview) for the incident this closed): route access itself remains
+unscoped — any authenticated caller can call any route, there is no per-key allowlist of
+endpoints. What *is* now scoped: which `authority.principalId` a caller may assert
+(`isPrincipalAllowed`, default is "only itself," never "anything") and which
+transactions/trust-records/receipts a caller may read (`isOwnedByCaller`, cross-caller reads
+now 404). Neither of those existed before 2026-07-28. Still genuinely absent: mutual TLS by
+default, and a self-service key rotation endpoint (rotation is a manual operator procedure).
 
 ## No key management beyond local files
 
@@ -83,16 +90,22 @@ Both signing keys, `default.*.pem` and `gateway.*.pem`, are files on disk read b
 setting `KEY_PROVIDER` to one of these does nothing. See [Deploy patterns](/guides/deploy-patterns)
 and the key-compromise incident on [Security](/security/overview).
 
-## Two verified, current gaps in error handling
+## Error handling: one gap closed, two still open
 
-A structurally incomplete `POST /execute` body (a valid UUID, but missing required nested
-fields) does not produce the clean 400 the error-handler appears designed to return, it
-throws an unhandled `TypeError` deep in validation, caught only by a generic 500. A second,
-newly verified this pass: "no Connector registered for this action" used to reach the
-caller as a coded `RuntimeError`, it no longer does, it now collapses into the same
-uncoded 500 as the first gap, see [Error handling](/api-reference/error-handling) for both,
-and the [Error catalog](/api-reference/error-catalog) for every error this API returns.
-Neither is fixed in this documentation pass; the second is flagged as a product regression.
+One of three previously-tracked gaps is now closed: malformed JSON and oversized request
+bodies on `/execute` used to surface as a generic, indistinguishable 500 — as of the G-24
+session (`middleware/error-handler.ts`, `bodyParserErrorStatus`), they now return a clean
+`400`/`413` naming which case it was, mirroring the handling the webhook route already had.
+Verified directly against the current source, not assumed carried over.
+
+Two gaps remain open, unchanged: a structurally incomplete `POST /execute` body (a valid
+UUID, but missing required nested fields) does not produce the clean 400 the error-handler
+appears designed to return, it throws an unhandled `TypeError` deep in validation, caught
+only by a generic 500. Separately, "no Connector registered for this action" used to reach
+the caller as a coded `RuntimeError`, it no longer does, it collapses into the same uncoded
+500 as the first gap. See [Error handling](/api-reference/error-handling) for both, and the
+[Error catalog](/api-reference/error-catalog) for every error this API returns. Neither is
+fixed as of this pass; the second remains flagged as a product regression.
 
 ## Next
 

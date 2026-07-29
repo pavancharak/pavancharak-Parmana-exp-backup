@@ -19,6 +19,7 @@ class Transport(ABC):
         path: str,
         body: Any | None = None,
         response_model: None = None,
+        non_throwing_statuses: frozenset[int] = frozenset(),
     ) -> Any: ...
 
     @overload
@@ -29,6 +30,7 @@ class Transport(ABC):
         path: str,
         body: Any | None = None,
         response_model: type[T],
+        non_throwing_statuses: frozenset[int] = frozenset(),
     ) -> T: ...
 
     @abstractmethod
@@ -39,8 +41,13 @@ class Transport(ABC):
         path: str,
         body: Any | None = None,
         response_model: type[T] | None = None,
+        non_throwing_statuses: frozenset[int] = frozenset(),
     ) -> T | Any:
         """
         Send a request to the Parmana Runtime.
+
+        non_throwing_statuses lists status codes that must be returned as
+        an ordinary payload instead of raising, because the route's
+        response body at that status is not the shared error envelope.
         """
         raise NotImplementedError

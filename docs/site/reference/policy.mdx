@@ -3,13 +3,22 @@ title: "@parmana/policy"
 description: "Deterministic, first-match-wins rule evaluation, plus loading and validating policy documents."
 ---
 
-<Info>**[AVAILABLE]**. `packages/policy`, 61 tests. CLAIMS.md 2.2/2.3.</Info>
+<Info>**[AVAILABLE]**. `packages/policy`, 72 tests. CLAIMS.md 2.2/2.3.</Info>
 
 ## Purpose
 
 Evaluates a `PolicySignals` object against a `Policy`'s ordered rules and returns exactly
 one `Decision`. See [Policies and the decision](/concepts/policies-and-the-decision) for the
 concept, this page is the export reference.
+
+<Note>
+`PolicyEngine.evaluate()` alone does **not** check `Policy.boundSignals` — that binding is
+enforced one layer up, by `SignalIntentBinder`, which `RuntimeEngine` (`@parmana/runtime`)
+invokes immediately before calling `PolicyEngine.evaluate()`. Calling `PolicyEngine.evaluate()`
+directly, as the minimal example below does, bypasses signal/intent binding entirely — verified
+by actually running it. See [Policies and the decision](/concepts/policies-and-the-decision)
+for why this split exists.
+</Note>
 
 ## Install
 
@@ -40,12 +49,15 @@ npm install @parmana/policy
 |---|---|
 | `PolicyValidator` | Checks a loaded policy's identity (`policyId`/`policyVersion`) matches what was requested before evaluation runs |
 | `SignalValidator` | Validates submitted signals against a policy's `signalsSchema` |
+| `SignalIntentBinder` | `.findViolations(policy, signals, intent)`, checks every `Policy.boundSignals` entry by strict equality against `intent`. Invoked by `RuntimeEngine`, not by `PolicyEngine` itself — see the note above |
 
 ### Types
 
-`Policy`, `PolicyRule`, `PolicyCondition`, `PolicyRuleOutcome`, `PolicyInput`,
+`Policy` (including its optional `boundSignals: Record<string, string>` field, a signal-key
+→ intent-dot-path map), `PolicyRule`, `PolicyCondition`, `PolicyRuleOutcome`, `PolicyInput`,
 `PolicySignals`, `PolicyDecision`, `PolicyAction` (enum: `APPROVE`, `REJECT`,
-`REQUIRE_OVERRIDE`), `PolicyOutcome` (enum: `APPROVE`, `REJECT`, `REQUIRE_OVERRIDE`).
+`REQUIRE_OVERRIDE`), `PolicyOutcome` (enum: `APPROVE`, `REJECT`, `REQUIRE_OVERRIDE`),
+`SignalIntentBindingViolation` (`{ signalKey, intentPath, signalValue, intentValue }`).
 
 ## Minimal example
 

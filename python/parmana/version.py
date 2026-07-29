@@ -6,7 +6,7 @@ __title__ = "parmana"
 
 __description__ = "Python SDK for Parmana Execution Trust Infrastructure."
 
-__version__ = "1.0.0"
+__version__ = "1.0.5"
 
 __author__ = "Parmana"
 

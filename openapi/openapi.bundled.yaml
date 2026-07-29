@@ -443,6 +443,26 @@ paths:
                     error: businessTransactionId must be a valid UUID.
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: "transaction.authority.principalId is missing/empty, or the
+            authenticated caller is not permitted to assert it:
+            isPrincipalAllowed (packages/api/src/auth/isPrincipalAllowed.ts)
+            requires principalId to equal the caller's own callerId when no
+            allowedPrincipalIds is configured for that key, or to appear in
+            allowedPrincipalIds when one is. Checked immediately after caller
+            authentication, before metadata.submittedBy is server-set and before
+            any Policy evaluation. Skipped entirely (no 403 possible) when
+            caller authentication itself is disabled. Identical check on POST
+            /transactions, live-verified on both routes."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.schema"
+              examples:
+                principalNotAllowed:
+                  summary: Real captured response, principalId not permitted for this caller
+                  value:
+                    error: Caller is not permitted to assert this authority.principalId.
         "404":
           description: transaction.policy.name/version does not match any published Policy
             (PolicyNotFoundError, thrown by PolicyRouter.load during Runtime
@@ -753,6 +773,21 @@ paths:
                     error: authorization.authorityId must match authority.authorityId.
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: transaction.authority.principalId is missing/empty, or the
+            authenticated caller is not permitted to assert it
+            (isPrincipalAllowed). See POST /execute, identical check, same route
+            ordering (before metadata.submittedBy is server-set, before Policy
+            evaluation), live-verified on both routes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.schema"
+              examples:
+                principalNotAllowed:
+                  summary: Real captured response, principalId not permitted for this caller
+                  value:
+                    error: Caller is not permitted to assert this authority.principalId.
         "404":
           description: transaction.policy.name/version does not match any published Policy
             (PolicyNotFoundError). See POST /execute, identical pipeline.

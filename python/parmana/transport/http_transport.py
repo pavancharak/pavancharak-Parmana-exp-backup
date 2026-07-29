@@ -46,6 +46,7 @@ class HttpTransport(Transport):
         self,
         endpoint: str,
         *,
+        api_key: str | None = None,
         timeout: int = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
         backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
@@ -80,12 +81,16 @@ class HttpTransport(Transport):
         self._session = requests.Session()
         self._session.mount("http://", adapter)
         self._session.mount("https://", adapter)
-        self._session.headers.update(
-            {
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-            }
-        )
+
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+
+        if api_key is not None:
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        self._session.headers.update(headers)
 
     @property
     def endpoint(self) -> str:
@@ -102,6 +107,7 @@ class HttpTransport(Transport):
         path: str,
         body: Any | None = None,
         response_model: None = None,
+        non_throwing_statuses: frozenset[int] = frozenset(),
     ) -> Any: ...
 
     @overload
@@ -112,6 +118,7 @@ class HttpTransport(Transport):
         path: str,
         body: Any | None = None,
         response_model: type[T],
+        non_throwing_statuses: frozenset[int] = frozenset(),
     ) -> T: ...
 
     def send(
@@ -121,9 +128,16 @@ class HttpTransport(Transport):
         path: str,
         body: Any | None = None,
         response_model: type[T] | None = None,
+        non_throwing_statuses: frozenset[int] = frozenset(),
     ) -> T | Any:
         """
         Send a request to the Parmana Runtime.
+
+        non_throwing_statuses lists status codes that must be returned as
+        an ordinary payload instead of raising, because this specific
+        route's response body at that specific status is not the shared
+        {error, code?} envelope. Today exactly one route needs this: see
+        PolicyApi.validate.
         """
 
         url = f"{self._endpoint}{path}"
@@ -141,7 +155,10 @@ class HttpTransport(Transport):
         except RequestException as exc:
             raise NetworkError() from exc
 
-        payload = self._parse_response(response)
+        payload = self._parse_response(
+            response,
+            non_throwing_statuses=non_throwing_statuses,
+        )
 
         logger.debug("response status=%s payload=%r", response.status_code, payload)
 
@@ -156,16 +173,20 @@ class HttpTransport(Transport):
     def _parse_response(
         self,
         response: Response,
+        *,
+        non_throwing_statuses: frozenset[int] = frozenset(),
     ) -> Any:
         """
         Parse Runtime response.
 
         Raises a `ParmanaHttpError` subclass matching the response status
-        code for any non-2xx response; never returns an error body as if
-        it were a successful result.
+        code for any non-2xx response, except a status listed in
+        non_throwing_statuses, which is returned like an ordinary
+        payload; never returns any other error body as if it were a
+        successful result.
         """
 
-        if response.ok:
+        if response.ok or response.status_code in non_throwing_statuses:
 
             if not response.content:
                 return None
@@ -176,11 +197,14 @@ class HttpTransport(Transport):
             payload = response.json()
 
             message = payload.get("error") or payload.get("message") or response.reason
+            code = payload.get("code")
 
         except Exception:
             message = response.text or response.reason
+            code = None
 
         raise build_http_error(
             response.status_code,
             message,
+            code=code,
         )

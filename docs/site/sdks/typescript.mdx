@@ -1,97 +1,191 @@
 ---
 title: "TypeScript SDK"
-description: "Real client code and a full error taxonomy, neither is tested, and the error taxonomy is never actually used."
+description: "Real client code, bearer-key authentication, and a typed error taxonomy that is actually thrown."
 ---
 
-<Warning>
-**[PARTIAL].** Downgraded from an initial [AVAILABLE] label after checking source
-directly. Three specific, unfixed problems, stated precisely below, this page exists so you
-know them before relying on this SDK, not to discourage using it.
-</Warning>
-
-## What's real
-
-`typescript/src/` has genuine structure: a `client/`, per-resource API classes, a
-`transport/HttpTransport`, `models/`, and `config/`. It builds. Version `1.0.0`.
+<Info>**[AVAILABLE]**, `typescript/src/`, v1.0.0. The original three gaps (no bearer-key auth, an
+unused error taxonomy, an empty test suite) were closed in an earlier pass. A follow-up full SDK
+audit found and fixed three more real issues: inaccurate model types (fields marked required that
+the real API doesn't require, and a missing `settlementConfirmations`/`signature` field), two
+missing capabilities (`POST /verify`, `GET /version`), and one capability missing from both
+maintained SDKs (`POST /transactions`). All re-verified against a real running local server. See
+the fix history at the bottom of this page.</Info>
 
 <Warning>
 **The package is named `@parmana/legacy-reference` in `typescript/package.json`**, private,
-not published under any `@parmana/...` name a normal `npm install` could resolve. The
-`README.md` in the same directory and this page both describe it as "the" TypeScript SDK.
-That's the intent, but there is no install command on this site today that actually works
-against a published package, install from a local path or a git reference instead.
+not published under any `@parmana/...` name a normal `npm install` could resolve. Install from
+a local path or a git reference instead.
 </Warning>
 
-## Problem 1, the entire test suite is empty
+## Bearer-key authentication
 
-Every file under `typescript/test/*.test.ts`, `ParmanaClient.test.ts`,
-`HttpTransport.test.ts`, `Errors.test.ts`, `VerificationApi.test.ts`,
-`RuntimeApi.test.ts`, `ReplayApi.test.ts`, `PolicyApi.test.ts`, `HealthApi.test.ts`,
-`Configuration.test.ts`, is **0 bytes**. `vitest run` reports "9 passed" because an empty
-file trivially has nothing to fail; it asserts nothing.
-
-```
-$ wc -l typescript/test/*.test.ts
-0 typescript/test/Configuration.test.ts
-0 typescript/test/Errors.test.ts
-0 typescript/test/HealthApi.test.ts
-0 typescript/test/HttpTransport.test.ts
-0 typescript/test/ParmanaClient.test.ts
-0 typescript/test/PolicyApi.test.ts
-0 typescript/test/ReplayApi.test.ts
-0 typescript/test/RuntimeApi.test.ts
-0 typescript/test/VerificationApi.test.ts
-0 total
-```
-
-## Problem 2, a full error taxonomy exists and is never thrown
-
-`typescript/src/errors/` declares `ExecutionRejectedError`, `ValidationError`,
-`InternalServerError`, `VerificationError`, `ReplayError`, `NetworkError`,
-`TimeoutError`, `ConfigurationError`, a well-named taxonomy.
-(`AuthenticationError` and `AuthorizationError` were removed in an earlier session, when the
-Runtime enforced no caller authentication at all. That's no longer true, see
-[Authentication](/api-reference/authentication), and this SDK has not been updated to catch
-up: there is still no `AuthenticationError`, and, more importantly, no way to send the
-bearer key a real deployment now requires, see the warning below.)
-Checked directly: **none of `ExecutionRejectedError`, `ValidationError`, or
-`InternalServerError` is ever constructed anywhere in the SDK source.**
-
-The reason: `HttpTransport.send()` returns `{ status, headers, body }` for **any** HTTP
-status code, with no check against 4xx/5xx:
+`Configuration.apiKey` is sent as `Authorization: Bearer <apiKey>` on every request, by
+`HttpTransport`:
 
 ```typescript
-// typescript/src/transport/HttpTransport.ts:107-125
-let body: T;
-if (response.status === 204) {
-  body = undefined as T;
-} else {
-  body = (await response.json()) as T;
-}
-return { status: response.status, headers, body };
+import { ParmanaClient, HttpTransport } from "@parmana/legacy-reference";
+
+const endpoint = "http://localhost:3000";
+const apiKey = "my-secret-api-key";
+
+const client = new ParmanaClient({
+  endpoint,
+  apiKey,
+  transport: new HttpTransport({ endpoint, apiKey }),
+});
+
+const health = await client.health(); // GET /health, no key required
 ```
 
-A `400`, `404`, or `500` response comes back looking exactly like a `200`, the error body
-sits in `.body`, un-thrown, un-flagged. Only `NetworkError` (fetch failure) and
-`TimeoutError` (abort) are actually raised, from the `catch` block around `fetch()` itself.
+`apiKey` is optional in `Configuration`, for the same reason it's optional server-side: local
+development against a server started with `PARMANA_AUTH_DISABLED=true` needs no key. Every real
+deployment requires one — an omitted or wrong key gets a real `401`, thrown as
+`AuthenticationError` (see below), not a silent failure. See
+[Authentication](/api-reference/authentication) for how keys are minted.
 
-**If you're writing error-handling code against this SDK today, check `response.status`
-in the returned object yourself**, do not rely on a thrown, typed exception for a 4xx/5xx
-from the Runtime. Compare with the [Python SDK](/sdks/python), where this exact problem was
-found and fixed this session, with tests proving each status code raises its specific type.
+## Errors, they actually throw now
 
-## Problem 3, no way to send the caller bearer key
+`HttpTransport.send()` checks `response.status` and throws the matching typed error for every
+non-2xx response, built from the real `{error, code?}` envelope
+(`packages/api/src/middleware/error-handler.ts`):
 
-Checked directly: neither `ParmanaClient`'s constructor nor `HttpTransport` accepts an API
-key or sets an `Authorization` header anywhere in `typescript/src/`. Against any server with
-caller authentication enabled, the default and only supported production configuration, see
-[Authentication](/api-reference/authentication), every request from this SDK gets a `401`.
-There is no supported workaround short of patching the transport locally. This is a real,
-current gap, not a documentation omission.
+```typescript
+import {
+  ValidationError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ConflictError,
+  ExecutionRejectedError,
+  InternalServerError,
+  NetworkError,
+  TimeoutError,
+} from "@parmana/legacy-reference";
 
-## What to use this SDK for today
+try {
+  await client.execute(transaction);
+} catch (error) {
+  if (error instanceof ExecutionRejectedError) {
+    console.log(error.message); // "Execution rejected: <policy-specific reason>"
+  } else if (error instanceof ValidationError) {
+    // 400 — malformed request
+  }
+}
+```
 
-Reading/writing requests against a well-behaved, unauthenticated server (2xx responses, for
-example with `PARMANA_AUTH_DISABLED=true` set locally) works as expected. Don't build
-production error-handling logic on top of it without first fixing Problem 2 locally, and
-don't point it at an authenticated deployment until Problem 3 is fixed.
+| Status | Exception |
+|---|---|
+| 400 | `ValidationError` |
+| 401 | `AuthenticationError` |
+| 403 | `AuthorizationError` |
+| 404 | `NotFoundError` |
+| 409 | `ConflictError` |
+| 500, code `RUNTIME_ERROR`, message starting `Execution rejected` | `ExecutionRejectedError` |
+| any other non-2xx | `InternalServerError` |
+| connection failure | `NetworkError` |
+| request timeout | `TimeoutError` |
+
+All extend `ParmanaError`, which carries a stable `code` (`ErrorCode` enum) and optional
+`cause`/`requestId`. `403` (`AuthorizationError`) is a real status this API returns —
+an authenticated caller asserting an `authority.principalId` it isn't permitted to assert
+(`isPrincipalAllowed`, `packages/api/src/routes/execute.ts`) — found live during this pass and
+added to the [Error catalog](/api-reference/error-catalog) and the OpenAPI spec alongside this
+fix, both re-verified against source and a live server.
+
+<Note>
+**One route is deliberately exempt from this mapping.** `POST /policies/validate` never uses
+the shared `{error, code?}` envelope: every status it returns (`200`, `400`, `404`) is
+`{valid, errors}`, the caller's answer, not an SDK-level failure. `PolicyApi.validate` opts
+those two statuses out via `TransportRequest.nonThrowingStatuses`; a `401` on the same route
+still throws `AuthenticationError`, since that one is generated by caller-auth middleware
+before the route's own handler runs, using the shared envelope like every other route. See
+[Error handling](/api-reference/error-handling).
+</Note>
+
+## Model types, corrected against the real schemas
+
+`typescript/src/models/*.ts` is hand-maintained, unlike the Python SDK's generated models — a
+full audit spot-checked every field against the real JSON schemas
+(`schemas/common/*.schema.json`) and found real inaccuracies, all fixed this pass:
+
+- `Authority.displayName`, `Verification.message` — were marked required; the real API makes them
+  optional.
+- `Authorization.expiresAt` — missing entirely; now present (optional).
+- `BusinessTransactionMetadata` — every field except `businessTransactionId` was marked required;
+  the real API requires only `businessTransactionId`. The most significant of these: it forced
+  callers to supply fields (`tenantId`, `correlationId`, `sourceSystem`, `submittedBy`,
+  `submittedAt`) the real API doesn't need.
+- `ExecutionTrustRecord` — was missing the required `signature` field and the optional
+  `settlementConfirmations` field (and the `SettlementConfirmation`/`Signature` models
+  themselves) entirely.
+- `Override.authorityId` — **wrong field name**, should be `approvedBy` (the real schema has no
+  `authorityId` on `Override` at all); also missing the optional `justification` field. Currently
+  unreachable in practice (no route in this repository creates an `Override`), but wrong is wrong.
+- `Decision.outcome`, `Execution.status`, `Execution.mode`, `BusinessTransaction.status` — were
+  bare `string`; now literal unions matching the real enums exactly.
+- `Execution` — was missing `completedAt`, `evidence`, and `metadata` entirely: real, commonly-used
+  fields (evidence in particular is where Connector evidence lives) with no way to read them
+  through this SDK's types before this pass.
+
+## Two capabilities added this pass, previously unreachable from this SDK
+
+- **`client.verify(businessTransactionId)`** — `POST /verify`, runs a fresh verification and
+  appends a new `Verification` to the record's history. Before this pass, the SDK could only read
+  a cached verification via `getLatestVerification()` (`GET /verification/:id`); there was no way
+  to trigger a fresh one at all.
+- **`client.version()`** — `GET /version`. Had no method anywhere in the SDK.
+
+## `POST /transactions`, missing from both maintained SDKs, now added
+
+`client.createTransaction(transaction)` — a second, independent entry point into the identical
+execution pipeline as `execute()` (`POST /execute`), differing only in its `201` status code.
+Confirmed stable before adding: the route has existed since near the start of this repository's
+history (18 commits into a 141-commit history), was touched by the most recent security-fix
+commit in lockstep with `/execute`, and has dedicated test coverage
+(`packages/api/tests/unit/transactions-api.test.ts`) — not a new or evolving surface.
+
+## Install
+
+```bash
+npm install --workspace=typescript
+# or, from another project:
+npm install /path/to/parmana-exp/typescript
+```
+
+```bash
+npm run build   # typescript/
+npm run test    # vitest
+```
+
+## Test suite
+
+Previously 9 files, 0 bytes each, "9 passed" trivially. Now 103 tests: unit tests for every
+error-mapping case (`test/HttpTransport.test.ts`, `test/Errors.test.ts`), unit tests for the three
+newly-added methods (`test/NewApiMethods.test.ts`), and an integration suite
+(`test/integration/parmana-client.integration.test.ts`) that boots the actual `@parmana/api`
+Express application — real `StaticKeyAuthenticator`, real `PolicyEngine`, real Ed25519 signing,
+real `vendor-payment` connector — on a real OS-assigned TCP port and drives it with the real
+`ParmanaClient` over real HTTP: a real `401`, a real `403`, a real `400`, a real policy rejection,
+a real `404`, a real `409` duplicate, plus `version()`, `verify()`, and `createTransaction()`
+exercised against real responses, each asserted against the exact typed result and exact message
+the server returned.
+
+## What's still true from before
+
+`typescript/src/errors/` also declares `VerificationError` and `ReplayError`. Neither is thrown
+anywhere: no verified HTTP condition in this API corresponds to them (`POST /verify` and
+`POST /replay` return their semantic result — `VERIFIED`/`FAILED`, or a replay outcome — inside
+an ordinary `200`, not as an error). They remain defined, unused, for the same reason they were
+before this pass: inventing a throw condition for them would be describing behavior the real API
+doesn't have.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Python SDK" icon="python" href="/sdks/python">
+    The other maintained SDK — same bearer-key model, generated (not hand-maintained) models.
+  </Card>
+  <Card title="Error catalog" icon="list" href="/api-reference/error-catalog">
+    Every error the real API returns, independent of any SDK.
+  </Card>
+</CardGroup>

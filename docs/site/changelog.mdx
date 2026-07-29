@@ -7,8 +7,22 @@ description: "What actually shipped, by commit, newest first. Not a marketing su
 Pulled directly from `git log` on `main` in `pavancharak/parmana-exp`, commit hashes are
 real and checkable. This page covers the commits that changed what a reader of this site can
 actually do or rely on, not every commit in the repository's history, run `git log` yourself
-for the complete record, 128 commits as of this page's last update.
+for the complete record, 141 commits as of this page's last update.
 </Info>
+
+## 2026-07-28
+
+- **`0e69ed4`** chore: npm audit fix, resolving 4 known transitive vulnerabilities
+  (`brace-expansion`, `js-yaml`, `postcss`, `body-parser`, plus `nanoid` pulled in
+  transitively) — `npm audit fix` alone, no `--force`, no `package.json` changes. Full
+  suite (597 tests) unchanged, `npm audit` now reports 0 vulnerabilities.
+- **`f89029e`** fix: bind policy signals to executed intent, closing an
+  execution-authorization bypass — the most severe finding in this project's history, see
+  [Security](/security/overview) for the incident and `docs/VERIFICATION-GAPS.md` G-24 for
+  full detail. `Policy.boundSignals` + `SignalIntentBinder`
+  ([Policies and the decision](/concepts/policies-and-the-decision)), `isPrincipalAllowed`,
+  and `isOwnedByCaller` (a compounding IDOR fix) landed together. Found via an external
+  adversarial security exercise, not this project's own audit process.
 
 ## 2026-07-20
 

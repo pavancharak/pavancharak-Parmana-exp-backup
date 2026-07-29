@@ -67,12 +67,15 @@ export * from "./models/index.js";
 
 // -----------------------------------------------------------------------------
 // SDK Errors
-//
-// ParmanaError and ValidationError are exported by
-// @parmana/shared via models/index.ts.
 // -----------------------------------------------------------------------------
 
+export * from "./errors/ParmanaError.js";
 export * from "./errors/ConfigurationError.js";
+export * from "./errors/ValidationError.js";
+export * from "./errors/AuthenticationError.js";
+export * from "./errors/AuthorizationError.js";
+export * from "./errors/NotFoundError.js";
+export * from "./errors/ConflictError.js";
 export * from "./errors/ExecutionRejectedError.js";
 export * from "./errors/InternalServerError.js";
 export * from "./errors/NetworkError.js";

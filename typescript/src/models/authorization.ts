@@ -12,4 +12,6 @@ export interface Authorization {
   readonly purpose: string;
 
   readonly issuedAt: Date;
+
+  readonly expiresAt?: Date;
 }

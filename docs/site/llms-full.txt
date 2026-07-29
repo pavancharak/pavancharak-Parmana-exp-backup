@@ -1,0 +1,902 @@
+# Parmana — full integration reference
+
+> Parmana is an authorization layer between a caller — an AI agent, script, or person — and the business systems that carry out an action. A caller submits a Business Transaction describing an intended action, its target, its parameters, and a set of signals; the caller never holds or transmits execution credentials for the target system. A policy engine evaluates the transaction's signals against one named, versioned policy and returns a decision of APPROVED or REJECTED; an unmatched transaction defaults to REJECTED. Only an APPROVED decision produces a signed, single-use, time-bounded execution authorization. Execution against the target system happens only when a valid, unexpired, not-previously-used authorization is presented; a missing, expired, reused, or invalid authorization is rejected before execution occurs.
+
+Reflects `openapi/openapi.yaml` (`info.version: 1.0.0`) and `packages/api/src/app.ts`, as of commit
+`0e69ed4b153b217689aff69b68fd0b7d40ad1de8` (2026-07-28). `GET /version` on a running instance
+returns `{"name":"Parmana","version":"0.4.0","api":"v1"}` — a separate, hardcoded deployment
+identifier, not derived from this spec's version. Verified directly against source, not
+summarized from other docs pages, 2026-07-29.
+
+This file concatenates the full content of the pages an integrating agent needs, so it can be
+ingested in one fetch. It does not inline the OpenAPI spec itself: request/response schemas,
+field types, and constraints are defined once, at
+[/openapi.bundled.yaml](https://docs.parmanasystems.com/openapi.bundled.yaml), and every claim
+below defers to it rather than restating it in prose that could drift out of sync. There is no
+fixed public base URL — `openapi/openapi.yaml` lists only `http://localhost:3000` as a server;
+every real deployment runs on its own operator-chosen host (see
+[/deployment/production](https://docs.parmanasystems.com/deployment/production)).
+
+A short-link version of this file, with descriptions instead of full content, is at
+[/llms.txt](https://docs.parmanasystems.com/llms.txt).
+
+---
+
+## REST API introduction
+
+Source: `/api-reference/introduction`. 14 routes, enumerated from `packages/api/src/app.ts`.
+The full per-route reference is generated from `openapi/openapi.yaml`; this section covers what
+the spec can't express.
+
+**Base URL.** Local: `http://localhost:3000`. The raw spec is also served at `GET /openapi.yaml`
+on a running instance.
+
+**Full reference.** Every route, request/response shape, and status code is defined in
+`openapi/openapi.yaml`, each with real captured examples.
+
+**Errors.** Non-2xx responses are `{ "error": string }`, sometimes with a `code` field. See the
+Error handling and Error catalog sections below.
+
+Both maintained SDKs raise a specific exception per status code
+(`ValidationError`/`AuthenticationError`/`AuthorizationError`/`NotFoundError`/`ConflictError`/
+`ExecutionRejectedError`, plus a generic 5xx fallback — `ServerError` in Python,
+`InternalServerError` in TypeScript) — see the SDK sections below.
+
+**Auth.** Every route requires a caller bearer key, except `GET /health`, `GET /ready`,
+`GET /openapi.yaml`, and `GET /documentation`. See Authentication below for how to send one and
+what it does and does not prove.
+
+---
+
+## Authentication
+
+Source: `/api-reference/authentication`. `packages/api/src/middleware/caller-auth.ts`,
+`StaticKeyAuthenticator`.
+
+### Send a bearer key
+
+Every route requires `Authorization: Bearer <key>` except `GET /health`, `GET /ready`,
+`GET /openapi.yaml`, and `GET /documentation` (liveness/readiness probes and API documentation,
+all mounted in `packages/api/src/app.ts` ahead of the caller-auth middleware).
+
+```bash
+curl http://localhost:3000/version \
+  -H "Authorization: Bearer $PARMANA_API_KEY"
+```
+
+A missing or invalid header returns 401 before a Business Transaction is even constructed:
+
+```json
+{ "error": "authentication required" }
+```
+
+Note on the OpenAPI spec text: `openapi/openapi.yaml`'s own top-level `info.description` names
+only `GET /health` as exempt from caller authentication. That is incomplete against the real
+source — `packages/api/src/app.ts` mounts all four routes listed above ahead of the middleware,
+and `/ready` and `/documentation` are not documented as paths in the spec at all. This section
+states the verified, complete list from source; the spec's own summary text should not be relied
+on for this specific claim.
+
+### Where keys come from
+
+Keys are minted by `scripts/generate-api-key.ts`, one per calling system. The raw key is shown
+once and never written to disk; only a SHA-256 hash of it is configured server-side via
+`PARMANA_API_KEYS`, and comparisons run in constant time
+(`packages/api/src/auth/StaticKeyAuthenticator.ts`). There is no self-service key-management
+endpoint: issuing and rotating keys is an operator action, not an API call.
+
+### What this layer does and does not prove
+
+Caller authentication answers exactly one question: should this HTTP request be entertained at
+all. It is the first thing that runs, ahead of Policy evaluation and gateway attestation, and it
+is independent of both:
+
+- A well-authenticated caller submitting a Policy-rejected transaction is still rejected.
+- A well-authenticated caller does not thereby prove anything about who authorized the underlying
+  business action — that is what Execution Authorization and the gateway establish, on a
+  completely separate signature.
+
+### Local development
+
+`PARMANA_AUTH_DISABLED=true` skips this middleware entirely and logs a loud warning at startup
+every time it does. It exists for local development and running the tutorials. Never set it in a
+real deployment. It removes the only authentication this API has, and every route becomes
+reachable by anyone who can reach the port.
+
+### Errors
+
+| Status | Condition | Body |
+|---|---|---|
+| 401 | Missing or invalid `Authorization` header | `{"error":"authentication required"}` |
+
+See the Error catalog section below for every other error this API returns.
+
+---
+
+## Error handling
+
+Source: `/api-reference/error-handling`. `packages/api/src/middleware/error-handler.ts`.
+
+### The envelope
+
+Every non-2xx response (except `POST /policies/validate`, see below) is:
+
+```json
+{ "error": "string, always present, human-readable" }
+```
+
+sometimes with a second field:
+
+```json
+{ "error": "...", "code": "RUNTIME_ERROR" }
+```
+
+`code` is present **only** when the failure reached the shared error handler as a typed
+`RuntimeError` subclass: `VerificationFailedError` (`VERIFICATION_FAILED`),
+`ReceiptGenerationError` (`RECEIPT_GENERATION_FAILED`), or an uncategorized `RuntimeError`
+(`RUNTIME_ERROR`). It is absent from every inline route-level check (`businessTransactionId`
+format/required checks), from `BusinessTransactionValidationError`, `PolicyValidationError`,
+`SignalValidationError`, `PolicyNotFoundError`, `DuplicateBusinessTransactionError`, and from the
+generic 500 fallback that catches everything else.
+
+`error` is always a plain string, never a nested object, this is deliberate: a caller can always
+safely display it or log it without walking a schema first.
+
+**`POST /policies/validate` does not use this envelope at all.** Every status code it can return
+(200, 400, 404) is `{"valid": boolean, "errors": string[]}`, its own shape, independent of what
+the caller sent. The one exception is 401, which is generated by the caller-auth middleware
+*before* this handler ever runs, so a rejected caller sees the shared envelope
+(`{"error": "authentication required"}`), not `{valid, errors}`.
+
+### Two verified gaps
+
+**1. A structurally incomplete body crashes uncoded.** A `POST /execute` or `POST /transactions`
+body with a valid-UUID `businessTransactionId` but a missing required nested object (for example
+`metadata`) does not reach the 400 `BusinessTransactionValidationError` path the schema implies
+exists for it. It throws an unhandled `TypeError` deep inside
+`BusinessTransactionValidator.validate` (`packages/runtime/src/validators/BusinessTransactionValidator.ts:14`),
+which is not an instance of `BusinessTransactionValidationError`, so the handler's `instanceof`
+check never matches. The caller sees only `{ "error": "Internal Server Error" }` with a 500, no
+`code`, and no indication of which field was missing. The real cause is visible only in the
+server's own log.
+
+**2. A regression: "no Connector registered" lost its code, this pass.** The "no Connector
+registered for this action" case used to reach the client as a coded `RuntimeError`
+(`{"error":"No connector registered for action: <action>.","code":"RUNTIME_ERROR"}`). It no
+longer does. `ConnectorSdkRegistry.resolveCapability` (`packages/connector-sdk/src/ConnectorRegistry.ts`)
+now throws a raw, uncaught `Error: No connector registered for capability '<capability>'.` that
+also fails the handler's `instanceof RuntimeError` check, collapsing into the exact same shape as
+gap 1: `{ "error": "Internal Server Error" }`. This is a product regression, not documented as
+intended behavior.
+
+### Cross-reference
+
+Every status code in the OpenAPI reference links to its entry in the Error catalog section below,
+which lists the triggering condition and what a caller should do for each one.
+
+---
+
+## Error catalog
+
+Source: `/api-reference/error-catalog`. Assembled from live-triggered captures, not inferred from
+code.
+
+### Authentication
+
+| Status | Code | Message | Condition | What to do |
+|---|---|---|---|---|
+| 401 | none | `authentication required` | `Authorization` header missing, not a `Bearer <key>`, or the key doesn't match a configured hash | Send a valid key. Not retryable without fixing the header. |
+
+### Authorization (caller is known; not permitted to act as this principal)
+
+| Status | Code | Message | Condition | Routes | What to do |
+|---|---|---|---|---|---|
+| 403 | none | `Caller is not permitted to assert this authority.principalId.` | `transaction.authority.principalId` is missing/empty, or doesn't equal the authenticated `callerId` (default, no `allowedPrincipalIds` configured for this key), or isn't present in that key's configured `allowedPrincipalIds` list (`isPrincipalAllowed`, `packages/api/src/routes/execute.ts` / `transactions.ts`) | `POST /execute`, `POST /transactions` | Set `authority.principalId` to an identity this caller's key is actually permitted to assert. Skipped entirely (no 403 possible) when caller authentication itself is disabled. |
+
+### Validation (caller's request is malformed)
+
+| Status | Code | Message | Condition | Routes | What to do |
+|---|---|---|---|---|---|
+| 400 | none | `businessTransactionId must be a valid UUID.` | `businessTransactionId` present but not a valid UUID v1-v5 | `POST /execute`, `POST /transactions`, `POST /verify`, `POST /receipt` | Fix the ID format. Not a transient failure. |
+| 400 | none | `businessTransactionId is required.` | `businessTransactionId` missing entirely | `POST /replay` | Include the field. `/replay` checks presence only, not UUID format. |
+| 400 | none | `authorization.authorityId must match authority.authorityId.` | A Business Transaction trust-chain invariant failed (`BusinessTransactionValidationError`) | `POST /execute`, `POST /transactions` | Fix the request body's internal consistency; this is one example invariant among several the shared validator enforces. |
+| 400 | none | `{"valid":false,"errors":["policyId is required."]}` / `["policyVersion is required."]` | `policyId` or `policyVersion` missing/empty, checked in that order, first miss short-circuits | `POST /policies/validate` | Supply both fields. This route never uses the shared `{error}` envelope. |
+
+### Not found
+
+| Status | Code | Message | Condition | Routes | What to do |
+|---|---|---|---|---|---|
+| 404 | none | `Policy '<name>' version '<version>' was not found.` | `transaction.policy.name`/`version` doesn't match any published Policy (`PolicyNotFoundError`) | `POST /execute`, `POST /transactions` | Publish the policy first, or fix the name/version in the request. |
+| 404 | none | `{"valid":false,"errors":["Policy '<name>' version '<version>' was not found."]}` | Same condition as above, different envelope | `POST /policies/validate` | Same fix; this route reshapes the error locally instead of using the shared handler. |
+| 404 | none | `Business Transaction not found.` | No Business Transaction exists for the path ID | `GET /transactions/{id}` | Confirm the ID; nothing to retry. |
+| 404 | `VERIFICATION_FAILED` | `Execution Trust Record not found.` | No Execution Trust Record exists for `businessTransactionId` (`VerificationFailedError`, reused across three POST routes) | `POST /verify`, `POST /receipt`, `POST /replay` | Confirm the record exists via `GET /trust-records/{id}` first. |
+| 404 | none | `Execution Trust Record not found.` | Same underlying condition, but reached via a GET, no `code` field on this path | `GET /verification/{id}`, `GET /receipt/latest/{id}`, `GET /trust-records/{id}` | Same fix; the `code` field's presence depends on which route you called, not on the underlying cause. |
+| 404 | none | `Verification not found.` | Record exists but has no Verification yet | `GET /verification/{id}` | In practice every Execution produces a Verification synchronously; this is an edge case for records that haven't completed that step. |
+| 404 | none | `Receipt not found.` | Record exists but has no Receipt yet | `GET /receipt/latest/{id}` | Call `POST /receipt` first, or the record's Execution hasn't reached that stage. |
+
+### Conflict
+
+| Status | Code | Message | Condition | Routes | What to do |
+|---|---|---|---|---|---|
+| 409 | none | `Business Transaction '<id>' already exists.` | A Business Transaction with this `businessTransactionId` already exists (`DuplicateBusinessTransactionError`) | `POST /execute`, `POST /transactions` | Not a transient failure to retry. Fetch the existing record instead, see Idempotency and nonces below. |
+| 409 | `RECEIPT_GENERATION_FAILED` | `Execution Trust Record must be successfully verified before a Receipt can be generated.` | The record exists but its latest Verification isn't `VERIFIED` | `POST /receipt` | Call `POST /verify` first and confirm `status: VERIFIED` before requesting a Receipt. |
+
+### Server-side (500)
+
+| Status | Code | Message | Condition | Routes | What to do |
+|---|---|---|---|---|---|
+| 500 | `RUNTIME_ERROR` | `Execution rejected: <policy-specific reason>` | Policy evaluation returned `REJECTED` (a `RuntimeError`, no dedicated status of its own) | `POST /execute`, `POST /transactions` | A real, observed pipeline outcome, not a bug: the request was well-formed but the business decision was no. Read the reason string; it names the specific Policy condition that failed. |
+| 500 | none | `Internal Server Error` | A structurally incomplete but UUID-valid body (for example, `businessTransactionId` present but `metadata` missing) throws an unhandled `TypeError` inside `BusinessTransactionValidator.validate` before any typed error class is constructed | `POST /execute`, `POST /transactions` | Send every required nested object from the request schema. The generic message hides the real cause; it is visible only in server logs. |
+| 500 | none | `Internal Server Error` | No Connector is registered for the request's `action`. Previously reached the client as a coded `RuntimeError`; it no longer does (see Error handling above). | `POST /execute`, `POST /transactions` | Use a registered `action` (`payments:execute` is the only one wired by default). This is flagged as a product regression, not a documentation issue. |
+
+### What's deliberately not here
+
+This catalog lists errors from the 14 routes in `packages/api/src/app.ts`. It does not cover
+exceptions raised only in code paths unreachable from the HTTP API, or client-side SDK
+exceptions — see the SDK sections below for how each wraps these same HTTP responses.
+
+---
+
+## Idempotency and nonces
+
+Source: `/api-reference/idempotency-and-nonces`. No `Idempotency-Key` header exists anywhere in
+this API.
+
+### `businessTransactionId` is the idempotency key, but not Stripe's kind
+
+`POST /execute` and `POST /transactions` require a caller-supplied `businessTransactionId` (a
+UUID). Submitting the same one twice does **not** replay the first response the way Stripe's
+`Idempotency-Key` does. It fails:
+
+```json
+{ "error": "Business Transaction 'a1a1a1a1-1111-4111-8111-111111111111' already exists." }
+```
+
+with a 409, from `DuplicateBusinessTransactionError`. If your integration retries a timed-out
+request with the same `businessTransactionId`, you get an error, not the original Execution
+Trust Record. To retrieve the original result after a 409, call
+`GET /trust-records/{businessTransactionId}` (or `GET /transactions/{businessTransactionId}`)
+with the same ID.
+
+**Practical guidance for callers:** generate `businessTransactionId` deterministically from your
+own idempotency key (a UUIDv5 derived from your order ID, for example) so retries naturally
+collide on the same ID, then treat a 409 on that ID as "already submitted, go fetch it" rather
+than as a failure.
+
+### Nonces are a different, internal concept
+
+The word "nonce" in this system refers to the single-use `nonce` inside a
+`SignedExecutionAuthorization`, part of the internal decision-to-execution pipeline, not
+something a REST API caller sends or manages. It is checked by a `NonceStore` when the gateway
+verifies an authorization has not already been consumed, before the execution it authorizes is
+allowed to run.
+
+This nonce check is scoped to whichever `NonceStore` instance verifies it. A fleet of API
+processes with no shared store would each accept the same authorization once, not once
+fleet-wide.
+
+### What this means together
+
+Two independent replay defenses exist at two different layers, and neither is an
+`Idempotency-Key` header:
+
+| Layer | Mechanism | What repeating gets you |
+|---|---|---|
+| REST API (`businessTransactionId`) | Uniqueness check against storage | 409, not the original response |
+| Internal authorization (`nonce`) | Single-use check in `NonceStore` | Rejected authorization, execution never runs |
+
+Neither layer is configurable per-request, and there is no way to opt out of the
+`businessTransactionId` uniqueness check from the API.
+
+---
+
+## Policies and the decision
+
+Source: `/concepts/policies-and-the-decision`. `packages/policy`, 72 tests.
+
+### What it is
+
+A Policy is a named, versioned, ordered list of rules. Each rule pairs a condition (a boolean
+expression over named "signals") with an outcome: approve, reject, or require override.
+`PolicyEngine` evaluates a transaction's signals against a policy's rules and returns exactly one
+Decision.
+
+### How it behaves
+
+The runtime executes exactly one, explicitly referenced policy, identified by
+`PolicyReference { name, version, schemaVersion }` on the Business Transaction. It does not
+discover policies, negotiate them, auto-select "latest," or substitute an alternative.
+`PolicyRouter` loads by exact name and version; `PolicyValidator` checks the loaded policy's
+identity before evaluation runs.
+
+Rules are evaluated **sequentially, first match wins**:
+
+```typescript
+// packages/policy/src/PolicyEngine.ts:96-117 (findFirstMatch)
+for (const rule of rules) {
+  if (this.evaluateCondition(rule.condition, signals)) {
+    return rule;
+  }
+}
+return null;
+```
+
+If no rule matches, `findFirstMatch` returns `null`, and the outcome defaults to `REJECT`
+(`PolicyEngine.ts:191-206`, `toOutcome`'s `default` case). There is no code path where an
+unmatched transaction is approved. The absence of a rule is a denial, not a pass-through. A
+trailing `{ "always": true }` rule typically makes the reject-by-default behavior explicit in the
+policy document itself.
+
+### Binding a signal to the executed Intent
+
+Evaluating `transaction.signals` alone has a gap: nothing, by itself, connects those signals to
+`transaction.intent` — the action, target, and parameters that actually get signed and executed
+if the Decision is `APPROVED`. A caller could declare signals describing a small, fully-verified
+action while `intent` executes something else entirely, and still receive a signed `APPROVED`
+trust record for it. This was a real, live bypass, not a hypothetical one.
+
+`Policy.boundSignals` is the fix: an optional map from a signal key to an `intent` dot-path.
+Every entry declares "this signal must equal this exact field of what's actually executed":
+
+```json
+"boundSignals": {
+  "paymentAmount": "parameters.amount",
+  "vendorId": "target"
+}
+```
+
+`SignalIntentBinder` (`packages/policy/src/SignalIntentBinder.ts`) checks every declared binding
+by strict equality — a signal the caller never declared at all counts as a violation, not a pass,
+since `undefined` almost never equals a real `intent` value:
+
+```typescript
+// packages/policy/src/SignalIntentBinder.ts (abridged, real source)
+for (const [signalKey, intentPath] of Object.entries(bindings)) {
+  const signalValue = signals[signalKey];
+  const intentValue = resolveIntentPath(intent, intentPath);
+
+  if (signalValue !== intentValue) {
+    violations.push({ signalKey, intentPath, signalValue, intentValue });
+  }
+}
+```
+
+`RuntimeEngine.execute` (`packages/runtime/src/RuntimeEngine.ts`) runs this check immediately
+before `PolicyEngine.evaluate`, over the exact signals about to be evaluated and the exact
+`intent` that will be signed and executed if approved. A violation is built into an ordinary
+`PolicyDecision` with outcome `REJECT` and a reason naming every mismatched field — no rule is
+ever evaluated, and no authorization is ever generated for a mismatched request, the same
+fail-closed shape as any other policy rejection.
+
+**Binding is opt-in, per field, per policy.** `boundSignals` only closes the decoupling between
+what a policy evaluates and what executes, for the specific fields a policy author declares
+bound. It does not independently verify that an *unbound* signal is actually true —
+`vendorVerified`, `paymentApproved`, `riskScore`, and similar remain caller-declared attestations
+with no independent verification, exactly as before.
+
+### Minimal example
+
+From `policies/vendor-payment/2.0.0/policy.json`, a real policy in this repo:
+
+```json
+{
+  "policyId": "vendor-payment",
+  "policyVersion": "2.0.0",
+  "schemaVersion": "1.0.0",
+  "signalsSchema": {
+    "vendorVerified": "boolean",
+    "invoiceVerified": "boolean",
+    "paymentApproved": "boolean",
+    "sufficientFunds": "boolean",
+    "paymentAmount": "number",
+    "riskScore": "number",
+    "vendorId": "string"
+  },
+  "boundSignals": {
+    "paymentAmount": "parameters.amount",
+    "vendorId": "target"
+  },
+  "rules": [
+    {
+      "id": "approve-payment",
+      "condition": {
+        "all": [
+          { "fact": "vendorVerified", "operator": "eq", "value": true },
+          { "fact": "invoiceVerified", "operator": "eq", "value": true },
+          { "fact": "paymentApproved", "operator": "eq", "value": true },
+          { "fact": "sufficientFunds", "operator": "eq", "value": true },
+          { "fact": "paymentAmount", "operator": "gt", "value": 0 },
+          { "fact": "riskScore", "operator": "lte", "value": 20 }
+        ]
+      },
+      "outcome": { "action": "approve", "reason": "..." }
+    }
+  ]
+}
+```
+
+### What a Decision records
+
+```typescript
+// packages/shared/src/domain/decision.ts
+export interface Decision {
+  readonly decisionId: string;
+  readonly intentId: string;
+  readonly policy: PolicyReference;
+  readonly signals: Record<string, JsonValue>;   // captured for deterministic replay
+  readonly outcome: DecisionOutcome;              // APPROVED | REJECTED
+  readonly reason?: string;
+  readonly evaluatedAt: Date;
+}
+```
+
+The signals evaluated are captured on the Decision itself; this is what replay reconstructs from:
+given the same recorded signals and the same policy version, re-evaluation must produce the same
+outcome.
+
+`TrustChainValidationComponent` and `RuntimeEngine` refuse to execute when required trust
+artifacts are missing or the Decision is not `APPROVED`. Only an `APPROVED` Decision can produce a
+signed execution authorization (see the next section).
+
+---
+
+## Execution authorization
+
+Source: `/concepts/execution-authorization`. `packages/shared/src/domain/execution-authorization.ts`,
+`AuthorizationSigner`, `AuthorizationVerifier`.
+
+An earlier prototype called this concept "Execution Permit"
+(`packages/shared/src/domain/execution-permit.ts`, added then deleted the same day in favor of
+this architecture). If you find "Execution Permit" in older material, this section is the
+current, shipped equivalent.
+
+### What it is
+
+A `SignedExecutionAuthorization` is the artifact a `PolicyEngine`'s `APPROVED` decision becomes: a
+signed envelope proving that Parmana authorized exactly one execution, of exactly this content,
+within a bounded time window, usable exactly once.
+
+```typescript
+// packages/shared/src/domain/execution-authorization.ts
+export interface SignedExecutionAuthorization {
+  readonly payload: ExecutionAuthorizationPayload;
+  readonly signature: string;
+  readonly keyId: string;
+  readonly algorithm: string;
+}
+```
+
+`payload` carries: a format `version` (verifiers reject anything but `1`), a unique
+`authorizationId`, a single-use `nonce`, the `decisionId` and `businessTransactionId` it
+authorizes, the exact `policyName`/`policyVersion` that produced the decision, an
+`authorizedAt`/`expiresAt` bounded window, and `businessTransactionHash`, the content binding.
+
+### How it behaves
+
+- **Signed only after approval.** A `REJECTED` decision never produces a
+  `SignedExecutionAuthorization`, signing happens only after `ExecutionGate.enforce()` approves.
+- **Single use.** A receiving system must reject an authorization whose nonce has been seen
+  before, enforced by whichever `NonceStore` performs the check.
+- **Time bounded.** `expiresAt` is required; a receiving system must reject an expired
+  authorization.
+- **Content bound.** `businessTransactionHash` binds a canonical hash of the executable content
+  into the signed payload, not just an ID. This is what closes the check-vs-use (TOCTOU) gap.
+- **Algorithm agile.** Ed25519 by default; ML-DSA-65 (FIPS 204) selectable via
+  `PRIMARY_SIGNATURE_PROVIDER`.
+
+All timestamps in the payload are ISO-8601 UTC **strings**, not `Date` objects, this keeps the
+artifact byte-identical before signing and after JSON transport, which is what makes independent
+signature verification possible at all.
+
+### Minimal example: independent verification
+
+A receiving system can verify a `SignedExecutionAuthorization` **without** trusting Parmana's
+runtime process or database, it needs only Parmana's public key and the envelope itself:
+
+```typescript
+// @parmana/envelope-verifier
+const verifier = new EnvelopeVerifier({ publicKey, nonceStore });
+const result = await verifier.verify(authorization);
+// result.valid, result.checks: { versionSupported, signatureVerified, notExpired, ttlWithinPolicy, nonceUnseen }
+```
+
+An Express middleware ships for this: `requireParmanaAuthorization(verifier)`
+(`packages/envelope-verifier/src/express.ts`), reads `req.body.authorization`, verifies it, and
+either rejects with 401/403 or calls `next()`.
+
+`EnvelopeVerifier.verify()` checks signature, expiry, TTL policy, and nonce, it does **not**
+check `businessTransactionHash`. That's the Execution Gateway's job, one layer up, because it
+needs the actual executable content to hash, not just the envelope.
+
+### Rejections proven by test
+
+`packages/envelope-verifier/test/envelope-verifier.test.ts` proves: a forged signature is
+rejected and does not burn the nonce; an expired envelope is rejected and does not burn the
+nonce; a second use of the same nonce is rejected.
+
+---
+
+## POST /execute and POST /transactions — request/response orientation
+
+This section states only field names, derived directly from
+`schemas/requests/transaction-create-request.schema.json` and
+`schemas/responses/execution-trust-record-response.schema.json`. For types, formats, constraints,
+and full examples, use the OpenAPI spec — this is orientation, not the schema itself.
+
+`POST /execute` and `POST /transactions` share the identical `application.execute()` pipeline and
+identical request validation; the only difference is the success status code (200 vs 201) and
+route path. Both endpoints construct the transaction via `BusinessTransactionMapper.fromRequest`.
+
+**Request, top-level required fields:** `businessTransactionId` (UUID v1-v5 string — a 400 if
+missing/malformed, before any persistence), `metadata`, `authority`, `authorization`, `intent`,
+`policy` (`{ name, version, schemaVersion }`), `signals` (arbitrary key-value pairs, shape defined
+per-policy by that policy's own `signalsSchema`).
+
+**Cross-field invariants enforced** (400 `BusinessTransactionValidationError` on violation):
+`metadata.businessTransactionId` must equal the top-level `businessTransactionId`;
+`authorization.authorityId` must equal `authority.authorityId`; `intent.authorizationId` must
+equal `authorization.authorizationId`; `policy.name`, `policy.version`, and `intent.action` must
+each be non-empty. No other structural validation runs — `authority`, `authorization`, `intent`,
+`policy`, and `signals` objects are otherwise passed through as supplied, including any
+additional properties.
+
+**Server-assigned, client input ignored:** `status` and `createdAt` are always set by Parmana
+(`RECEIVED` and the current server time) regardless of what the client sends. Any top-level field
+not in the request schema is silently dropped, never persisted, never an error.
+
+**Response** (bare Execution Trust Record, no wrapper): `trustRecordId`, `businessTransactionId`,
+`transaction` (the stored, server-normalized transaction), `overrides` (array), `executions`
+(array — each with `executionId`, `decision`, `status`, `mode`, `evidence`, timestamps),
+`verifications` (array), `receipts` (array), `createdAt`, `updatedAt`, `trustRecordHash`,
+`signature` (`{ algorithm, keyId, value, signedAt }`).
+
+A `200`/`201` from either route does not by itself mean the underlying decision was `APPROVED` —
+check `executions[].decision.outcome`. A Policy `REJECTED` outcome currently surfaces as a `500`
+with `code: RUNTIME_ERROR`, not as a field on a `200` response — see the Error catalog above.
+
+`razorpay:refund-create` and `razorpay:payment-fetch` are a second pair of registered
+capabilities reachable through the same `/execute` endpoint, registered only when
+`RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are configured; otherwise a request naming them falls into
+the "no Connector registered" 500 case in the Error catalog above.
+
+---
+
+## Glossary
+
+Source: `/glossary`. Every term used across the docs site, mapped to its real source.
+
+| Term | Meaning | Source |
+|---|---|---|
+| **Policy** | A named, versioned, ordered list of rules; first match wins, no match rejects | `/concepts/policies-and-the-decision` |
+| **`boundSignals`** | A policy's optional map from a signal key to an `intent` dot-path (e.g. `{ "vendorId": "target" }`); `SignalIntentBinder` rejects a transaction whose declared signal doesn't exactly equal the bound `intent` field, before any rule evaluates | `/concepts/policies-and-the-decision` |
+| **`SignalIntentBinder`** | Checks every `boundSignals` entry, `packages/policy/src/SignalIntentBinder.ts`; invoked by `RuntimeEngine` immediately before `PolicyEngine.evaluate` | `/concepts/policies-and-the-decision` |
+| **Fail-closed** | The absence of a matching rule, a missing connector, or a failed check always denies; there is no default-allow path anywhere in this system | `/concepts/policies-and-the-decision` |
+| **Authority** | The entity empowered to authorize execution within a trust domain | `packages/shared/src/domain/authority.ts` |
+| **Authorization** | A grant, from an Authority, for a specific business purpose | `packages/shared/src/domain/authorization.ts` |
+| **Intent** | The specific action + target + parameters an Authority intends to execute | `packages/shared/src/domain/intent.ts` |
+| **Business Transaction** | The immutable input to policy evaluation, combining Authority + Authorization + Intent + a Policy reference | `packages/shared/src/domain/business-transaction.ts` |
+| **Decision** | The immutable result of evaluating an Intent against a Policy, `APPROVED` or `REJECTED` | `packages/shared/src/domain/decision.ts` |
+| **Execution** | What actually happened after a Decision: status, mode, evidence | `packages/shared/src/domain/execution.ts` |
+| **Execution Trust Record** | The canonical, append-only, signed aggregate of a Business Transaction's complete history | `/concepts/execution-trust-records` |
+| **Signed Execution Authorization** | The v1 envelope: a signed, content-bound, single-use, time-bounded proof that Parmana authorized one specific execution | `/concepts/execution-authorization` |
+| **`businessTransactionHash`** | The canonical content hash bound into a Signed Execution Authorization's payload; the mechanism that closes the check-vs-use (TOCTOU) gap | `/concepts/content-binding-toctou` |
+| **Execution Gateway** | The sole boundary that recomputes `businessTransactionHash` and releases verified content to a Connector | `/concepts/the-gateway` |
+| **Gateway Attestation** | A request-bound signature proving the gateway itself, not just the policy engine, released one specific request | `/concepts/gateway-attestation` |
+| **Connector** | An interface for an enterprise execution system integrated behind the Gateway. `vendor-payment` (a `MockConnector`) registers unconditionally in the default server; `razorpay` registers alongside it whenever `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are configured | `packages/api/src/bootstrap/createConnectorRegistry.ts` |
+| **Nonce** | A single-use value inside an authorization payload; a receiving system must reject a repeat | `/concepts/execution-authorization` |
+| **Verification** | The 3-check process (integrity, signature, authorization binding) confirming an Execution Trust Record's validity | `/verification/overview` |
+| **Receipt** | A signed, independently-verifiable attestation of an Execution Trust Record's state | `packages/shared/src/domain/receipt.ts` |
+| **TOCTOU** | Time-Of-Check-To-Time-Of-Use, the gap between what was authorized and what was actually executed | `/concepts/content-binding-toctou` |
+| **TTL** | Time-to-live; the bounded window an authorization is valid for | CLAIMS.md 3.2 |
+
+---
+
+## Python SDK
+
+Source: `/sdks/python`. `python/`, v1.0.5. 48 passing tests.
+
+A full SDK audit found and fixed three real, live-verified bugs in this pass: no bearer-key auth
+at all, two error-taxonomy bugs (`403` misclassified, real policy rejection never actually
+raising the SDK's own `ExecutionRejectedError`), and a `PolicyApi.validate()` bug that raised
+instead of returning its documented result. All fixed and re-verified against a real running
+server.
+
+### Install
+
+```bash
+pip install -e ./python
+```
+
+### Bearer-key authentication
+
+`ParmanaClient(api_key=...)` is sent as `Authorization: Bearer <api_key>` on every request, set
+once on the underlying `requests.Session()`. Optional, for the same reason it's optional
+server-side (a `PARMANA_AUTH_DISABLED=true` server needs none); every real deployment requires
+one — an omitted or wrong key gets a real `401`, raised as `AuthenticationError`.
+
+### Models are generated, not hand-maintained
+
+Every model in `python/parmana/models/*.py` is generated directly from the TypeScript AST of
+`packages/shared/src/domain/*.ts` by `python/scripts/generate_models.ts`, not hand-aligned copies.
+A drift guard (`npm run check:python-models`, wired into CI) regenerates into memory and fails the
+build if the committed output would change. Enums are real Python `str, Enum` classes (e.g.
+`SignatureAlgorithm`, `VerificationStatus`), not bare strings. Spot-checked field-for-field
+against the real JSON schemas this pass — all accurate, no drift found.
+
+### Structured HTTP errors, correctly mapped to real conditions
+
+```python
+from parmana import ConflictError, NotFoundError, ValidationError
+
+try:
+    client.execution.execute(transaction)
+except ConflictError as exc:          # HTTP 409
+    print(exc.status_code, exc)
+```
+
+| Status | Exception |
+|---|---|
+| 400 | `ValidationError` |
+| 401 | `AuthenticationError` |
+| 403 | `AuthorizationError` |
+| 404 | `NotFoundError` |
+| 409 | `ConflictError` |
+| 500, code `RUNTIME_ERROR`, message starting `Execution rejected` | `ExecutionRejectedError` |
+| any other 5xx | `ServerError` |
+| connection failure | `NetworkError` |
+
+All inherit `ParmanaHttpError` → `ApiError`. The client reuses a `requests.Session()` (connection
+pooling) and retries idempotent GETs with backoff on 502/503/504; POSTs are never retried.
+
+**Two bugs fixed this pass, previously live and untested against real conditions:**
+1. `403` was mapped to `ExecutionRejectedError`. The real `403` is the caller-principal-scoping
+   check (`isPrincipalAllowed`, "Caller is not permitted to assert this authority.principalId.") —
+   unrelated to policy rejection. Now a dedicated `AuthorizationError`.
+2. Real policy rejection reaches the caller as `500`, code `RUNTIME_ERROR`, message starting
+   `"Execution rejected:"` — no dedicated status code exists for it. Classification was previously
+   status-code-only, so this real condition raised generic `ServerError`, never
+   `ExecutionRejectedError`. Live-confirmed fixed: a real risk-rejected `vendor-payment` execution
+   now raises `ExecutionRejectedError` with `status_code == 500`.
+
+### Every endpoint the API exposes has a method
+
+```python
+client.execution.execute(transaction)          # POST /execute
+client.execution.health()                       # GET /health
+client.execution.version()                      # GET /version
+client.verification.verify(id)                  # POST /verify        (fresh)
+client.verification.get_latest(id)              # GET /verification/:id (cached)
+client.receipt.generate(id)                     # POST /receipt
+client.receipt.get_latest(id)                   # GET /receipt/latest/:id
+client.replay.replay(id)                        # POST /replay
+client.transactions.create(transaction)         # POST /transactions  (added this pass)
+client.transactions.get(id) / .list()           # GET /transactions[/:id]
+client.trust_records.get(id)                    # GET /trust-records/:id
+client.policy.validate(policy_id, policy_version) # POST /policies/validate
+```
+
+`client.transactions.create()` was missing entirely before this pass — a real capability with
+zero SDK coverage: a second, independent entry point into the identical execution pipeline as
+`execute()`, differing only in its `201` status code. `policy.validate` takes
+`(policy_id, policy_version)`, not a policy document, matching what the route actually reads.
+
+**`policy.validate()` bug fixed this pass.** `POST /policies/validate` never uses the shared
+`{error, code?}` envelope at `400`/`404` — both are `{valid, errors}`, the caller's answer, not an
+SDK-level failure. Before this pass, an unknown policy raised `NotFoundError` instead of returning
+`{"valid": False, "errors": [...]}` as documented. `401` still raises: it's generated by
+caller-auth middleware before this route's own handler runs, using the shared envelope.
+
+### Test suite
+
+Previously 26 tests: real but incomplete (no auth coverage, a wrong assumption baked into the
+`403` test, no real-server integration test). Now 48: unit tests for every error-mapping case
+including both fixed bugs, bearer-key header attachment tests, and a real-server integration
+suite (`python/tests/test_live_server_integration.py`) that spawns the actual `@parmana/api`
+process (the same entry point `npm run dev` runs) on a real OS-assigned TCP port and drives it
+with the real `ParmanaClient` over real HTTP — a real `401`, a real `403`, a real `400`, a real
+policy rejection, a real `404`, a real `409` duplicate, and the `policy.validate()` `404` case.
+
+---
+
+## TypeScript SDK
+
+Source: `/sdks/typescript`. `typescript/src/`. Builds. Version `1.0.0`.
+
+**The package is named `@parmana/legacy-reference` in `typescript/package.json`**, private, not
+published under any `@parmana/...` name a normal `npm install` could resolve. Install from a
+local path or a git reference; there is no working install command against a published package.
+
+The original three gaps tracked here (no bearer-key auth, an unused error taxonomy, an empty test
+suite) were fixed in an earlier pass. A follow-up full SDK audit found and fixed three more real
+issues: inaccurate model types, two missing capabilities (`POST /verify`, `GET /version`), and one
+capability missing from both maintained SDKs (`POST /transactions`). All re-verified against a
+real running local server.
+
+### Bearer-key authentication
+
+`Configuration.apiKey` is sent as `Authorization: Bearer <apiKey>` on every request, attached by
+`HttpTransport`:
+
+```typescript
+import { ParmanaClient, HttpTransport } from "@parmana/legacy-reference";
+
+const endpoint = "http://localhost:3000";
+const apiKey = "my-secret-api-key";
+
+const client = new ParmanaClient({
+  endpoint,
+  apiKey,
+  transport: new HttpTransport({ endpoint, apiKey }),
+});
+```
+
+`apiKey` is optional, for the same reason it's optional server-side: local development against a
+server started with `PARMANA_AUTH_DISABLED=true` needs no key. Every real deployment requires
+one — an omitted or wrong key gets a real `401`, thrown as `AuthenticationError`, not a silent
+failure.
+
+### The error taxonomy is now wired into the request path
+
+`HttpTransport.send()` checks `response.status` and throws the matching typed error for every
+non-2xx response, built from the real `{error, code?}` envelope
+(`packages/api/src/middleware/error-handler.ts`):
+
+| Status | Exception |
+|---|---|
+| 400 | `ValidationError` |
+| 401 | `AuthenticationError` |
+| 403 | `AuthorizationError` |
+| 404 | `NotFoundError` |
+| 409 | `ConflictError` |
+| 500, code `RUNTIME_ERROR`, message starting `Execution rejected` | `ExecutionRejectedError` |
+| any other non-2xx | `InternalServerError` |
+| connection failure | `NetworkError` |
+| request timeout | `TimeoutError` |
+
+All extend `ParmanaError`, which carries a stable `code` (`ErrorCode` enum) and optional
+`cause`/`requestId`, all exported from the package root. `403` (`AuthorizationError`) is a real
+status this API returns — an authenticated caller asserting an `authority.principalId` it isn't
+permitted to assert (`isPrincipalAllowed`, `packages/api/src/routes/execute.ts`) — found live
+during this pass and added to the Error catalog section above and the OpenAPI spec alongside
+this fix.
+
+One route is deliberately exempt from this mapping: `POST /policies/validate` never uses the
+shared envelope — every status it returns (`200`, `400`, `404`) is `{valid, errors}`, the
+caller's answer, not an SDK-level failure. `PolicyApi.validate` opts those two statuses out via
+`TransportRequest.nonThrowingStatuses`; a `401` on the same route still throws
+`AuthenticationError`, since that one is generated by caller-auth middleware before the route's
+own handler runs, using the shared envelope like every other route.
+
+`typescript/src/errors/` also still declares `VerificationError` and `ReplayError`. Neither is
+thrown anywhere: no verified HTTP condition in this API corresponds to them (`POST /verify` and
+`POST /replay` return their semantic result inside an ordinary `200`, not as an error).
+
+### Model types, corrected against the real schemas
+
+`typescript/src/models/*.ts` is hand-maintained, unlike the Python SDK's generated models — a
+full audit spot-checked every field against the real JSON schemas and found real inaccuracies,
+all fixed this pass: `Authority.displayName` and `Verification.message` were marked required
+(real API: optional); `Authorization.expiresAt` was missing entirely (optional); every
+`BusinessTransactionMetadata` field except `businessTransactionId` was marked required (real API
+requires only `businessTransactionId` — the most significant fix, since it forced callers to
+supply fields the real API doesn't need); `ExecutionTrustRecord` was missing the required
+`signature` field and the optional `settlementConfirmations` field entirely;
+`Override.authorityId` was the **wrong field name** (real schema: `approvedBy`, currently
+unreachable in practice since no route creates an `Override`, but wrong regardless); several
+`string`-typed fields (`Decision.outcome`, `Execution.status`/`mode`,
+`BusinessTransaction.status`) are now precise literal unions; `Execution` was missing
+`completedAt`, `evidence`, and `metadata` entirely (evidence in particular is where Connector
+evidence lives — a commonly-used real field with no way to read it through this SDK's types).
+
+### Two capabilities added this pass, previously unreachable from this SDK
+
+- `client.verify(businessTransactionId)` — `POST /verify`, runs a fresh verification and appends
+  a new `Verification` to the record's history. Before this pass the SDK could only read a cached
+  verification via `getLatestVerification()` (`GET /verification/:id`); there was no way to
+  trigger a fresh one.
+- `client.version()` — `GET /version`. Had no method anywhere in the SDK.
+
+### `POST /transactions`, missing from both maintained SDKs, now added
+
+`client.createTransaction(transaction)` — a second, independent entry point into the identical
+execution pipeline as `execute()` (`POST /execute`), differing only in its `201` status code.
+Confirmed stable before adding: the route has existed since near the start of this repository's
+history (18 commits into a 141-commit history), was touched by the most recent security-fix
+commit in lockstep with `/execute`, and has dedicated test coverage — not a new or evolving
+surface.
+
+### Test suite
+
+Previously 9 files, 0 bytes each. Now 103 tests: unit tests for every error-mapping case
+(`test/HttpTransport.test.ts`, `test/Errors.test.ts`) built from real, verified response shapes,
+unit tests for the three newly-added methods (`test/NewApiMethods.test.ts`), and an integration
+suite (`test/integration/parmana-client.integration.test.ts`) that boots the actual `@parmana/api`
+Express application — real `StaticKeyAuthenticator`, real `PolicyEngine`, real Ed25519 signing,
+real `vendor-payment` connector — on a real OS-assigned TCP port and drives it with the real
+`ParmanaClient` over real HTTP: a real `401`, a real `403`, a real `400`, a real policy rejection,
+a real `404`, a real `409` duplicate, plus `version()`, `verify()`, and `createTransaction()`
+exercised against real responses.
+
+---
+
+## What Parmana does not claim
+
+Source: `/trust-and-claims/what-we-dont-claim`. Sourced from CLAIMS.md §5's own refused claims
+and from source verification.
+
+### Permanent refusals
+
+Not "not yet" items — no implementation could honestly back these, unscoped:
+
+- Execution is impossible to bypass under all circumstances.
+- Mathematical proof of execution correctness.
+- Cryptographic proof of every aspect of runtime behavior.
+- Guaranteed regulatory compliance.
+- Absolute prevention of all unauthorized execution.
+- Tamper-proof operation in every deployment environment.
+- Elimination of all software defects or operational risks.
+- "Non-bypassable" or "the single execution authority" as an **unscoped**, system-wide claim. The
+  gateway enforces nothing at the network level, and is a property of systems that route through
+  it, not of the network Parmana runs on.
+- Deterministic signature output for ML-DSA-65. Those signatures are randomized by design, only
+  *verification* is deterministic.
+
+### Scoped claims, not absent ones
+
+- **Envelope verification is non-bypassable only for a system that runs it.** The default server
+  does, for the one connector it registers. A system built independently that doesn't call
+  `@parmana/envelope-verifier` gets none of this.
+- **Single-use is scoped to whichever `NonceStore` instance checks it.** Independent gateway
+  instances, each with their own `MemoryNonceStore`, can each accept the same authorization once,
+  not once fleet-wide.
+- **Credential isolation is proven for one connector, `vendor-payment`.** The mechanism is generic
+  and tested, but reaching a second connector today is a bootstrap code change, not something the
+  architecture does automatically.
+
+### Mocks are labeled as mocks
+
+`SapConnector`, `OracleConnector`, `WorkdayConnector`, and `SalesforceConnector`
+(`packages/connector-sdk/src/connectors/`) are explicit, self-documented reference mocks. None of
+them calls a real SAP, Oracle, Workday, or Salesforce system, and none is wired into the default
+server. No real enterprise connector exists in this repository for any vendor.
+
+### Real, tested, and disconnected from the default server
+
+- **`@parmana/receipt`**: its `ExecutionReceiptBuilder`, `ExecutionReceiptVerifier`, and the
+  separate `ExecutionPermit` model it depends on (from `@parmana/execution-control`) are exercised
+  only by tutorials. Nothing in `packages/runtime` or `packages/api` imports `@parmana/receipt`.
+- **`@parmana/replay`**'s `ReplayEngine`: genuinely re-evaluates a recorded policy decision, real
+  semantic verification, not a signature recheck — but nothing in `packages/api` or
+  `packages/runtime` imports it either. `POST /replay` is a separate, narrower thing (a signature
+  recheck only).
+
+### Authentication is real, but is one layer, not a substitute for the others
+
+`packages/api` gates every route except `GET /health`, `GET /ready`, `GET /openapi.yaml`, and
+`GET /documentation` behind a caller bearer key. It answers only "should this HTTP request be
+entertained at all." It does not prove anything about who authorized the underlying business
+action — that is still Execution Authorization and gateway attestation's job, on separate
+signatures.
+
+**What it still does not cover, precisely:** route access itself remains unscoped — any
+authenticated caller can call any route, there is no per-key allowlist of endpoints. What is
+scoped: which `authority.principalId` a caller may assert (`isPrincipalAllowed`, default is "only
+itself," never "anything") and which transactions/trust-records/receipts a caller may read
+(`isOwnedByCaller`, cross-caller reads now 404). Still absent: mutual TLS by default, and a
+self-service key rotation endpoint (rotation is a manual operator procedure).
+
+### No key management beyond local files
+
+Both signing keys, `default.*.pem` and `gateway.*.pem`, are files on disk read by
+`FileKeyProvider`, the only implemented `KeyProvider`. `aws-kms`, `azure-key-vault`, `gcp-kms`,
+and `hsm` are declared as valid config values with zero implementing classes; setting
+`KEY_PROVIDER` to one of these does nothing.
+
+### Error handling: one gap closed, two still open
+
+Malformed JSON and oversized request bodies on `/execute` now return a clean `400`/`413` naming
+which case it was. Two gaps remain open: a structurally incomplete `POST /execute` body throws an
+unhandled `TypeError`, caught only by a generic 500; and "no Connector registered for this action"
+collapses into that same uncoded 500 instead of a coded `RuntimeError`. See the Error handling and
+Error catalog sections above for both; the second is flagged as a product regression, not fixed as
+of this version.

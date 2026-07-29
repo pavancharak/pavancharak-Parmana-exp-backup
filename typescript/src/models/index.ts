@@ -7,5 +7,7 @@ export * from "./override.js";
 export * from "./policy.js";
 export * from "./receipt.js";
 export * from "./replay-result.js";
+export * from "./settlement-confirmation.js";
+export * from "./signature.js";
 export * from "./trust-record.js";
 export * from "./verification.js";
