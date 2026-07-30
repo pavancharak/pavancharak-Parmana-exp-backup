@@ -270,14 +270,19 @@ describe("HttpTransport", () => {
       ).rejects.toThrowError(ConflictError);
     });
 
-    it('maps 500 with code RUNTIME_ERROR and an "Execution rejected" message to ExecutionRejectedError', async () => {
+    it('maps 403 with code POLICY_DENIED to ExecutionRejectedError, not AuthorizationError', async () => {
+      // A policy REJECTED decision now carries its own dedicated 403 +
+      // code POLICY_DENIED (packages/runtime/src/ExecutionGate.ts),
+      // replacing the old, ambiguous 500 + code RUNTIME_ERROR shape.
+      // Distinguished from the *other* 403 above (caller-identity
+      // mismatch, no code) purely by the presence of this code.
       configureFetchMock(async () =>
         fakeResponse({
-          status: 500,
+          status: 403,
           body: {
             error:
               "Execution rejected: Vendor payment rejected because the assessed payment risk exceeds the maximum permitted threshold.",
-            code: "RUNTIME_ERROR",
+            code: "POLICY_DENIED",
           },
         }),
       );

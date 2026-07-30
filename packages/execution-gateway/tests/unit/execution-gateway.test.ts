@@ -12,10 +12,11 @@ import { MemoryNonceStore } from "@parmana/envelope-verifier";
 
 import type { ExecutionRequest } from "@parmana/execution-system";
 
-import type {
-  ExecutableContent,
-  ExecutionResult,
-  SignedExecutionAuthorization,
+import {
+  NonceAlreadyConsumedError,
+  type ExecutableContent,
+  type ExecutionResult,
+  type SignedExecutionAuthorization,
 } from "@parmana/shared";
 
 import type { Connector, ConnectorRequest } from "../../src/index.js";
@@ -236,7 +237,7 @@ it("rejects connector and executionControl together", () => {
     expect(connector.lastRequest).toBeUndefined();
   });
 
-  it("rejects a replayed request without releasing it twice", async () => {
+  it("rejects a replayed request without releasing it twice, as a distinguishable NonceAlreadyConsumedError (409)", async () => {
     const { privateKey, publicKey } = generateKeyPair();
     const authorization = await signAuthorization(privateKey);
 
@@ -253,7 +254,22 @@ it("rejects connector and executionControl together", () => {
     const first = await gateway.execute(request);
     expect(first.success).toBe(true);
 
-    await expect(gateway.execute(request)).rejects.toThrow(/nonceUnseen/);
+    let caught: unknown;
+
+    try {
+      await gateway.execute(request);
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(NonceAlreadyConsumedError);
+    expect((caught as NonceAlreadyConsumedError).status).toBe(409);
+    expect((caught as NonceAlreadyConsumedError).code).toBe(
+      "NONCE_ALREADY_CONSUMED",
+    );
+    expect((caught as NonceAlreadyConsumedError).message).toContain(
+      SAMPLE_EXECUTABLE_CONTENT.businessTransactionId,
+    );
   });
 
   it("rejects an expired authorization", async () => {

@@ -7,12 +7,25 @@
  * The real Runtime envelope (packages/api/src/middleware/error-handler.ts)
  * is `{ "error": string }`, sometimes with a second `code` field. `code`
  * is present only when the failure reached the shared error handler as a
- * typed RuntimeError subclass; most 4xx responses carry no `code` at all.
- * Classification below is therefore driven primarily by HTTP status, with
- * `code` used only to distinguish the one case that needs it (a policy
- * REJECTED decision, surfaced as a 500 with code RUNTIME_ERROR). See
- * /api-reference/error-catalog for the exhaustive, real, verified list
- * this mapping is built from.
+ * typed error carrying its own status/code (RuntimeError, or a
+ * ParmanaError subclass such as NonceAlreadyConsumedError); most 4xx
+ * responses carry no `code` at all. Classification below is therefore
+ * driven primarily by HTTP status, with `code` used only to distinguish
+ * the one case that needs it: a policy REJECTED decision now carries its
+ * own dedicated 403 with `code: "POLICY_DENIED"`, checked ahead of the
+ * generic status-based branches so it doesn't collide with the *other*
+ * 403 this API returns (a caller-identity/principal mismatch, which
+ * carries no `code` field at all and correctly stays an
+ * AuthorizationError). See /api-reference/error-catalog for the
+ * exhaustive, real, verified list this mapping is built from.
+ *
+ * Previously, a policy rejection had no dedicated status of its own and
+ * fell through to a generic `500` with `code: "RUNTIME_ERROR"` — this
+ * function used to special-case exactly that shape to still produce an
+ * ExecutionRejectedError. That gap is now fixed at the source
+ * (packages/runtime/src/ExecutionGate.ts, packages/api/src/middleware/
+ * error-handler.ts); this mapping was updated to match, not to work
+ * around the old ambiguity.
  *
  * One route, POST /policies/validate, does not use this envelope at all
  * (every status it returns is `{valid, errors}`); PolicyApi.validate
@@ -75,6 +88,14 @@ export function mapHttpErrorResponse(
   const message = extractMessage(status, body);
   const code = extractCode(body);
 
+  // Checked ahead of the generic status branches: a policy REJECTED
+  // decision carries this exact code alongside its 403 status, and must
+  // not be classified as the *other* 403 this API returns (a
+  // caller-identity/principal mismatch, which carries no code at all).
+  if (code === "POLICY_DENIED") {
+    return new ExecutionRejectedError(message);
+  }
+
   if (status === 400) {
     return new ValidationError(message);
   }
@@ -93,13 +114,6 @@ export function mapHttpErrorResponse(
 
   if (status === 409) {
     return new ConflictError(message);
-  }
-
-  if (
-    code === "RUNTIME_ERROR" &&
-    message.startsWith("Execution rejected")
-  ) {
-    return new ExecutionRejectedError(message);
   }
 
   return new InternalServerError(message);

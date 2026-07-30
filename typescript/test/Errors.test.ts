@@ -137,24 +137,28 @@ describe("mapHttpErrorResponse", () => {
     expect(error).toBeInstanceOf(ConflictError);
   });
 
-  it('maps a 500 with code RUNTIME_ERROR and an "Execution rejected" message to ExecutionRejectedError', () => {
-    const error = mapHttpErrorResponse(500, {
+  it('maps a 403 with code POLICY_DENIED to ExecutionRejectedError', () => {
+    // A policy REJECTED decision (packages/runtime/src/ExecutionGate.ts)
+    // now carries its own dedicated 403 + code, replacing the old,
+    // ambiguous 500 + code RUNTIME_ERROR shape this mapping used to
+    // special-case via an "Execution rejected" message-prefix sniff.
+    const error = mapHttpErrorResponse(403, {
       error: "Execution rejected: some policy reason.",
-      code: "RUNTIME_ERROR",
+      code: "POLICY_DENIED",
     });
     expect(error).toBeInstanceOf(ExecutionRejectedError);
   });
 
-  it("does not misclassify a RUNTIME_ERROR-coded 500 that is not an execution rejection", () => {
-    // Defensive: RUNTIME_ERROR is the generic uncategorized-RuntimeError
-    // code, not exclusively used for policy rejections. Only the
-    // "Execution rejected" message prefix, which is specific to that
-    // one condition, should route to ExecutionRejectedError.
-    const error = mapHttpErrorResponse(500, {
-      error: "Some other RuntimeError condition.",
-      code: "RUNTIME_ERROR",
+  it("does not misclassify a plain 403 (caller-identity mismatch, no code) as ExecutionRejectedError", () => {
+    // Defensive: the *other* 403 this API returns — a caller asserting
+    // an authority.principalId it isn't permitted to assert
+    // (packages/api/src/routes/execute.ts) — carries no code field at
+    // all and must still map to the generic AuthorizationError, not be
+    // swept up by the POLICY_DENIED check above.
+    const error = mapHttpErrorResponse(403, {
+      error: "Caller is not permitted to assert this authority.principalId.",
     });
-    expect(error).toBeInstanceOf(InternalServerError);
+    expect(error).toBeInstanceOf(AuthorizationError);
     expect(error).not.toBeInstanceOf(ExecutionRejectedError);
   });
 

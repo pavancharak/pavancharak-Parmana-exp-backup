@@ -662,6 +662,46 @@ Evidence
 
 
 
+## 2.21 Distinguishable HTTP Status for Policy Denial and Replay
+
+
+
+A policy `REJECTED` decision surfaces as `HTTP 403` with `code: "POLICY_DENIED"`. An execution request whose authorization envelope has already been consumed — every other Gateway check (version, signature, expiry, TTL policy, `businessTransactionHash`) passed, and nonce consumption alone failed — surfaces as `HTTP 409` with `code: "NONCE_ALREADY_CONSUMED"`. Both are now distinguishable from a genuine, unexpected server error, which remains `HTTP 500`. Neither the authorization logic nor any underlying check changed to produce this: only the status code and response body surfaced to the caller changed. Every other Gateway verification failure (forged signature, expired envelope, tampered content) is unaffected and remains a plain, uncoded error, still surfacing as `HTTP 500`.
+
+
+
+Scope, precisely: the `409` path is reachable today only by a receiving system calling `@parmana/execution-gateway`'s `ExecutionGateway.execute()` directly with an already-consumed authorization (the library-level guarantee this closes). It is not reachable through Parmana's own default `POST /execute` / `POST /transactions` routes, because a resubmitted `businessTransactionId` is rejected with the existing `409` `DuplicateBusinessTransactionError` (2.20) before `RuntimeEngine`, policy evaluation, or the Gateway are ever reached — the same admission-time layer that already made `docs/CLAIMS.md` 3.4's live idempotency proof.
+
+
+
+Evidence
+
+
+
+* packages/runtime/src/ExecutionGate.ts (`RuntimeError` thrown with `status: 403, code: "POLICY_DENIED"`)
+
+* packages/shared/src/errors/nonce-already-consumed-error.ts (`NonceAlreadyConsumedError`, `status: 409, code: "NONCE_ALREADY_CONSUMED"`)
+
+* packages/execution-gateway/src/ExecutionGateway.ts (`isSoleFailureNonceReplay` — throws `NonceAlreadyConsumedError` only when every check other than nonce consumption passed; any other combination of failed checks still throws the existing, unchanged, uncoded `Error`)
+
+* packages/api/src/middleware/error-handler.ts (dedicated `NonceAlreadyConsumedError` branch; the existing `RuntimeError` branch reads `error.status`/`error.code` dynamically, unchanged)
+
+* packages/execution-gateway/tests/unit/execution-gateway.test.ts, execution-gateway.dilithium3.test.ts — "rejects a replayed request without releasing it twice, as a distinguishable NonceAlreadyConsumedError (409)"
+
+* packages/runtime/tests/unit/execution-authorization-wiring.test.ts — "rejected transaction produces no authorization" (asserts `status: 403`, `code: "POLICY_DENIED"`)
+
+* packages/api/tests/integration/caller-auth.integration.test.ts — "a well-authenticated caller submitting a policy-rejected transaction is still rejected by policy" (asserts `response.status === 403`, `response.body.code === "POLICY_DENIED"`, through the real `POST /execute` route)
+
+* packages/api/tests/integration/razorpay-refund.integration.test.ts, razorpay-live.integration.test.ts — the same `403`/`POLICY_DENIED` assertion for a Razorpay-refund-specific policy denial through the real production bootstrap chain
+
+* typescript/src/transport/mapHttpErrorResponse.ts, typescript/test/Errors.test.ts, typescript/test/HttpTransport.test.ts — the TypeScript SDK maps `code: "POLICY_DENIED"` to `ExecutionRejectedError`, checked ahead of the generic `403` → `AuthorizationError` mapping so it does not collide with the unrelated caller-identity-mismatch `403` (`packages/api/src/routes/execute.ts`), which carries no `code` at all
+
+
+
+---
+
+
+
 # 3. Conditional Claims
 
 

@@ -288,10 +288,13 @@ describe("Caller authentication (HTTP boundary)", () => {
 
       // Caller authentication passed (no 401); policy evaluation still
       // independently rejected the transaction. Caller auth cannot
-      // substitute for, or override, policy evaluation.
+      // substitute for, or override, policy evaluation. A policy denial
+      // is a deliberate, correct rejection — 403, not the generic 500 an
+      // earlier version of this test asserted before that gap was fixed.
       expect(response.status).not.toBe(401);
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(403);
       expect(response.body.error).toContain("rejected");
+      expect(response.body.code).toBe("POLICY_DENIED");
     });
   });
 

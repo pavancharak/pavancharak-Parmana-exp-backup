@@ -13,6 +13,7 @@ import type {
 
 import {
   toExecutableContent,
+  NonceAlreadyConsumedError,
   type ExecutableContent,
   type ExecutionResult,
 } from "@parmana/shared";
@@ -217,6 +218,9 @@ export class ExecutionGateway implements ExecutionSystem {
       await this.verify(request);
 
     if (!result.valid) {
+      if (this.isSoleFailureNonceReplay(result)) {
+        throw new NonceAlreadyConsumedError(executableContent.businessTransactionId);
+      }
       throw new Error(this.describeFailure(result));
     }
 
@@ -260,6 +264,26 @@ export class ExecutionGateway implements ExecutionSystem {
       authorization: request.authorization,
       verification: result,
     });
+  }
+
+  /**
+   * True only when every check other than nonce consumption passed —
+   * version, signature, expiry, TTL policy, and the businessTransactionHash
+   * recompute-and-compare all succeeded, and nonceUnseen alone is false.
+   * Because nonce consumption is attempted only after every prior check
+   * passes (see verify()'s priorChecksPassed gating above), this is the
+   * one unambiguous signal that the request is an isolated replay of an
+   * already-executed authorization, not a forged or malformed one.
+   */
+  private isSoleFailureNonceReplay(
+    result: GatewayVerificationResult,
+  ): boolean {
+    const { nonceUnseen, ...otherChecks } = result.checks;
+
+    return (
+      !nonceUnseen &&
+      Object.values(otherChecks).every((checkPassed) => checkPassed === true)
+    );
   }
 
   private describeFailure(

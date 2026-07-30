@@ -217,8 +217,11 @@ describe("Razorpay refund (HTTP boundary)", () => {
 
     const response = await request(app).post("/execute").send(transaction);
 
-    expect(response.status).not.toBe(200);
+    // A policy denial is a deliberate, correct rejection — 403, distinct
+    // from a genuine server error (500) or a replayed authorization (409).
+    expect(response.status).toBe(403);
     expect(response.body.error).toContain("rejected");
+    expect(response.body.code).toBe("POLICY_DENIED");
 
     expect(mockServer.refundsFor("pay_HTTP002")).toHaveLength(0);
   });

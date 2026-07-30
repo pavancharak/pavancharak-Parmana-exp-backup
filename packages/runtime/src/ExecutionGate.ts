@@ -40,6 +40,8 @@ export class ExecutionGate {
         decision.reason ??
         "Policy rejected execution."
       }`,
+      403,
+      "POLICY_DENIED",
     );
   }
 }

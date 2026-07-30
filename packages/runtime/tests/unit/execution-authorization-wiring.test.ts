@@ -301,6 +301,12 @@ describe("Execution Authorization Wiring", () => {
       "rejected for test",
     );
 
+    // A policy denial is a deliberate, correct rejection, not a server
+    // error — distinguishable from a genuine 500 (and from a replayed
+    // authorization, which is a distinct 409 NonceAlreadyConsumedError).
+    expect((caught as RuntimeError).status).toBe(403);
+    expect((caught as RuntimeError).code).toBe("POLICY_DENIED");
+
     expect(executionSystem.lastRequest).toBeUndefined();
 
     expect(

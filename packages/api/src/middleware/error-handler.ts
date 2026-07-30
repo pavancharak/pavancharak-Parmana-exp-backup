@@ -16,6 +16,8 @@ import {
   SignalValidationError,
 } from "@parmana/policy";
 
+import { NonceAlreadyConsumedError } from "@parmana/shared";
+
 /**
  * True for the two body-parser (express.json()) failure shapes every
  * route mounted after the global express.json() middleware can hit
@@ -108,6 +110,24 @@ export function errorHandler(
   ) {
     res.status(409).json({
       error: error.message,
+    });
+
+    return;
+  }
+
+  //
+  // Execution Gateway rejected a replayed (already-consumed-nonce)
+  // authorization. Distinguished from a genuine server error (and from
+  // every other Gateway verification failure — forged signature,
+  // expired envelope, tampered content — which remain a plain Error and
+  // fall through to the generic 500 below, unchanged) so a caller or a
+  // monitoring system can tell "this already ran" apart from "something
+  // broke" without string-matching a 500 body.
+  //
+  if (error instanceof NonceAlreadyConsumedError) {
+    res.status(error.status).json({
+      error: error.message,
+      code: error.code,
     });
 
     return;
