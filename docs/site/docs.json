@@ -132,7 +132,8 @@
             "pages": [
               "integrations/overview",
               "integrations/connector-development-guide",
-              "integrations/razorpay"
+              "integrations/razorpay",
+              "integrations/hubspot"
             ]
           },
           {

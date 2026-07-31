@@ -34,6 +34,14 @@ The key pair was rotated on 2026-07-05.
 
 
 
+> Building a new connector? Read [CONNECTOR-BUILD-GUIDE.md](./CONNECTOR-BUILD-GUIDE.md) first — it captures the pattern distilled from the Razorpay and HubSpot connectors (credential guards, bound-signals hardening, test order, non-destructive live tests).
+
+
+
+---
+
+
+
 # 1. Core Positioning
 
 

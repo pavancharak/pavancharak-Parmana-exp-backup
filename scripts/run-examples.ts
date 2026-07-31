@@ -83,6 +83,7 @@ const examples = [
   "examples/tutorials/60-end-to-end-enterprise-execution/run.ts",
   "examples/tutorials/61-razorpay-refund/run.ts",
   "examples/tutorials/62-signal-intent-binding/run.ts",
+  "examples/tutorials/63-hubspot-deal-update/run.ts",
   "examples/scenarios/vendor-payment/run.ts",
   "examples/scenarios/expense-approval/run.ts",
   "examples/scenarios/purchase-order/run.ts",

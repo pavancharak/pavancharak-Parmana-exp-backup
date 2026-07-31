@@ -3,12 +3,12 @@ title: "Connector Development Guide"
 description: "How to implement a Connector against @parmana/connector-sdk, every example uses MockConnector or HttpConnector, no enterprise-specific example."
 ---
 
-<Info>**[AVAILABLE] as a library**, `packages/connector-sdk`, **[AVAILABLE] wired into the default server for `vendor-payment` and Razorpay specifically**, a code change for anything beyond those two today, see the warning below.</Info>
+<Info>**[AVAILABLE] as a library**, `packages/connector-sdk`, **[AVAILABLE] wired into the default server for `vendor-payment`, Razorpay, and HubSpot specifically**, a code change for anything beyond those three today, see the warning below.</Info>
 
 ## Connector responsibilities, and what a Connector must never do
 
 A Connector validates a request, executes using an already-resolved credential, and
-returns a deterministic response. A Connector never evaluates policy, authorizes
+returns a response with a fixed, predictable shape. A Connector never evaluates policy, authorizes
 execution, interprets AI output, makes a business decision, or resolves a credential
 itself, credential resolution happens exclusively inside the Execution Gateway, before a
 Connector is ever called.
@@ -147,9 +147,79 @@ Adding a second connector to the running server means editing three files:
 `createConnectorRegistry.ts` (register it, following the shape above), and
 `createConnectorAuthenticator.ts` (trust its identity). There is no dynamic registration
 path, no environment variable that adds a connector, this is a code change today. Razorpay
-is the one exception wired beyond `vendor-payment` in the default server, see
-[Razorpay](/integrations/razorpay) for that connector specifically.
+and HubSpot are the two exceptions wired beyond `vendor-payment` in the default server, see
+[Razorpay](/integrations/razorpay) and [HubSpot](/integrations/hubspot) for those connectors
+specifically.
 </Warning>
+
+## The pattern, proven twice: Razorpay and HubSpot
+
+Both connectors implement everything above, but the two builds themselves are the more
+useful lesson: Razorpay learned each point below the hard way, on a running connector,
+after the fact. HubSpot applied all of it from its first version instead. Read this before
+starting a third connector.
+
+**Scope to one narrow action first.** Don't build a connector for a whole external API
+surface. Razorpay started with refund creation only, not payouts, not subscriptions, not
+the rest of the payments API. HubSpot started with one property update on one object type,
+a Deal's `dealstage`, optionally alongside `amount`, not Contacts, not Companies, not
+delete. Widen scope in a later milestone, once the first one is fully proven, see each
+connector's own [FUTURE] section on its page ([Razorpay](/integrations/razorpay),
+[HubSpot](/integrations/hubspot)).
+
+**Two structural guards belong in a connector's first version, not a follow-up fix.**
+
+- *Refuse a placeholder test credential against the real endpoint, before any network
+  call.* Don't rely on the vendor happening to reject it, that's an accident of their
+  behavior, not something this codebase controls. `RazorpayConnector` didn't have this
+  check originally, it survived only because Razorpay's real API happened to reject an
+  unrecognized key, see `docs/CLAIMS.md` §3.4's "defense-in-depth fix" paragraph for what
+  was added after the fact. `HubSpotConnector` refuses its own placeholder token against
+  `https://api.hubapi.com` from its first commit, see [HubSpot](/integrations/hubspot) and
+  `packages/connector-hubspot/src/HubSpotConnector.ts`.
+- *Read the documented test-credential environment variable name directly, never through a
+  bridge variable.* `createRazorpayCredentialProvider.ts`'s test-mode branch originally read
+  a word-order-swapped bridge variable instead of the name `.env.example` actually
+  documented, fixed only after it drifted out of sync, see `docs/CLAIMS.md` §3.4.
+  `createHubSpotCredentialProvider.ts` reads `TEST_HUBSPOT_PRIVATE_APP_TOKEN`, the exact
+  documented name, with no bridge to get wrong.
+
+**Apply `boundSignals` hardening from the policy's first version, don't wait for an
+adversarial-testing session to find the gap.** `razorpay-refund/1.0.0` didn't declare
+`boundSignals` until a live demonstration showed a caller could declare small, verified
+signals while `intent` executed something else, see `docs/CLAIMS.md` §3.4's
+"adversarial-testing hardening session" update. `hubspot-deal-update/1.0.0` declares
+`boundSignals` binding `proposedDealStage`/`proposedAmount` to their `intent.parameters`
+fields from its first commit, closing the same class of gap before any live demonstration
+of it existed. See [Policies and the decision](/concepts/policies-and-the-decision).
+
+**Test order, every time:**
+
+1. **Hermetic first.** The full authorize → verify → execute → confirm chain against a mock
+   server, zero network calls. Both connectors' unit suites run this way on every
+   `npm test`.
+2. **Policy-denial-makes-zero-calls, proven at two layers.** A direct state check against
+   the mock server (nothing changed), and a `fetch` spy at the HTTP boundary (literally zero
+   calls reached the mock or real endpoint). See [HubSpot](/integrations/hubspot) for what
+   that looks like in a captured response.
+3. **A gated live suite last**, behind an `ALLOW_LIVE_<CONNECTOR>=1` flag checked alongside a
+   real test credential, skipped by default so a routine `npm test` never makes a live call
+   by accident.
+
+**Prefer a non-destructive live-test action where the target system allows one.** Read live,
+apply a small reversible change, verify independently, revert, in the same run. HubSpot's
+live suite nudges a real test deal's `amount` by a small within-threshold delta and reverts
+it before finishing, safe to rerun indefinitely. Razorpay's refund is irreversible by
+construction, its captured test payment's refundable remainder depletes by a fixed amount
+on every live run, see `docs/CLAIMS.md` §3.4 for what that costs in practice.
+
+**Disclose what actually happened, including when the mechanism catches your own mistake.**
+HubSpot's first live amount-change test run failed with a policy denial the test author
+didn't expect, because the test's own signals payload omitted `proposedAmount`,
+`SignalIntentBinder` correctly rejected the mismatch before the intended amount-threshold
+rule ever ran. That's not a connector defect, it's the binding working exactly as designed,
+against a test's own mistake this time instead of a caller's, and it's written up that way
+in `docs/CLAIMS.md` §3.10 rather than quietly fixed and left undocumented.
 
 ## Troubleshoot
 
