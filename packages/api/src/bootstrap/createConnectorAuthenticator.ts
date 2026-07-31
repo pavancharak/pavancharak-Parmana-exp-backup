@@ -39,6 +39,12 @@ export function createConnectorAuthenticator(): RequestBoundConnectorAuthenticat
           "spiffe://parmana/connectors/razorpay",
         authenticationMetadata: {},
       },
+      {
+        connectorId: "hubspot",
+        publicIdentity:
+          "spiffe://parmana/connectors/hubspot",
+        authenticationMetadata: {},
+      },
     ],
   );
 }

@@ -25,6 +25,9 @@ import {
 import { createVendorPaymentConnector } from "./createVendorPaymentConnector.js";
 import { createRazorpayConnector } from "./createRazorpayConnector.js";
 import { createRazorpayCredentialProvider } from "./createRazorpayCredentialProvider.js";
+import { HubSpotMetadata } from "@parmana/connector-hubspot";
+import { createHubSpotConnector } from "./createHubSpotConnector.js";
+import { createHubSpotCredentialProvider } from "./createHubSpotCredentialProvider.js";
 
 /**
  * Creates the production connector registry.
@@ -113,6 +116,37 @@ export function createConnectorRegistry(
       policy: new CapabilityConnectorPolicy(
         new DefaultConnectorPolicy(authenticator, sessions),
       ),
+
+      gatewayAuthentication,
+
+      crypto,
+
+      audit,
+    });
+  }
+
+  const hubspotCredentialProvider = createHubSpotCredentialProvider();
+
+  if (hubspotCredentialProvider === undefined) {
+    console.warn({
+      event: "hubspot_connector_unavailable",
+      reason: "HUBSPOT_PRIVATE_APP_TOKEN is not configured.",
+    });
+  } else {
+    registry.register({
+      connector: createHubSpotConnector(),
+
+      metadata: HubSpotMetadata,
+
+      connectorIdentity: {
+        connectorId: "hubspot",
+        publicIdentity: "spiffe://parmana/connectors/hubspot",
+        authenticationMetadata: {},
+      },
+
+      credentialProvider: hubspotCredentialProvider,
+
+      policy: new CapabilityConnectorPolicy(new DefaultConnectorPolicy(authenticator, sessions)),
 
       gatewayAuthentication,
 

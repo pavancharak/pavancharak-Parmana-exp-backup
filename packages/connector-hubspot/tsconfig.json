@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules", "test", "tests"],
+  "references": [
+    { "path": "../shared" },
+    { "path": "../crypto" },
+    { "path": "../execution-control" },
+    { "path": "../envelope-verifier" },
+    { "path": "../execution-gateway" },
+    { "path": "../execution-system" },
+    { "path": "../policy" },
+    { "path": "../connector-sdk" }
+  ]
+}

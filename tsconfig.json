@@ -13,7 +13,8 @@
     { "path": "./packages/execution-system" },
     { "path": "./packages/execution-control" },
     { "path": "./packages/execution-gateway" },
-    { "path": "./packages/connector-sdk" }
+    { "path": "./packages/connector-sdk" },
+    { "path": "./packages/connector-hubspot" }
   ],
   "compilerOptions": {
     "target": "ES2022",

@@ -37,6 +37,7 @@
   { "path": "../envelope-verifier" },
   { "path": "../execution-control" },
   { "path": "../execution-gateway" },
-  { "path": "../connector-sdk" }
+  { "path": "../connector-sdk" },
+  { "path": "../connector-hubspot" }
 ]
 }

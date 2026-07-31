@@ -154,7 +154,7 @@ Execution Trust Record
 
 
 
-\# Stage 1 — HTTP Entry
+\# Stage 1: HTTP Entry
 
 
 
@@ -254,7 +254,7 @@ Status:
 
 
 
-\# Stage 2 — Business Transaction Mapper
+\# Stage 2: Business Transaction Mapper
 
 
 
@@ -356,7 +356,7 @@ Status:
 
 
 
-\# Stage 3 — Application Composition
+\# Stage 3: Application Composition
 
 
 
@@ -430,7 +430,7 @@ Status:
 
 
 
-\# Stage 4 — Runtime Factory
+\# Stage 4: Runtime Factory
 
 
 
@@ -524,7 +524,7 @@ Status:
 
 
 
-\# Stage 5 — ExecutionTrustApplication
+\# Stage 5: ExecutionTrustApplication
 
 
 
@@ -644,7 +644,7 @@ Status:
 
 
 
-\# Stage 6 — Runtime
+\# Stage 6: Runtime
 
 
 
@@ -724,7 +724,7 @@ Status:
 
 
 
-\# Stage 7 — Runtime Engine
+\# Stage 7: Runtime Engine
 
 
 
@@ -870,7 +870,7 @@ Execution Trust Record
 
 
 
-\## Step 1 — Extract Runtime Signals
+\## Step 1: Extract Runtime Signals
 
 
 
@@ -918,7 +918,7 @@ Status:
 
 
 
-\## Step 2 — Load Policy
+\## Step 2: Load Policy
 
 
 
@@ -990,7 +990,7 @@ Status:
 
 
 
-\## Step 3 — Evaluate Policy
+\## Step 3: Evaluate Policy
 
 
 
@@ -1050,7 +1050,7 @@ Status:
 
 
 
-\## Step 4 — Build Decision
+\## Step 4: Build Decision
 
 
 
@@ -1100,7 +1100,7 @@ Status:
 
 
 
-\## Step 5 — Execution Gate
+\## Step 5: Execution Gate
 
 
 
@@ -1148,7 +1148,7 @@ Status:
 
 
 
-\## Step 6 — Executable Content
+\## Step 6: Executable Content
 
 
 
@@ -1202,7 +1202,7 @@ Status:
 
 
 
-\## Step 7 — Runtime Authorization
+\## Step 7: Runtime Authorization
 
 
 
@@ -1266,7 +1266,7 @@ Status:
 
 
 
-\## Step 8 — Execution Artifact
+\## Step 8: Execution Artifact
 
 
 
@@ -1306,7 +1306,7 @@ Status:
 
 
 
-\## Step 9 — Runtime Context
+\## Step 9: Runtime Context
 
 
 
@@ -1356,7 +1356,7 @@ Status:
 
 
 
-\## Step 10 — Runtime Pipeline
+\## Step 10: Runtime Pipeline
 
 
 
@@ -1416,7 +1416,7 @@ Status:
 
 
 
-\## Step 11 — Business Trust Pipeline
+\## Step 11: Business Trust Pipeline
 
 
 
@@ -1544,7 +1544,7 @@ It coordinates policy evaluation, authorization, execution, and trust record cre
 
 
 
-\# Stage 8 — Runtime Pipeline
+\# Stage 8: Runtime Pipeline
 
 
 
@@ -1816,7 +1816,7 @@ Those responsibilities belong to Runtime Components.
 
 
 
-\# Stage 9 — Trust Chain Validation Component
+\# Stage 9: Trust Chain Validation Component
 
 
 
@@ -2202,7 +2202,7 @@ Status:
 
 
 
-\# Stage 10 — Execution Component
+\# Stage 10: Execution Component
 
 
 
@@ -2766,7 +2766,7 @@ artifact.
 
 
 
-\# Stage 11 — Execution System
+\# Stage 11: Execution System
 
 
 
@@ -3018,7 +3018,7 @@ Status:
 
 
 
-\# Stage 12 — Execution System Implementations
+\# Stage 12: Execution System Implementations
 
 
 
@@ -3198,7 +3198,7 @@ This allows Parmana to support multiple execution strategies without changing th
 
 
 
-\# Stage 13 — Execution Gateway
+\# Stage 13: Execution Gateway
 
 
 
@@ -3650,7 +3650,7 @@ It is the primary security boundary of the Parmana execution model.
 
 
 
-\# Stage 14 — Business Trust Pipeline
+\# Stage 14: Business Trust Pipeline
 
 
 
@@ -3714,7 +3714,7 @@ Status
 
 
 
-\# Stage 14 — Business Trust Pipeline
+\# Stage 14: Business Trust Pipeline
 
 
 
@@ -4002,7 +4002,7 @@ All trust record creation is delegated to BusinessTrustRecordBuilder.
 
 
 
-\# Stage 15 — Business Trust Record Builder
+\# Stage 15: Business Trust Record Builder
 
 
 
@@ -4194,7 +4194,7 @@ Status
 
 
 
-\## Phase 1 — Draft Record
+\## Phase 1: Draft Record
 
 
 
@@ -4234,7 +4234,7 @@ Status
 
 
 
-\## Phase 2 — Trust Record Hash
+\## Phase 2: Trust Record Hash
 
 
 
@@ -4278,7 +4278,7 @@ Status
 
 
 
-\## Phase 3 — Digital Signature
+\## Phase 3: Digital Signature
 
 
 
@@ -4334,7 +4334,7 @@ Status
 
 
 
-\## Phase 4 — Final Record
+\## Phase 4: Final Record
 
 
 
@@ -4444,7 +4444,7 @@ Every preceding stage exists to produce artifacts consumed by this builder.
 
 
 
-\# Stage 16 — Execution Request Builder
+\# Stage 16: Execution Request Builder
 
 
 
@@ -4498,7 +4498,7 @@ Status
 
 
 
-\# Stage 16 — Execution Request Builder
+\# Stage 16: Execution Request Builder
 
 
 
@@ -4878,7 +4878,7 @@ Status
 
 
 
-\# Stage 17 — Execution Evidence Builder
+\# Stage 17: Execution Evidence Builder
 
 
 
@@ -4932,7 +4932,7 @@ Status
 
 
 
-\# Stage 17 — Execution Evidence Builder
+\# Stage 17: Execution Evidence Builder
 
 
 
@@ -5258,7 +5258,7 @@ Status
 
 
 
-\# Stage 18 — Runtime Authorization Signer
+\# Stage 18: Runtime Authorization Signer
 
 
 
@@ -5626,7 +5626,7 @@ Status
 
 
 
-\# Stage 19 — Execution Service
+\# Stage 19: Execution Service
 
 
 
@@ -5692,7 +5692,7 @@ Status
 
 
 
-\# Stage 19 — Execution Service
+\# Stage 19: Execution Service
 
 
 
@@ -5916,7 +5916,7 @@ Status
 
 
 
-\## Phase 1 — Create Execution
+\## Phase 1: Create Execution
 
 
 
@@ -5974,7 +5974,7 @@ Status
 
 
 
-\## Phase 2 — Attach Evidence
+\## Phase 2: Attach Evidence
 
 
 
@@ -6018,7 +6018,7 @@ Status
 
 
 
-\## Phase 3 — Complete Execution
+\## Phase 3: Complete Execution
 
 
 
@@ -6070,7 +6070,7 @@ Status
 
 
 
-\## Phase 4 — Fail Execution
+\## Phase 4: Fail Execution
 
 
 
@@ -6242,7 +6242,7 @@ Status
 
 
 
-\# Stage 20 — Business Transaction Service
+\# Stage 20: Business Transaction Service
 
 
 
@@ -6390,7 +6390,7 @@ Status
 
 
 
-\## Phase 1 — Validate
+\## Phase 1: Validate
 
 
 
@@ -6428,7 +6428,7 @@ Status
 
 
 
-\## Phase 2 — Duplicate Detection
+\## Phase 2: Duplicate Detection
 
 
 
@@ -6478,7 +6478,7 @@ Status
 
 
 
-\## Phase 3 — Persist
+\## Phase 3: Persist
 
 
 
@@ -6646,7 +6646,7 @@ Status
 
 
 
-\# Stage 21 — Verification Service
+\# Stage 21: Verification Service
 
 
 
@@ -6710,7 +6710,7 @@ Status
 
 
 
-\# Stage 21 — Verification Service
+\# Stage 21: Verification Service
 
 
 
@@ -6922,7 +6922,7 @@ Status
 
 
 
-\### Check 1 — Integrity
+\### Check 1: Integrity
 
 
 
@@ -6974,7 +6974,7 @@ Status
 
 
 
-\### Check 2 — Signature
+\### Check 2: Signature
 
 
 
@@ -7014,7 +7014,7 @@ Status
 
 
 
-\### Check 3 — Authorization Binding
+\### Check 3: Authorization Binding
 
 
 
@@ -7256,7 +7256,7 @@ Status
 
 
 
-\# Stage 22 — Receipt Service
+\# Stage 22: Receipt Service
 
 
 
@@ -7440,7 +7440,7 @@ Status
 
 
 
-\## Phase 1 — Load Trust Record
+\## Phase 1: Load Trust Record
 
 
 
@@ -7480,7 +7480,7 @@ Status
 
 
 
-\## Phase 2 — Verification Prerequisite
+\## Phase 2: Verification Prerequisite
 
 
 
@@ -7528,7 +7528,7 @@ Status
 
 
 
-\## Phase 3 — Receipt Hash
+\## Phase 3: Receipt Hash
 
 
 
@@ -7580,7 +7580,7 @@ Status
 
 
 
-\## Phase 4 — Create Receipt
+\## Phase 4: Create Receipt
 
 
 
@@ -7636,7 +7636,7 @@ Status
 
 
 
-\## Phase 5 — Persistence
+\## Phase 5: Persistence
 
 
 
@@ -7786,7 +7786,7 @@ Status
 
 
 
-\# Stage 23 — Policy Router
+\# Stage 23: Policy Router
 
 
 
@@ -7848,7 +7848,7 @@ Status
 
 
 
-\# Stage 23 — Policy Router
+\# Stage 23: Policy Router
 
 
 
@@ -8030,7 +8030,7 @@ Status
 
 
 
-\## Phase 1 — Load Policy
+\## Phase 1: Load Policy
 
 
 
@@ -8070,7 +8070,7 @@ Status
 
 
 
-\## Phase 2 — Validate Policy
+\## Phase 2: Validate Policy
 
 
 
@@ -8194,7 +8194,7 @@ Status
 
 
 
-\# Stage 24 — File Policy Repository
+\# Stage 24: File Policy Repository
 
 
 
@@ -8576,7 +8576,7 @@ Status
 
 
 
-\# Stage 25 — Policy Engine
+\# Stage 25: Policy Engine
 
 
 
@@ -9236,7 +9236,7 @@ model.
 
 
 
-\# Stage 26 — Operator Evaluator
+\# Stage 26: Operator Evaluator
 
 
 
@@ -9844,7 +9844,7 @@ Status
 
 
 
-\# Stage 27 — Decision Builder
+\# Stage 27: Decision Builder
 
 
 
@@ -10014,7 +10014,7 @@ Status:
 
 ⏳ Pending
 
-# Stage 21 — Verification Service
+# Stage 21: Verification Service
 
 ## File
 
@@ -10113,7 +10113,7 @@ Status
 
 ---
 
-## Phase 1 — Load Execution Trust Record
+## Phase 1: Load Execution Trust Record
 
 Component
 
@@ -10147,7 +10147,7 @@ Status
 
 ---
 
-## Phase 2 — Execute Verification Checks
+## Phase 2: Execute Verification Checks
 
 Component
 
@@ -10176,7 +10176,7 @@ Status
 
 ---
 
-## Verification Check 1 — Trust Record Integrity
+## Verification Check 1: Trust Record Integrity
 
 Component
 
@@ -10220,7 +10220,7 @@ Status
 
 ---
 
-## Verification Check 2 — Signature Verification
+## Verification Check 2: Signature Verification
 
 Component
 
@@ -10262,7 +10262,7 @@ Status
 
 ---
 
-## Verification Check 3 — Authorization Binding
+## Verification Check 3: Authorization Binding
 
 Purpose
 
@@ -10292,7 +10292,7 @@ Status
 
 ---
 
-## Phase 3 — Create Verification
+## Phase 3: Create Verification
 
 Creates
 
@@ -10347,7 +10347,7 @@ Status
 
 ---
 
-## Phase 4 — Persist Verification
+## Phase 4: Persist Verification
 
 Component
 
@@ -10437,7 +10437,7 @@ Status
 
 ✅ Verified
 
-# Stage 22 — Receipt Service
+# Stage 22: Receipt Service
 
 ## File
 
@@ -10625,7 +10625,7 @@ Status
 
 ⏳ Pending
 
-# Stage 22 — Receipt Service
+# Stage 22: Receipt Service
 
 ## File
 
@@ -10725,7 +10725,7 @@ Status
 
 ---
 
-## Phase 1 — Load Execution Trust Record
+## Phase 1: Load Execution Trust Record
 
 Component
 
@@ -10759,7 +10759,7 @@ Status
 
 ---
 
-## Phase 2 — Validate Latest Verification
+## Phase 2: Validate Latest Verification
 
 Purpose
 
@@ -10791,7 +10791,7 @@ Status
 
 ---
 
-## Phase 3 — Compute Receipt Hash
+## Phase 3: Compute Receipt Hash
 
 Component
 
@@ -10822,7 +10822,7 @@ Status
 
 ---
 
-## Phase 4 — Create Signed Receipt
+## Phase 4: Create Signed Receipt
 
 Component
 
@@ -10854,7 +10854,7 @@ Status
 
 ---
 
-## Phase 5 — Persist Receipt
+## Phase 5: Persist Receipt
 
 Component
 
@@ -10954,7 +10954,7 @@ Status
 
 ✅ Verified
 
-# Stage 23 — Receipt Crypto
+# Stage 23: Receipt Crypto
 
 ## File
 
@@ -11069,7 +11069,7 @@ Status
 
 ---
 
-## Phase 1 — Compute Receipt Hash
+## Phase 1: Compute Receipt Hash
 
 Component
 
@@ -11120,7 +11120,7 @@ Status
 
 ---
 
-## Phase 2 — Load Signing Key
+## Phase 2: Load Signing Key
 
 Component
 
@@ -11146,7 +11146,7 @@ Status
 
 ---
 
-## Phase 3 — Sign Artifact
+## Phase 3: Sign Artifact
 
 Component
 
@@ -11183,7 +11183,7 @@ Status
 
 ---
 
-## Phase 4 — Create Receipt
+## Phase 4: Create Receipt
 
 Method
 
@@ -11334,7 +11334,7 @@ without changing Receipt generation.
 Status
 
 ✅ Verified
-# Stage 24 — Verification Crypto
+# Stage 24: Verification Crypto
 
 ## File
 
@@ -11486,7 +11486,7 @@ Status
 
 ---
 
-## Phase 1 — Canonicalize Trust Record
+## Phase 1: Canonicalize Trust Record
 
 Component
 
@@ -11517,7 +11517,7 @@ Status
 
 ---
 
-## Phase 2 — Compute Trust Record Hash
+## Phase 2: Compute Trust Record Hash
 
 Component
 
@@ -11554,7 +11554,7 @@ Status
 
 ---
 
-## Phase 3 — Create Digital Signature
+## Phase 3: Create Digital Signature
 
 Component
 
@@ -11603,7 +11603,7 @@ Status
 
 ---
 
-## Phase 4 — Verify Signature
+## Phase 4: Verify Signature
 
 Component
 
@@ -11644,7 +11644,7 @@ Status
 
 ---
 
-## Phase 5 — Verify Trust Record
+## Phase 5: Verify Trust Record
 
 Method
 
@@ -11786,7 +11786,7 @@ Status
 
 ✅ Verified
 
-# Stage 25 — Artifact Signer
+# Stage 25: Artifact Signer
 
 ## File
 
@@ -11882,7 +11882,7 @@ Status
 
 ---
 
-## Phase 1 — Canonical Serialization
+## Phase 1: Canonical Serialization
 
 Component
 
@@ -11919,7 +11919,7 @@ Status
 
 ---
 
-## Phase 2 — Digital Signing
+## Phase 2: Digital Signing
 
 Component
 
@@ -12031,7 +12031,7 @@ Status
 
 ✅ Verified
 
-# Stage 26 — Trust Record Hasher
+# Stage 26: Trust Record Hasher
 
 ## File
 
@@ -12186,7 +12186,7 @@ Source code inspection required before documenting behavior.
 Status
 
 ⏳ Pending
-# Stage 26 — Trust Record Hasher
+# Stage 26: Trust Record Hasher
 
 ## File
 
@@ -12280,7 +12280,7 @@ Status
 
 ---
 
-## Phase 1 — Canonical Serialization
+## Phase 1: Canonical Serialization
 
 Component
 
@@ -12317,7 +12317,7 @@ Status
 
 ---
 
-## Phase 2 — Compute Hash
+## Phase 2: Compute Hash
 
 Component
 
@@ -12427,7 +12427,7 @@ Status
 
 ✅ Verified
 
-# Stage 27 — Receipt Hasher
+# Stage 27: Receipt Hasher
 
 ## File
 
@@ -12513,7 +12513,7 @@ Status
 
 ---
 
-## Phase 1 — Delegate Hash Computation
+## Phase 1: Delegate Hash Computation
 
 Component
 
@@ -12623,7 +12623,7 @@ Status
 
 ✅ Verified
 
-# Stage 28 — Authorization Signer
+# Stage 28: Authorization Signer
 
 ## File
 
@@ -12740,7 +12740,7 @@ Status
 
 ---
 
-## Phase 1 — Validate Authorization Lifetime
+## Phase 1: Validate Authorization Lifetime
 
 Input
 
@@ -12772,7 +12772,7 @@ Status
 
 ---
 
-## Phase 2 — Generate Authorization Metadata
+## Phase 2: Generate Authorization Metadata
 
 Generated Values
 
@@ -12797,7 +12797,7 @@ Status
 
 ---
 
-## Phase 3 — Compute Business Transaction Hash
+## Phase 3: Compute Business Transaction Hash
 
 Component
 
@@ -12830,7 +12830,7 @@ Status
 
 ---
 
-## Phase 4 — Build Authorization Payload
+## Phase 4: Build Authorization Payload
 
 Constructs
 
@@ -12868,7 +12868,7 @@ Status
 
 ---
 
-## Phase 5 — Sign Authorization
+## Phase 5: Sign Authorization
 
 Component
 
@@ -12902,7 +12902,7 @@ Status
 
 ---
 
-## Phase 6 — Return Signed Authorization
+## Phase 6: Return Signed Authorization
 
 Returns
 
@@ -12998,7 +12998,7 @@ Status
 
 ✅ Verified
 
-# Stage 29 — Executable Content Hasher
+# Stage 29: Executable Content Hasher
 
 ## File
 
@@ -13094,7 +13094,7 @@ Status
 
 ---
 
-## Phase 1 — Receive Executable Content
+## Phase 1: Receive Executable Content
 
 Input
 
@@ -13113,7 +13113,7 @@ Status
 
 ---
 
-## Phase 2 — Delegate Hash Computation
+## Phase 2: Delegate Hash Computation
 
 Component
 
@@ -13140,7 +13140,7 @@ Status
 
 ---
 
-## Phase 3 — Return Content Hash
+## Phase 3: Return Content Hash
 
 Output
 
@@ -13227,7 +13227,7 @@ always compute identical hashes for identical executable content.
 Status
 
 ✅ Verified
-# Stage 30 — Crypto Bootstrap
+# Stage 30: Crypto Bootstrap
 
 ## File
 
@@ -13373,7 +13373,7 @@ Status
 
 ---
 
-## Phase 1 — Load Configuration
+## Phase 1: Load Configuration
 
 Component
 
@@ -13402,7 +13402,7 @@ Status
 
 ---
 
-## Phase 2 — Register Built-in Providers
+## Phase 2: Register Built-in Providers
 
 Hash Providers
 
@@ -13429,7 +13429,7 @@ Status
 
 ---
 
-## Phase 3 — Build Crypto Provider
+## Phase 3: Build Crypto Provider
 
 Component
 
@@ -13458,7 +13458,7 @@ Status
 
 ---
 
-## Phase 4 — Cache Provider Instance
+## Phase 4: Cache Provider Instance
 
 Static Fields
 
@@ -13479,7 +13479,7 @@ Status
 
 ---
 
-## Phase 5 — Hybrid Provider Construction
+## Phase 5: Hybrid Provider Construction
 
 Method
 
@@ -13595,7 +13595,7 @@ configuration entry point for the Parmana cryptographic subsystem.
 Status
 
 ✅ Verified
-# Stage 31 — File Key Provider
+# Stage 31: File Key Provider
 
 ## File
 
@@ -13730,7 +13730,7 @@ Status
 
 ---
 
-## Phase 1 — Load Configuration
+## Phase 1: Load Configuration
 
 Component
 
@@ -13760,7 +13760,7 @@ Status
 
 ---
 
-## Phase 2 — Validate Key Directory
+## Phase 2: Validate Key Directory
 
 Method
 
@@ -13790,7 +13790,7 @@ Status
 
 ---
 
-## Phase 3 — Resolve Key Paths
+## Phase 3: Resolve Key Paths
 
 Private Methods
 
@@ -13818,7 +13818,7 @@ Status
 
 ---
 
-## Phase 4 — Load Keys
+## Phase 4: Load Keys
 
 Methods
 
@@ -13858,7 +13858,7 @@ Status
 
 ---
 
-## Phase 5 — Retrieve Metadata
+## Phase 5: Retrieve Metadata
 
 Method
 
@@ -13957,7 +13957,7 @@ underlying key storage mechanism.
 Status
 
 ✅ Verified
-# Stage 32 — Hash Registry
+# Stage 32: Hash Registry
 
 ## File
 
@@ -14033,7 +14033,7 @@ Status
 
 ---
 
-## Execution Sequence — Register Provider
+## Execution Sequence: Register Provider
 
 ```text
 HashProvider
@@ -14057,7 +14057,7 @@ Status
 
 ---
 
-## Execution Sequence — Retrieve Provider
+## Execution Sequence: Retrieve Provider
 
 ```text
 HashAlgorithm
@@ -14089,7 +14089,7 @@ Status
 
 ---
 
-## Phase 1 — Register Provider
+## Phase 1: Register Provider
 
 Method
 
@@ -14127,7 +14127,7 @@ Status
 
 ---
 
-## Phase 2 — Resolve Provider
+## Phase 2: Resolve Provider
 
 Method
 
@@ -14156,7 +14156,7 @@ Status
 
 ---
 
-## Phase 3 — Validate Lookup
+## Phase 3: Validate Lookup
 
 Validation
 
@@ -14242,7 +14242,7 @@ algorithm-specific logic into higher-level components.
 Status
 
 ✅ Verified
-# Stage 32 — Hash Registry
+# Stage 32: Hash Registry
 
 ## File
 
@@ -14318,7 +14318,7 @@ Status
 
 ---
 
-## Execution Sequence — Register Provider
+## Execution Sequence: Register Provider
 
 ```text
 HashProvider
@@ -14342,7 +14342,7 @@ Status
 
 ---
 
-## Execution Sequence — Retrieve Provider
+## Execution Sequence: Retrieve Provider
 
 ```text
 HashAlgorithm
@@ -14374,7 +14374,7 @@ Status
 
 ---
 
-## Phase 1 — Register Provider
+## Phase 1: Register Provider
 
 Method
 
@@ -14412,7 +14412,7 @@ Status
 
 ---
 
-## Phase 2 — Resolve Provider
+## Phase 2: Resolve Provider
 
 Method
 
@@ -14441,7 +14441,7 @@ Status
 
 ---
 
-## Phase 3 — Validate Lookup
+## Phase 3: Validate Lookup
 
 Validation
 
@@ -14527,7 +14527,7 @@ algorithm-specific logic into higher-level components.
 Status
 
 ✅ Verified
-# Stage 33 — Signature Registry
+# Stage 33: Signature Registry
 
 ## File
 
@@ -14604,7 +14604,7 @@ Status
 
 ---
 
-## Execution Sequence — Register Provider
+## Execution Sequence: Register Provider
 
 ```text
 SignatureProvider
@@ -14628,7 +14628,7 @@ Status
 
 ---
 
-## Execution Sequence — Retrieve Provider
+## Execution Sequence: Retrieve Provider
 
 ```text
 SignatureAlgorithm
@@ -14660,7 +14660,7 @@ Status
 
 ---
 
-## Phase 1 — Register Provider
+## Phase 1: Register Provider
 
 Method
 
@@ -14698,7 +14698,7 @@ Status
 
 ---
 
-## Phase 2 — Resolve Provider
+## Phase 2: Resolve Provider
 
 Method
 
@@ -14727,7 +14727,7 @@ Status
 
 ---
 
-## Phase 3 — Validate Lookup
+## Phase 3: Validate Lookup
 
 Validation
 
@@ -14813,7 +14813,7 @@ embedding algorithm-specific logic into higher-level components.
 Status
 
 ✅ Verified
-# Stage 34 — Crypto Builder
+# Stage 34: Crypto Builder
 
 ## File
 
@@ -14926,7 +14926,7 @@ Status
 
 ---
 
-## Phase 1 — Configure Hash Provider
+## Phase 1: Configure Hash Provider
 
 Method
 
@@ -14961,7 +14961,7 @@ Status
 
 ---
 
-## Phase 2 — Configure Signature Provider
+## Phase 2: Configure Signature Provider
 
 Method
 
@@ -14996,7 +14996,7 @@ Status
 
 ---
 
-## Phase 3 — Validate Configuration
+## Phase 3: Validate Configuration
 
 Method
 
@@ -15034,7 +15034,7 @@ Status
 
 ---
 
-## Phase 4 — Construct CryptoProvider
+## Phase 4: Construct CryptoProvider
 
 Returns
 
@@ -15119,7 +15119,7 @@ before use.
 Status
 
 ✅ Verified
-# Stage 35 — SHA-256 Hash Provider
+# Stage 35: SHA-256 Hash Provider
 
 ## File
 
@@ -15239,7 +15239,7 @@ Status
 
 ---
 
-## Phase 1 — Receive Binary Data
+## Phase 1: Receive Binary Data
 
 Input
 
@@ -15258,7 +15258,7 @@ Status
 
 ---
 
-## Phase 2 — Compute SHA-256 Digest
+## Phase 2: Compute SHA-256 Digest
 
 Operation
 
@@ -15287,7 +15287,7 @@ Status
 
 ---
 
-## Phase 3 — Return Hash
+## Phase 3: Return Hash
 
 Output
 
@@ -15362,7 +15362,7 @@ algorithm.
 Status
 
 ✅ Verified
-# Stage 35 — SHA-256 Hash Provider
+# Stage 35: SHA-256 Hash Provider
 
 ## File
 
@@ -15482,7 +15482,7 @@ Status
 
 ---
 
-## Phase 1 — Receive Binary Data
+## Phase 1: Receive Binary Data
 
 Input
 
@@ -15501,7 +15501,7 @@ Status
 
 ---
 
-## Phase 2 — Compute SHA-256 Digest
+## Phase 2: Compute SHA-256 Digest
 
 Operation
 
@@ -15530,7 +15530,7 @@ Status
 
 ---
 
-## Phase 3 — Return Hash
+## Phase 3: Return Hash
 
 Output
 
@@ -15606,7 +15606,7 @@ Status
 
 ✅ Verified
 
-# Stage 36 — Ed25519 Signature Provider
+# Stage 36: Ed25519 Signature Provider
 
 ## File
 
@@ -15700,7 +15700,7 @@ Status
 
 ---
 
-## Execution Sequence — Sign
+## Execution Sequence: Sign
 
 ```text
 Uint8Array
@@ -15728,7 +15728,7 @@ Status
 
 ---
 
-## Execution Sequence — Verify
+## Execution Sequence: Verify
 
 ```text
 Uint8Array
@@ -15756,7 +15756,7 @@ Status
 
 ---
 
-## Phase 1 — Validate Key Type
+## Phase 1: Validate Key Type
 
 Component
 
@@ -15781,7 +15781,7 @@ Status
 
 ---
 
-## Phase 2 — Generate Signature
+## Phase 2: Generate Signature
 
 Method
 
@@ -15815,7 +15815,7 @@ Status
 
 ---
 
-## Phase 3 — Verify Signature
+## Phase 3: Verify Signature
 
 Method
 
@@ -15916,7 +15916,7 @@ Status
 
 ✅ Verified
 
-# Stage 37 — Dilithium3 Signature Provider
+# Stage 37: Dilithium3 Signature Provider
 
 ## File
 
@@ -16017,7 +16017,7 @@ Status
 
 ---
 
-## Execution Sequence — Sign
+## Execution Sequence: Sign
 
 ```text
 Uint8Array
@@ -16045,7 +16045,7 @@ Status
 
 ---
 
-## Execution Sequence — Verify
+## Execution Sequence: Verify
 
 ```text
 Uint8Array
@@ -16073,7 +16073,7 @@ Status
 
 ---
 
-## Phase 1 — Validate Key Type
+## Phase 1: Validate Key Type
 
 Component
 
@@ -16098,7 +16098,7 @@ Status
 
 ---
 
-## Phase 2 — Generate Signature
+## Phase 2: Generate Signature
 
 Method
 
@@ -16133,7 +16133,7 @@ Status
 
 ---
 
-## Phase 3 — Verify Signature
+## Phase 3: Verify Signature
 
 Method
 
@@ -16238,7 +16238,7 @@ inputs while preserving verification correctness.
 Status
 
 ✅ Verified
-# Stage 38 — Hybrid Signer
+# Stage 38: Hybrid Signer
 
 ## File
 
@@ -16356,7 +16356,7 @@ Status
 
 ---
 
-## Phase 1 — Create Signers
+## Phase 1: Create Signers
 
 Construct
 
@@ -16381,7 +16381,7 @@ Status
 
 ---
 
-## Phase 2 — Generate Primary Signature
+## Phase 2: Generate Primary Signature
 
 Component
 
@@ -16411,7 +16411,7 @@ Status
 
 ---
 
-## Phase 3 — Generate Secondary Signature
+## Phase 3: Generate Secondary Signature
 
 Component
 
@@ -16441,7 +16441,7 @@ Status
 
 ---
 
-## Phase 4 — Build Signature Entries
+## Phase 4: Build Signature Entries
 
 Each entry contains
 
@@ -16462,7 +16462,7 @@ Status
 
 ---
 
-## Phase 5 — Return Signature Bundle
+## Phase 5: Return Signature Bundle
 
 Returns
 
@@ -16544,7 +16544,7 @@ duplicating signing logic.
 Status
 
 ✅ Verified
-# Stage 39 — Hybrid Verifier
+# Stage 39: Hybrid Verifier
 
 ## File
 
@@ -16658,7 +16658,7 @@ Status
 
 ---
 
-## Phase 1 — Validate Signature Bundle
+## Phase 1: Validate Signature Bundle
 
 Validation
 
@@ -16683,7 +16683,7 @@ Status
 
 ---
 
-## Phase 2 — Create Verifiers
+## Phase 2: Create Verifiers
 
 Construct
 
@@ -16708,7 +16708,7 @@ Status
 
 ---
 
-## Phase 3 — Validate Signature Entries
+## Phase 3: Validate Signature Entries
 
 Extract
 
@@ -16741,7 +16741,7 @@ Status
 
 ---
 
-## Phase 4 — Verify Primary Signature
+## Phase 4: Verify Primary Signature
 
 Component
 
@@ -16781,7 +16781,7 @@ Status
 
 ---
 
-## Phase 5 — Verify Secondary Signature
+## Phase 5: Verify Secondary Signature
 
 Component
 
@@ -16821,7 +16821,7 @@ Status
 
 ---
 
-## Phase 6 — Return Verification Result
+## Phase 6: Return Verification Result
 
 Operation
 
@@ -16908,7 +16908,7 @@ algorithms.
 Status
 
 ✅ Verified
-# Stage 40 — End-to-End Execution Flow
+# Stage 40: End-to-End Execution Flow
 
 ## Purpose
 
@@ -17028,7 +17028,7 @@ Status
 
 ---
 
-## Phase 1 — Business Transaction
+## Phase 1: Business Transaction
 
 Component
 
@@ -17047,7 +17047,7 @@ Status
 
 ---
 
-## Phase 2 — Runtime Evaluation
+## Phase 2: Runtime Evaluation
 
 Components
 
@@ -17078,7 +17078,7 @@ Status
 
 ---
 
-## Phase 3 — Authorization
+## Phase 3: Authorization
 
 Components
 
@@ -17109,7 +17109,7 @@ Status
 
 ---
 
-## Phase 4 — Execution
+## Phase 4: Execution
 
 Components
 
@@ -17138,7 +17138,7 @@ Status
 
 ---
 
-## Phase 5 — Trust Record Construction
+## Phase 5: Trust Record Construction
 
 Components
 
@@ -17165,7 +17165,7 @@ Status
 
 ---
 
-## Phase 6 — Verification
+## Phase 6: Verification
 
 Components
 
@@ -17195,7 +17195,7 @@ Status
 
 ---
 
-## Phase 7 — Receipt Generation
+## Phase 7: Receipt Generation
 
 Components
 
@@ -17352,7 +17352,7 @@ generation.
 Status
 
 ✅ Verified
-# Stage 41 — Trust Boundaries
+# Stage 41: Trust Boundaries
 
 ## Purpose
 
@@ -17462,7 +17462,7 @@ Status
 
 ---
 
-## Boundary 1 — Application Entry
+## Boundary 1: Application Entry
 
 Components
 
@@ -17491,7 +17491,7 @@ Status
 
 ---
 
-## Boundary 2 — Authorization
+## Boundary 2: Authorization
 
 Components
 
@@ -17526,7 +17526,7 @@ Status
 
 ---
 
-## Boundary 3 — Execution
+## Boundary 3: Execution
 
 Components
 
@@ -17563,7 +17563,7 @@ Status
 
 ---
 
-## Boundary 4 — Trust Record
+## Boundary 4: Trust Record
 
 Components
 
@@ -17592,7 +17592,7 @@ Status
 
 ---
 
-## Boundary 5 — Verification
+## Boundary 5: Verification
 
 Components
 
@@ -17722,7 +17722,7 @@ individually during the implementation audit.
 Status
 
 ✅ Verified
-# Stage 42 — Security Invariants
+# Stage 42: Security Invariants
 
 ## Purpose
 
@@ -17741,7 +17741,7 @@ Status
 
 ---
 
-# Invariant 1 — Deterministic Decisions
+# Invariant 1: Deterministic Decisions
 
 ## Guarantee
 
@@ -17768,7 +17768,7 @@ Status
 
 ---
 
-# Invariant 2 — Canonical Data Representation
+# Invariant 2: Canonical Data Representation
 
 ## Guarantee
 
@@ -17796,7 +17796,7 @@ Status
 
 ---
 
-# Invariant 3 — Content Integrity
+# Invariant 3: Content Integrity
 
 ## Guarantee
 
@@ -17827,7 +17827,7 @@ Status
 
 ---
 
-# Invariant 4 — Authorization Integrity
+# Invariant 4: Authorization Integrity
 
 ## Guarantee
 
@@ -17852,7 +17852,7 @@ Status
 
 ---
 
-# Invariant 5 — Signature Authenticity
+# Invariant 5: Signature Authenticity
 
 ## Guarantee
 
@@ -17879,7 +17879,7 @@ Status
 
 ---
 
-# Invariant 6 — Authorization Binding
+# Invariant 6: Authorization Binding
 
 ## Guarantee
 
@@ -17906,7 +17906,7 @@ Status
 
 ---
 
-# Invariant 7 — Immutable Trust Evidence
+# Invariant 7: Immutable Trust Evidence
 
 ## Guarantee
 
@@ -17933,7 +17933,7 @@ Status
 
 ---
 
-# Invariant 8 — Receipt Authenticity
+# Invariant 8: Receipt Authenticity
 
 ## Guarantee
 
@@ -17960,7 +17960,7 @@ Status
 
 ---
 
-# Invariant 9 — Algorithm Isolation
+# Invariant 9: Algorithm Isolation
 
 ## Guarantee
 
@@ -17989,7 +17989,7 @@ Status
 
 ---
 
-# Invariant 10 — Key Separation
+# Invariant 10: Key Separation
 
 ## Guarantee
 
@@ -18016,7 +18016,7 @@ Status
 
 ---
 
-# Invariant 11 — Provider Validation
+# Invariant 11: Provider Validation
 
 ## Guarantee
 
@@ -18042,7 +18042,7 @@ Status
 
 ---
 
-# Invariant 12 — Hybrid Cryptographic Consistency
+# Invariant 12: Hybrid Cryptographic Consistency
 
 ## Guarantee
 
@@ -18068,7 +18068,7 @@ Status
 
 ---
 
-# Invariant 13 — Fail-Closed Verification
+# Invariant 13: Fail-Closed Verification
 
 ## Guarantee
 
@@ -18161,7 +18161,7 @@ Status
 
 ✅ Verified
 
-# Stage 43 — Determinism Guarantees
+# Stage 43: Determinism Guarantees
 
 ## Purpose
 
@@ -18220,7 +18220,7 @@ Status
 
 ---
 
-# Guarantee 1 — Canonical Serialization
+# Guarantee 1: Canonical Serialization
 
 ## Components
 
@@ -18258,7 +18258,7 @@ Status
 
 ---
 
-# Guarantee 2 — Stable Hash Generation
+# Guarantee 2: Stable Hash Generation
 
 ## Components
 
@@ -18294,7 +18294,7 @@ Status
 
 ---
 
-# Guarantee 3 — Stable Authorization Content
+# Guarantee 3: Stable Authorization Content
 
 ## Components
 
@@ -18326,7 +18326,7 @@ Status
 
 ---
 
-# Guarantee 4 — Deterministic Signature Input
+# Guarantee 4: Deterministic Signature Input
 
 ## Components
 
@@ -18350,7 +18350,7 @@ Status
 
 ---
 
-# Guarantee 5 — Deterministic Verification
+# Guarantee 5: Deterministic Verification
 
 ## Components
 
@@ -18375,7 +18375,7 @@ Status
 
 ---
 
-# Guarantee 6 — Immutable Trust Evidence
+# Guarantee 6: Immutable Trust Evidence
 
 ## Components
 
@@ -18402,7 +18402,7 @@ Status
 
 ---
 
-# Guarantee 7 — Shared Cryptographic Infrastructure
+# Guarantee 7: Shared Cryptographic Infrastructure
 
 ## Components
 
@@ -18431,7 +18431,7 @@ Status
 
 ---
 
-# Guarantee 8 — Algorithm Independence
+# Guarantee 8: Algorithm Independence
 
 ## Components
 
@@ -18460,7 +18460,7 @@ Status
 
 ---
 
-# Guarantee 9 — Deterministic Verification Pipeline
+# Guarantee 9: Deterministic Verification Pipeline
 
 The verification process always follows the same sequence.
 
@@ -18496,7 +18496,7 @@ Status
 
 ---
 
-# Guarantee 10 — Deterministic Receipt Generation
+# Guarantee 10: Deterministic Receipt Generation
 
 ## Components
 
@@ -18564,7 +18564,7 @@ The audited repository also includes `Dilithium3SignatureProvider`,
 whose source code explicitly documents that **ML-DSA-65 signatures are
 randomized**. Signing the same canonical artifact twice produces
 different valid signatures. Therefore, determinism applies to the
-artifact, hash, authorization content, and verification outcome—not to
+artifact, hash, authorization content, and verification outcome, not to
 the raw signature bytes produced by randomized signature algorithms.
 
 Status
@@ -18590,7 +18590,7 @@ Status
 
 ✅ Verified
 
-# Stage 44 — Repository Cross-Reference Matrix
+# Stage 44: Repository Cross-Reference Matrix
 
 ## Purpose
 
@@ -18886,7 +18886,7 @@ pipeline.
 Status
 
 ✅ Verified
-# Stage 45 — Architecture Summary
+# Stage 45: Architecture Summary
 
 ## Purpose
 
