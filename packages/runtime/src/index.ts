@@ -20,6 +20,7 @@ export * from "./ExecutionTrustApplication.js";
 
 export * from "./RuntimeEngine.js";
 export * from "./BusinessTrustPipeline.js";
+export * from "./RefusalRecordBuilder.js";
 export * from "./RuntimePipeline.js";
 export * from "./RuntimeComponent.js";
 export * from "./hooks/RuntimeHook.js";

@@ -1,5 +1,6 @@
 import {
   ExecutionTrustRecordRepository,
+  RefusalRecordRepository,
   loadConfig,
 } from "@parmana/shared";
 
@@ -17,6 +18,7 @@ import { DecisionBuilder } from "./DecisionBuilder.js";
 import { ExecutionBuilder } from "./ExecutionBuilder.js";
 import { ExecutionGate } from "./ExecutionGate.js";
 import { RuntimeAuthorizationSigner } from "./RuntimeAuthorizationSigner.js";
+import { RefusalRecordBuilder } from "./RefusalRecordBuilder.js";
 
 import { Runtime } from "./Runtime.js";
 import { RuntimeEngine } from "./RuntimeEngine.js";
@@ -113,9 +115,15 @@ export class RuntimeBuilder {
 
   /**
    * Build immutable Runtime.
+   *
+   * refusalRecords is optional (RFC-0021) so every pre-existing
+   * call site that builds a Runtime without caring about refusal
+   * evidence keeps compiling unchanged. Production wiring
+   * (RuntimeFactory.create) always passes a real repository.
    */
   public build(
     trustRecords: ExecutionTrustRecordRepository,
+    refusalRecords?: RefusalRecordRepository,
   ): Runtime {
     //
     // Runtime pipeline
@@ -162,6 +170,14 @@ export class RuntimeBuilder {
     } = loadConfig().authorization;
 
     //
+    // Refusal subsystem (RFC-0021)
+    //
+    const refusalRecordBuilder =
+      refusalRecords
+        ? new RefusalRecordBuilder()
+        : undefined;
+
+    //
     // Runtime engine
     //
     const runtimeEngine =
@@ -177,6 +193,8 @@ export class RuntimeBuilder {
         authorizationSigner,
         authorizationTtlSeconds,
         this.hooks,
+        refusalRecordBuilder,
+        refusalRecords,
       );
 
     //

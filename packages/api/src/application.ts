@@ -27,6 +27,7 @@ import type {
 import {
   businessTransactionRepository,
   executionTrustRecordRepository,
+  refusalRecordRepository,
 } from "./repositories.js";
 
 const config =
@@ -45,6 +46,7 @@ export function createApplication(
     executionTrustRecordRepository,
     policyRepository,
     executionSystem,
+    refusalRecordRepository,
   );
 }
 

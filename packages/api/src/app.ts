@@ -18,6 +18,8 @@ import { createTransactionsRouter } from "./routes/transactions.js";
 import { createTrustRecordsRouter } from "./routes/trust-records.js";
 import { createVerifyGetRouter } from "./routes/verify-get.js";
 import { createVerifyRouter } from "./routes/verify.js";
+import { createRefusalVerifyRouter } from "./routes/refusal-verify.js";
+import { createRefusalGetRouter } from "./routes/refusal-get.js";
 import { createRazorpayWebhookRouter } from "./routes/webhooks-razorpay.js";
 import { createReadyRouter } from "./routes/ready.js";
 
@@ -120,6 +122,18 @@ app.use("/ready", createReadyRouter());
 app.use("/openapi.yaml", openapiRoutes);
 app.use("/documentation", documentationRoutes);
 
+/**
+ * RFC-0021: deliberately exempt from caller-auth, alongside the
+ * system routes above -- this is the unauthenticated, third-party
+ * signature-verification capability, not a data-access route. Its
+ * ownership-scoped counterpart, GET /refusal/:businessTransactionId,
+ * is mounted below the middleware with everything else.
+ */
+app.use(
+  "/refusal/verify",
+  createRefusalVerifyRouter(application),
+);
+
 if (options.callerAuth !== "disabled") {
   app.use(
     createCallerAuthMiddleware(
@@ -155,7 +169,19 @@ app.use(
 app.use(
   "/verification",
   createVerifyGetRouter(application),
-);/**
+);
+
+/**
+ * Refusal Records (RFC-0021)
+ *
+ * Ownership-scoped lookup by ID -- the unauthenticated verification
+ * route (POST /refusal/verify) is mounted above, before caller-auth.
+ */
+app.use(
+  "/refusal",
+  createRefusalGetRouter(application),
+);
+/**
  * Receipts
  */
 app.use(

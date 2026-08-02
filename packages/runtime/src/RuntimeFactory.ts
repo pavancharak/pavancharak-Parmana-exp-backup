@@ -3,6 +3,7 @@ import type { PolicyRepository } from "@parmana/policy";
 import {
   BusinessTransactionRepository,
   ExecutionTrustRecordRepository,
+  RefusalRecordRepository,
 } from "@parmana/shared";
 
 import type {
@@ -38,6 +39,7 @@ export class RuntimeFactory {
   trustRecords: ExecutionTrustRecordRepository,
   policyRepository: PolicyRepository,
   executionSystem: ExecutionSystem,
+  refusalRecords?: RefusalRecordRepository,
 ): ExecutionTrustApplication {
     //
     // Application Services
@@ -93,6 +95,7 @@ export class RuntimeFactory {
         )
         .build(
           trustRecords,
+          refusalRecords,
         );
 
     //
@@ -104,6 +107,7 @@ export class RuntimeFactory {
       verificationService,
       receiptService,
       trustRecords,
+      refusalRecords,
     );
   }
 }

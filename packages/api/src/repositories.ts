@@ -48,3 +48,7 @@ export const businessTransactionRepository = lazyRepository(
 export const executionTrustRecordRepository = lazyRepository(
   (provider) => provider.trustRecords,
 );
+
+export const refusalRecordRepository = lazyRepository(
+  (provider) => provider.refusalRecords,
+);

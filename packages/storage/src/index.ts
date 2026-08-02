@@ -43,6 +43,7 @@ export * from "./memory/MemoryStorageProvider.js";
 
 export * from "./memory/MemoryBusinessTransactionRepository.js";
 export * from "./memory/MemoryExecutionTrustRecordRepository.js";
+export * from "./memory/MemoryRefusalRecordRepository.js";
 export * from "./memory/MemoryPolicyRepository.js";
 
 // -----------------------------------------------------------------------------
@@ -55,5 +56,6 @@ export * from "./errors/PostgresErrorCodes.js";
 export * from "./supabase/SupabaseStorageProvider.js";
 export * from "./supabase/SupabaseBusinessTransactionRepository.js";
 export * from "./supabase/SupabaseExecutionTrustRecordRepository.js";
+export * from "./supabase/SupabaseRefusalRecordRepository.js";
 export * from "./supabase/SupabaseNonceStore.js";
 export * from "./supabase/SupabaseClientFactory.js";

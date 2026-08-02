@@ -2,13 +2,17 @@ import { DecisionBuilder } from "./DecisionBuilder.js";
 import { ExecutionBuilder } from "./ExecutionBuilder.js";
 import { ExecutionGate } from "./ExecutionGate.js";
 import { RuntimeAuthorizationSigner } from "./RuntimeAuthorizationSigner.js";
+import { RefusalRecordBuilder } from "./RefusalRecordBuilder.js";
 
 import {
   BusinessTransaction,
   BusinessTransactionStatus,
+  Decision,
+  DecisionOutcome,
   ExecutableContent,
   ExecutionTrustRecord,
   JsonValue,
+  RefusalRecordRepository,
   toExecutableContent,
 } from "@parmana/shared";
 
@@ -18,6 +22,7 @@ import {
   PolicyRouter,
   SignalIntentBinder,
   type PolicyDecision,
+  type SignalIntentBindingViolation,
 } from "@parmana/policy";
 
 import type {
@@ -61,6 +66,18 @@ export class RuntimeEngine {
     private readonly authorizationSigner: RuntimeAuthorizationSigner,
     private readonly authorizationTtlSeconds: number,
     private readonly hooks: RuntimeHook[] = [],
+    /**
+     * RFC-0021 Refusal Record dependencies. Optional and trailing
+     * deliberately: every pre-existing call site that constructs
+     * RuntimeEngine directly (with exactly 10 positional args, no
+     * hooks) must keep compiling and behaving identically. When
+     * either is omitted, refusal-record writing is skipped exactly
+     * the same way a write failure is handled (see execute()) --
+     * "not configured" and "failed" are treated identically, never
+     * blocking or altering the REJECT itself.
+     */
+    private readonly refusalRecordBuilder?: RefusalRecordBuilder,
+    private readonly refusalRecordRepository?: RefusalRecordRepository,
   ) {
     if (!pipeline) {
       throw new Error("RuntimePipeline is required.");
@@ -209,6 +226,27 @@ export class RuntimeEngine {
       );
 
     //
+    // Refusal Record (RFC-0021)
+    //
+    // Evidentiary write only -- must never affect, delay past this
+    // synchronous attempt, or block the enforce() call below in any
+    // way. Scope is deliberately narrow: only decision.outcome !==
+    // APPROVED reaches here at all, which for this method means
+    // exactly the two paths RFC-0021 covers (an ordinary
+    // PolicyEngine.evaluate REJECT, or the signal-intent-binding
+    // REJECT built above) -- not PolicyNotFoundError,
+    // PolicyValidationError, or any other couldn't-evaluate failure,
+    // none of which reach this point at all.
+    //
+    if (decision.outcome !== DecisionOutcome.APPROVED) {
+      await this.writeRefusalRecord(
+        transaction,
+        decision,
+        bindingViolations,
+      );
+    }
+
+    //
     // Enforce
     //
 
@@ -336,6 +374,63 @@ export class RuntimeEngine {
       );
 
       throw error;
+    }
+  }
+
+  /**
+   * Builds and persists a Refusal Record for a rejected Decision
+   * (RFC-0021 §6).
+   *
+   * This is the single most important property in this method: a
+   * failure here -- refusalRecordBuilder/refusalRecordRepository not
+   * configured, a signing error, a storage outage, anything -- is
+   * caught here and never rethrown. The caller (execute(), right
+   * before executionGate.enforce()) always proceeds to enforce the
+   * REJECT exactly as if this method did not exist. The refusal
+   * itself must never depend on its own evidence being writable;
+   * only the opposite (evidence depends on the refusal) would ever
+   * be acceptable. A failure is still loud, not silent: logged via
+   * console.error so an operator can find and reconcile the gap,
+   * matching this codebase's existing severity-flagging pattern for
+   * evidentiary write failures (RazorpayWebhookAuditEvent.severity).
+   */
+  private async writeRefusalRecord(
+    transaction: BusinessTransaction,
+    decision: Decision,
+    bindingViolations: SignalIntentBindingViolation[],
+  ): Promise<void> {
+    if (!this.refusalRecordBuilder || !this.refusalRecordRepository) {
+      return;
+    }
+
+    try {
+      const refusalRecord =
+        await this.refusalRecordBuilder.build(
+          transaction.businessTransactionId,
+          decision,
+          {
+            target: transaction.intent.target,
+            parameters: transaction.intent.parameters,
+          },
+          bindingViolations,
+          transaction.metadata?.submittedBy,
+        );
+
+      await this.refusalRecordRepository.create(
+        refusalRecord,
+      );
+    } catch (error) {
+      console.error({
+        event: "refusal_record_write_failed",
+        businessTransactionId:
+          transaction.businessTransactionId,
+        decisionId:
+          decision.decisionId,
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      });
     }
   }
 

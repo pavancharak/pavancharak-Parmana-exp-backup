@@ -1,6 +1,7 @@
 import type {
   BusinessTransactionRepository,
   ExecutionTrustRecordRepository,
+  RefusalRecordRepository,
 } from "@parmana/shared";
 
 /**
@@ -19,4 +20,9 @@ export interface StorageProvider {
    * Execution Trust Record repository.
    */
   readonly trustRecords: ExecutionTrustRecordRepository;
+
+  /**
+   * Refusal Record repository (RFC-0021).
+   */
+  readonly refusalRecords: RefusalRecordRepository;
 }

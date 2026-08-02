@@ -1,10 +1,12 @@
-import { VerificationCrypto } from "@parmana/crypto";
+import { RefusalCrypto, VerificationCrypto } from "@parmana/crypto";
 
 import {
   BusinessTransaction,
   ExecutionTrustRecord,
   ExecutionTrustRecordRepository,
   Receipt,
+  RefusalRecord,
+  RefusalRecordRepository,
   Verification,
 } from "@parmana/shared";
 
@@ -34,12 +36,23 @@ export class ExecutionTrustApplication {
   private readonly crypto =
     new VerificationCrypto();
 
+  private readonly refusalCrypto =
+    new RefusalCrypto();
+
   constructor(
     private readonly transactions: BusinessTransactionService,
     private readonly runtime: Runtime,
     private readonly verification: VerificationService,
     private readonly receipts: ReceiptService,
     private readonly trustRecords: ExecutionTrustRecordRepository,
+    /**
+     * RFC-0021. Optional so existing callers that construct
+     * ExecutionTrustApplication directly (tests) keep compiling.
+     * getRefusalRecord()/verifyRefusalRecord() return
+     * null/false-shaped results rather than throwing when omitted --
+     * see each method.
+     */
+    private readonly refusalRecords?: RefusalRecordRepository,
   ) {
     Object.freeze(this);
   }
@@ -155,6 +168,41 @@ export class ExecutionTrustApplication {
     return this.trustRecords.findByTransactionId(
       businessTransactionId,
     );
+  }
+
+  /**
+   * Get Refusal Record (RFC-0021).
+   *
+   * Returns null when no RefusalRecordRepository is configured, the
+   * same shape as "no record found" -- callers (the GET
+   * /refusal/:id route) do not need to distinguish "not wired up"
+   * from "nothing to find here."
+   */
+  async getRefusalRecord(
+    businessTransactionId: string,
+  ): Promise<RefusalRecord | null> {
+    if (!this.refusalRecords) {
+      return null;
+    }
+
+    return this.refusalRecords.findByTransactionId(
+      businessTransactionId,
+    );
+  }
+
+  /**
+   * Verify a Refusal Record's signature (RFC-0021).
+   *
+   * Takes the record itself, not an ID -- no database lookup, no
+   * caller authentication required. This is the capability that
+   * makes a refusal independently third-party-verifiable: anyone
+   * holding a RefusalRecord (e.g. the caller who was refused) can
+   * check it themselves against Parmana's public key alone.
+   */
+  async verifyRefusalRecord(
+    refusalRecord: RefusalRecord,
+  ): Promise<boolean> {
+    return this.refusalCrypto.verify(refusalRecord);
   }
 
   /**
