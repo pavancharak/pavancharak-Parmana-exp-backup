@@ -75,7 +75,19 @@ temp/
 
 keys/
 *.pem
+*.key
+*.crt
+id_rsa
+id_ed25519
 packages/crypto/keys/*.pem
+
+###############################################################################
+# Credential files
+###############################################################################
+
+.npmrc
+credentials.json
+service-account*.json
 
 ###############################################################################
 # Generated deployment secrets (scripts/generate-fly-secrets.mjs)

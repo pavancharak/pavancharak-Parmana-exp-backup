@@ -7,6 +7,11 @@ verifiable record, not a hope.**
 [![License](https://img.shields.io/badge/license-proprietary-lightgrey)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D24-brightgreen)](package.json)
 
+> **Proprietary software — evaluation only.** This repository is source-available
+> for evaluation purposes. No license is granted to use, copy, modify, or
+> distribute this software, in whole or in part, without a separate written
+> agreement with Parmana Systems. See [LICENSE](./LICENSE).
+
 As organizations connect AI agents to real systems, the open question is
 no longer whether the agent can act, it's what it's actually allowed to
 do, and whether what it did can be proven afterward rather than assumed.
