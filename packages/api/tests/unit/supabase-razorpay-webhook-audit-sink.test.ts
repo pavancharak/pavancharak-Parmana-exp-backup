@@ -9,18 +9,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { AuditEventCrypto } from "@parmana/crypto";
 
-import { SupabaseCallerAuditSink } from "../../src/auth/SupabaseCallerAuditSink.js";
-import type { CallerAuditEvent } from "../../src/auth/CallerAuditSink.js";
+import { SupabaseRazorpayWebhookAuditSink } from "../../src/webhooks/SupabaseRazorpayWebhookAuditSink.js";
+import type { RazorpayWebhookAuditEvent } from "../../src/webhooks/RazorpayWebhookAuditSink.js";
 
 //
-// Hermetic key material -- signing is now involved, matching
-// runtime.test.ts's own convention.
+// Hermetic key material, matching supabase-caller-audit-sink.test.ts's
+// own convention.
 //
 let keyDir: string;
 let previousKeyDir: string | undefined;
 
 beforeEach(() => {
-  keyDir = mkdtempSync(join(tmpdir(), "parmana-caller-audit-sink-keys-"));
+  keyDir = mkdtempSync(join(tmpdir(), "parmana-webhook-audit-sink-keys-"));
 
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
 
@@ -54,7 +54,7 @@ function createFakeClient(options?: {
 }): SupabaseClient {
   const client = {
     from(table: string) {
-      expect(table).toBe("caller_audit_events");
+      expect(table).toBe("razorpay_webhook_audit_events");
 
       return {
         insert(row: Record<string, unknown>) {
@@ -73,59 +73,36 @@ function createFakeClient(options?: {
   return client as unknown as SupabaseClient;
 }
 
-const AUTHENTICATED_EVENT: CallerAuditEvent = {
-  type: "caller.authenticated",
+const REJECTED_EVENT: RazorpayWebhookAuditEvent = {
+  type: "webhook.rejected",
   occurredAt: "2026-01-01T00:00:00.000Z",
-  route: "/execute",
-  callerId: "caller-1",
+  route: "/webhooks/razorpay",
+  reason: "signature mismatch",
 };
 
-const REJECTED_EVENT: CallerAuditEvent = {
-  type: "caller.rejected",
+const SETTLEMENT_FAILED_EVENT: RazorpayWebhookAuditEvent = {
+  type: "settlement.failed",
   occurredAt: "2026-01-01T00:00:00.000Z",
-  route: "/execute",
-  reason: "missing credential",
+  route: "/webhooks/razorpay",
+  eventId: "evt-1",
+  eventType: "refund.processed",
+  refundId: "rfnd_1",
+  severity: "flagged",
+  confirmationId: "conf-1",
+  fetchedRefundStatus: "failed",
 };
 
-describe("SupabaseCallerAuditSink", () => {
+describe("SupabaseRazorpayWebhookAuditSink", () => {
   it("resolves on a successful insert", async () => {
-    const sink = new SupabaseCallerAuditSink(createFakeClient());
+    const sink = new SupabaseRazorpayWebhookAuditSink(createFakeClient());
 
-    await expect(sink.record(AUTHENTICATED_EVENT)).resolves.toBeUndefined();
+    await expect(sink.record(REJECTED_EVENT)).resolves.toBeUndefined();
   });
 
-  it("maps CallerAuditEvent fields to row columns, nulling absent optional fields", async () => {
+  it("maps a rejected webhook event to row columns, nulling absent optional fields, and signs it", async () => {
     let capturedRow: Record<string, unknown> | undefined;
 
-    const sink = new SupabaseCallerAuditSink(
-      createFakeClient({
-        onInsert: (row) => {
-          capturedRow = row;
-        },
-      }),
-    );
-
-    await sink.record(AUTHENTICATED_EVENT);
-
-    expect(capturedRow).toEqual({
-      type: "caller.authenticated",
-      occurred_at: "2026-01-01T00:00:00.000Z",
-      route: "/execute",
-      caller_id: "caller-1",
-      reason: null,
-      signature_json: {
-        algorithm: "ed25519",
-        keyId: "default",
-        value: expect.any(String),
-        signedAt: expect.any(Date),
-      },
-    });
-  });
-
-  it("maps a rejected event's reason, nulling the absent callerId", async () => {
-    let capturedRow: Record<string, unknown> | undefined;
-
-    const sink = new SupabaseCallerAuditSink(
+    const sink = new SupabaseRazorpayWebhookAuditSink(
       createFakeClient({
         onInsert: (row) => {
           capturedRow = row;
@@ -136,11 +113,17 @@ describe("SupabaseCallerAuditSink", () => {
     await sink.record(REJECTED_EVENT);
 
     expect(capturedRow).toEqual({
-      type: "caller.rejected",
+      type: "webhook.rejected",
       occurred_at: "2026-01-01T00:00:00.000Z",
-      route: "/execute",
-      caller_id: null,
-      reason: "missing credential",
+      route: "/webhooks/razorpay",
+      event_id: null,
+      event_type: null,
+      payment_id: null,
+      refund_id: null,
+      reason: "signature mismatch",
+      severity: null,
+      confirmation_id: null,
+      fetched_refund_status: null,
       signature_json: {
         algorithm: "ed25519",
         keyId: "default",
@@ -150,22 +133,10 @@ describe("SupabaseCallerAuditSink", () => {
     });
   });
 
-  it("preserves existing failure semantics: a storage error rejects the returned promise, unchanged from InMemoryCallerAuditSink's contract", async () => {
-    const sink = new SupabaseCallerAuditSink(
-      createFakeClient({
-        insertError: { code: "08006", message: "connection failure" },
-      }),
-    );
-
-    await expect(sink.record(AUTHENTICATED_EVENT)).rejects.toMatchObject({
-      code: "08006",
-    });
-  });
-
-  it("signs each event so it verifies against its own canonical bytes, and a tampered event fails verification", async () => {
+  it("maps a flagged settlement-failed event's full field set", async () => {
     let capturedRow: Record<string, unknown> | undefined;
 
-    const sink = new SupabaseCallerAuditSink(
+    const sink = new SupabaseRazorpayWebhookAuditSink(
       createFakeClient({
         onInsert: (row) => {
           capturedRow = row;
@@ -173,28 +144,65 @@ describe("SupabaseCallerAuditSink", () => {
       }),
     );
 
-    await sink.record(AUTHENTICATED_EVENT);
+    await sink.record(SETTLEMENT_FAILED_EVENT);
+
+    expect(capturedRow).toMatchObject({
+      type: "settlement.failed",
+      event_id: "evt-1",
+      event_type: "refund.processed",
+      refund_id: "rfnd_1",
+      severity: "flagged",
+      confirmation_id: "conf-1",
+      fetched_refund_status: "failed",
+    });
+    expect(capturedRow!.signature_json).toBeDefined();
+  });
+
+  it("preserves existing failure semantics: a storage error rejects the returned promise", async () => {
+    const sink = new SupabaseRazorpayWebhookAuditSink(
+      createFakeClient({
+        insertError: { code: "08006", message: "connection failure" },
+      }),
+    );
+
+    await expect(sink.record(REJECTED_EVENT)).rejects.toMatchObject({
+      code: "08006",
+    });
+  });
+
+  it("signs each event so it verifies against its own canonical bytes, and a tampered event fails verification", async () => {
+    let capturedRow: Record<string, unknown> | undefined;
+
+    const sink = new SupabaseRazorpayWebhookAuditSink(
+      createFakeClient({
+        onInsert: (row) => {
+          capturedRow = row;
+        },
+      }),
+    );
+
+    await sink.record(SETTLEMENT_FAILED_EVENT);
 
     const crypto = new AuditEventCrypto();
-    const signature = (capturedRow!.signature_json as {
+    const signature = capturedRow!.signature_json as {
       algorithm: "ed25519";
       keyId: string;
       value: string;
       signedAt: Date;
-    });
+    };
 
-    // Genuine: verifying against the exact event that was signed.
     await expect(
-      crypto.verify(AUTHENTICATED_EVENT, signature),
+      crypto.verify(SETTLEMENT_FAILED_EVENT, signature),
     ).resolves.toBe(true);
 
-    // Tampered: one field changed after the fact (simulates a
-    // database row edited directly, or an operator/attacker with
-    // storage access) -- this is the proof signing here is not
-    // decorative.
-    const tamperedEvent: CallerAuditEvent = {
-      ...AUTHENTICATED_EVENT,
-      callerId: "attacker-controlled-caller-id",
+    // Tampered: flips the outcome a third party would care about
+    // most -- "failed" silently rewritten to "confirmed" after the
+    // fact, exactly the kind of alteration signing exists to catch.
+    const tamperedEvent: RazorpayWebhookAuditEvent = {
+      ...SETTLEMENT_FAILED_EVENT,
+      type: "settlement.confirmed",
+      fetchedRefundStatus: "processed",
+      severity: undefined,
     };
 
     await expect(

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { AuditEventCrypto } from "@parmana/crypto";
+
 import type { CallerAuditEvent, CallerAuditSink } from "./CallerAuditSink.js";
 
 /**
@@ -9,6 +11,15 @@ import type { CallerAuditEvent, CallerAuditSink } from "./CallerAuditSink.js";
  * in InMemoryCallerAuditSink's process-local array (still the correct
  * choice for tests — see
  * packages/api/src/bootstrap/createCallerAuditSink.js).
+ *
+ * Signed at write time (audit-sink signing milestone, following
+ * RFC-0021's Refusal Records): a plain durable row could previously
+ * be altered by anyone with database access with no way to detect
+ * it. Signs the event exactly as given, before any storage-only
+ * field (insert timestamp, row id) is added — the same discipline
+ * VerificationCrypto/RefusalCrypto already apply. Uses the same
+ * signing stack and key (DEFAULT_KEY_ID) as every other signed
+ * artifact in this codebase; see AuditEventCrypto.
  *
  * Failure semantics: unchanged from InMemoryCallerAuditSink. record()
  * has always been an unguarded `await` in
@@ -22,9 +33,13 @@ import type { CallerAuditEvent, CallerAuditSink } from "./CallerAuditSink.js";
  * documented rather than changed in this session.
  */
 export class SupabaseCallerAuditSink implements CallerAuditSink {
+  private readonly crypto = new AuditEventCrypto();
+
   constructor(private readonly client: SupabaseClient) {}
 
   async record(event: CallerAuditEvent): Promise<void> {
+    const signature = await this.crypto.sign(event);
+
     const { error } = await this.client
       .from("caller_audit_events")
       .insert({
@@ -33,6 +48,7 @@ export class SupabaseCallerAuditSink implements CallerAuditSink {
         route: event.route,
         caller_id: event.callerId ?? null,
         reason: event.reason ?? null,
+        signature_json: signature,
       });
 
     if (error) {

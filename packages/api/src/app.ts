@@ -20,6 +20,7 @@ import { createVerifyGetRouter } from "./routes/verify-get.js";
 import { createVerifyRouter } from "./routes/verify.js";
 import { createRefusalVerifyRouter } from "./routes/refusal-verify.js";
 import { createRefusalGetRouter } from "./routes/refusal-get.js";
+import { createAuditVerifyRouter } from "./routes/audit-verify.js";
 import { createRazorpayWebhookRouter } from "./routes/webhooks-razorpay.js";
 import { createReadyRouter } from "./routes/ready.js";
 
@@ -132,6 +133,19 @@ app.use("/documentation", documentationRoutes);
 app.use(
   "/refusal/verify",
   createRefusalVerifyRouter(application),
+);
+
+/**
+ * Audit-sink signing milestone: the same unauthenticated,
+ * third-party-verifiable capability as POST /refusal/verify above,
+ * over the two durable audit trails (caller_audit_events,
+ * razorpay_webhook_audit_events) instead of Refusal Records. No
+ * ExecutionTrustApplication dependency -- verification here is pure
+ * signature-over-bytes, with no database lookup involved.
+ */
+app.use(
+  "/audit/verify",
+  createAuditVerifyRouter(),
 );
 
 if (options.callerAuth !== "disabled") {
