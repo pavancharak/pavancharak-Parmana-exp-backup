@@ -15,3 +15,4 @@ export * from "./authority-required-error.js";
 export * from "./authorization-required-error.js";
 export * from "./intent-required-error.js";
 export * from "./decision-not-approved-error.js";
+export * from "./challenge-record-not-found-error.js";

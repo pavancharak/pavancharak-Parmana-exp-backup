@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Pool } from "pg";
 
 import { AuditEventCrypto } from "@parmana/crypto";
 
@@ -31,28 +31,38 @@ import type { CallerAuditEvent, CallerAuditSink } from "./CallerAuditSink.js";
  * existing behavior, unmodified by this class, that decides what
  * happens next. See docs/VERIFICATION-GAPS.md G-13 for why this is
  * documented rather than changed in this session.
+ *
+ * TEMPORARY WORKAROUND: writes via a direct Postgres connection (see
+ * PostgresPoolFactory), not supabase-js — PostgREST's schema cache is
+ * stuck refusing to see signature_json on this table (Supabase ticket
+ * SU-437429), confirmed at Supabase's PostgREST layer specifically,
+ * not the database or this codebase. Raw SQL bypasses PostgREST's
+ * REST layer (and its schema cache) entirely. Revert to supabase-js
+ * (`this.client.from("caller_audit_events").insert(...)`, as before)
+ * once Supabase confirms the cache issue is resolved.
  */
+const INSERT_CALLER_AUDIT_EVENT_SQL = `
+  INSERT INTO caller_audit_events
+    (type, occurred_at, route, caller_id, reason, signature_json)
+  VALUES
+    ($1, $2, $3, $4, $5, $6::jsonb)
+`;
+
 export class SupabaseCallerAuditSink implements CallerAuditSink {
   private readonly crypto = new AuditEventCrypto();
 
-  constructor(private readonly client: SupabaseClient) {}
+  constructor(private readonly pool: Pool) {}
 
   async record(event: CallerAuditEvent): Promise<void> {
     const signature = await this.crypto.sign(event);
 
-    const { error } = await this.client
-      .from("caller_audit_events")
-      .insert({
-        type: event.type,
-        occurred_at: event.occurredAt,
-        route: event.route,
-        caller_id: event.callerId ?? null,
-        reason: event.reason ?? null,
-        signature_json: signature,
-      });
-
-    if (error) {
-      throw error;
-    }
+    await this.pool.query(INSERT_CALLER_AUDIT_EVENT_SQL, [
+      event.type,
+      event.occurredAt,
+      event.route,
+      event.callerId ?? null,
+      event.reason ?? null,
+      JSON.stringify(signature),
+    ]);
   }
 }

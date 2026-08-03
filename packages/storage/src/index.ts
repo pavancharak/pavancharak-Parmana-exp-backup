@@ -44,6 +44,7 @@ export * from "./memory/MemoryStorageProvider.js";
 export * from "./memory/MemoryBusinessTransactionRepository.js";
 export * from "./memory/MemoryExecutionTrustRecordRepository.js";
 export * from "./memory/MemoryRefusalRecordRepository.js";
+export * from "./memory/MemoryChallengeRecordRepository.js";
 export * from "./memory/MemoryPolicyRepository.js";
 
 // -----------------------------------------------------------------------------
@@ -59,3 +60,10 @@ export * from "./supabase/SupabaseExecutionTrustRecordRepository.js";
 export * from "./supabase/SupabaseRefusalRecordRepository.js";
 export * from "./supabase/SupabaseNonceStore.js";
 export * from "./supabase/SupabaseClientFactory.js";
+
+// -----------------------------------------------------------------------------
+// Postgres (direct connection, bypassing PostgREST)
+// -----------------------------------------------------------------------------
+
+export * from "./postgres/PostgresPoolFactory.js";
+export * from "./postgres/PostgresChallengeRecordRepository.js";

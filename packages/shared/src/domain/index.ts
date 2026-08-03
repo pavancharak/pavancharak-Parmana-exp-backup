@@ -12,6 +12,7 @@ export * from "./receipt.js";
 export * from "./settlement-confirmation.js";
 export * from "./execution-trust-record.js";
 export * from "./refusal-record.js";
+export * from "./challenge-record.js";
 export * from "./authority.js";
 export * from "./authorization.js";
 export * from "./execution-authorization.js";

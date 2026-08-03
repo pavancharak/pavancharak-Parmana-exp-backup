@@ -1,7 +1,10 @@
 # 04 — INCIDENTS & DEFECTS LOG
 
 *Security incidents and latent defects discovered during Sessions 1–8, with resolutions.*
-*Snapshot: July 5, 2026.*
+*Snapshot: July 5, 2026. INC-6 and INC-7 added 2026-08-03, from later sessions this log had
+not been updated to reflect — this document's own gap, not a new incident; see RFC-0022
+(docs/rfcs/RFC-0022-Challenge-Record.md) for the durable, structured record type going
+forward.*
 
 The pattern worth noting: three of the five arrived from work done **outside the
 review loop**, and the test suite (or a review stop-gate) caught each. The recurring
@@ -94,6 +97,71 @@ each); confirmed no externally visible HTTP-API change (routes go through
 
 **Follow-up on the list:** a CI smoke-run of the example runners, so a contract change
 can never again silently break the public-facing walkthroughs.
+
+---
+
+## INC-6 — Signal/Intent binding gap: policy evaluated caller-declared signals never bound to the executed Intent (SECURITY, highest severity)
+
+**What:** `BusinessTransactionMapper.fromRequest` took `policy` and `signals` verbatim from
+the client request body, and `PolicyEngine.evaluate` decided APPROVED/REJECTED against
+exactly those caller-declared signals. `ExecutableContent` — what `ExecutionGateway`
+actually signs and executes — was built from `intent.action`/`intent.target`/
+`intent.parameters`, a completely disjoint set of fields. Nothing cross-checked that the
+two described the same real-world action. Found via an external adversarial security
+exercise, not this project's own internal audit process.
+
+**Impact:** live, reproducible bypass of the core "no unauthorized execution" invariant.
+Proof-of-concept: `signals` declared a fully verified, policy-approved $5,000 payment to a
+known vendor while `intent` targeted an attacker-controlled account for $999,999,999 —
+before the fix, `200`, `APPROVED`, `COMPLETED`, with a real signed Execution Trust Record
+and receipt issued for it. A compounding finding from the same session: any caller holding
+any valid API key could claim to be any human or role in `authority.principalId`
+("impersonate the CEO"), and any authenticated caller could read any other caller's
+complete transaction/trust-record/receipt history (IDOR).
+
+**Resolution:** `Policy.boundSignals` (an opt-in signal-key → intent-dot-path map) plus
+`SignalIntentBinder`, run immediately before `PolicyEngine.evaluate` over the exact signals
+and intent about to be used — a mismatch becomes an ordinary policy REJECT, so no
+authorization is ever generated for it. `isPrincipalAllowed` gates `authority.principalId`
+against the caller's own grant; `metadata.submittedBy` is now stamped server-side, never
+client-supplied; `isOwnedByCaller` scopes every read route. A related path-traversal bug in
+`FilePolicyRepository.load` (same unvalidated-input class as an earlier `FileKeyProvider`
+finding) was fixed alongside these since it was already well-scoped. Full detail, PoC
+figures, and the residual (unbound signals remain caller-declared attestations, not yet
+independently re-verified) are in `docs/VERIFICATION-GAPS.md` G-24.
+
+**Verified:** 28 new tests reproducing the exact live exploit shapes (signal/intent
+mismatch, principal spoofing, path traversal, cross-caller read), plus positive controls
+for legitimate requests; the exploit sequence was re-run via real HTTP against a fresh,
+isolated clone with the fix applied and confirmed blocked in every case.
+
+---
+
+## INC-7 — Audit-sink events were durable but unsigned (INTEGRITY)
+
+**What:** `caller_audit_events` and `razorpay_webhook_audit_events` (the durable
+replacements for the in-memory caller-auth and webhook audit trails, G-13) were plain rows
+once written: durable against a process restart, but anyone with direct database access
+could alter one afterward with no way to detect it — the same exposure `ExecutionTrustRecord`
+had before it carried a signature.
+
+**Impact:** the caller-authentication and Razorpay-webhook audit trails were tamper-evident
+against nothing. An altered row (a rejection quietly rewritten to look like a success, or
+vice versa) would have been indistinguishable from a genuine one.
+
+**Resolution:** `SupabaseCallerAuditSink` and `SupabaseRazorpayWebhookAuditSink` now sign
+every event at write time with `AuditEventCrypto`, the same signing stack and `DEFAULT_KEY_ID`
+`ExecutionTrustRecord`/`RefusalRecord` already use — one root of trust, not a third key. A
+`signature_json JSONB` column was added to both tables (nullable, additive; existing
+unsigned rows stay unsigned, honestly, every row from the migration forward is signed).
+
+**Still open:** shortly after this shipped, Supabase's PostgREST layer got stuck refusing to
+recognize `signature_json` in its schema cache on `INSERT` (confirmed at the PostgREST layer
+specifically — not the database, not this codebase; PostgREST support ticket SU-437429).
+Worked around by writing both sinks via a direct Postgres connection
+(`PostgresPoolFactory`), bypassing PostgREST's REST layer and its schema cache entirely —
+flagged in both sink files as temporary, revertible once Supabase confirms the cache issue
+is resolved.
 
 ---
 

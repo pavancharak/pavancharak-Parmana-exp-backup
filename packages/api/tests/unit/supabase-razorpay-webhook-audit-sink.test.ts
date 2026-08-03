@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Pool } from "pg";
 
 import { AuditEventCrypto } from "@parmana/crypto";
 
@@ -48,29 +48,62 @@ afterEach(() => {
   rmSync(keyDir, { recursive: true, force: true });
 });
 
-function createFakeClient(options?: {
+function createFakePool(options?: {
   readonly insertError?: { code?: string; message: string };
-  readonly onInsert?: (row: Record<string, unknown>) => void;
-}): SupabaseClient {
-  const client = {
-    from(table: string) {
-      expect(table).toBe("razorpay_webhook_audit_events");
+  readonly onInsert?: (values: readonly unknown[]) => void;
+}): Pool {
+  const pool = {
+    query(sql: string, values: readonly unknown[]) {
+      expect(sql).toContain("INSERT INTO razorpay_webhook_audit_events");
 
-      return {
-        insert(row: Record<string, unknown>) {
-          options?.onInsert?.(row);
+      options?.onInsert?.(values);
 
-          if (options?.insertError) {
-            return Promise.resolve({ error: options.insertError });
-          }
+      if (options?.insertError) {
+        return Promise.reject(options.insertError);
+      }
 
-          return Promise.resolve({ error: null });
-        },
-      };
+      return Promise.resolve({ rows: [], rowCount: 0 });
     },
   };
 
-  return client as unknown as SupabaseClient;
+  return pool as unknown as Pool;
+}
+
+/**
+ * Maps the positional $1.. values SupabaseRazorpayWebhookAuditSink
+ * passes to pool.query() back to named columns, in the same order as
+ * INSERT_RAZORPAY_WEBHOOK_AUDIT_EVENT_SQL, for readable assertions.
+ */
+function toRow(values: readonly unknown[]): Record<string, unknown> {
+  const [
+    type,
+    occurred_at,
+    route,
+    event_id,
+    event_type,
+    payment_id,
+    refund_id,
+    reason,
+    severity,
+    confirmation_id,
+    fetched_refund_status,
+    signature_json_raw,
+  ] = values;
+
+  return {
+    type,
+    occurred_at,
+    route,
+    event_id,
+    event_type,
+    payment_id,
+    refund_id,
+    reason,
+    severity,
+    confirmation_id,
+    fetched_refund_status,
+    signature_json: JSON.parse(signature_json_raw as string),
+  };
 }
 
 const REJECTED_EVENT: RazorpayWebhookAuditEvent = {
@@ -94,18 +127,18 @@ const SETTLEMENT_FAILED_EVENT: RazorpayWebhookAuditEvent = {
 
 describe("SupabaseRazorpayWebhookAuditSink", () => {
   it("resolves on a successful insert", async () => {
-    const sink = new SupabaseRazorpayWebhookAuditSink(createFakeClient());
+    const sink = new SupabaseRazorpayWebhookAuditSink(createFakePool());
 
     await expect(sink.record(REJECTED_EVENT)).resolves.toBeUndefined();
   });
 
-  it("maps a rejected webhook event to row columns, nulling absent optional fields, and signs it", async () => {
+  it("maps a rejected webhook event to query params, nulling absent optional fields, and signs it", async () => {
     let capturedRow: Record<string, unknown> | undefined;
 
     const sink = new SupabaseRazorpayWebhookAuditSink(
-      createFakeClient({
-        onInsert: (row) => {
-          capturedRow = row;
+      createFakePool({
+        onInsert: (values) => {
+          capturedRow = toRow(values);
         },
       }),
     );
@@ -128,7 +161,7 @@ describe("SupabaseRazorpayWebhookAuditSink", () => {
         algorithm: "ed25519",
         keyId: "default",
         value: expect.any(String),
-        signedAt: expect.any(Date),
+        signedAt: expect.any(String),
       },
     });
   });
@@ -137,9 +170,9 @@ describe("SupabaseRazorpayWebhookAuditSink", () => {
     let capturedRow: Record<string, unknown> | undefined;
 
     const sink = new SupabaseRazorpayWebhookAuditSink(
-      createFakeClient({
-        onInsert: (row) => {
-          capturedRow = row;
+      createFakePool({
+        onInsert: (values) => {
+          capturedRow = toRow(values);
         },
       }),
     );
@@ -160,7 +193,7 @@ describe("SupabaseRazorpayWebhookAuditSink", () => {
 
   it("preserves existing failure semantics: a storage error rejects the returned promise", async () => {
     const sink = new SupabaseRazorpayWebhookAuditSink(
-      createFakeClient({
+      createFakePool({
         insertError: { code: "08006", message: "connection failure" },
       }),
     );
@@ -174,9 +207,9 @@ describe("SupabaseRazorpayWebhookAuditSink", () => {
     let capturedRow: Record<string, unknown> | undefined;
 
     const sink = new SupabaseRazorpayWebhookAuditSink(
-      createFakeClient({
-        onInsert: (row) => {
-          capturedRow = row;
+      createFakePool({
+        onInsert: (values) => {
+          capturedRow = toRow(values);
         },
       }),
     );

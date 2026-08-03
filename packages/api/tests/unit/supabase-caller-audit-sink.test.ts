@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Pool } from "pg";
 
 import { AuditEventCrypto } from "@parmana/crypto";
 
@@ -48,29 +48,44 @@ afterEach(() => {
   rmSync(keyDir, { recursive: true, force: true });
 });
 
-function createFakeClient(options?: {
+function createFakePool(options?: {
   readonly insertError?: { code?: string; message: string };
-  readonly onInsert?: (row: Record<string, unknown>) => void;
-}): SupabaseClient {
-  const client = {
-    from(table: string) {
-      expect(table).toBe("caller_audit_events");
+  readonly onInsert?: (values: readonly unknown[]) => void;
+}): Pool {
+  const pool = {
+    query(sql: string, values: readonly unknown[]) {
+      expect(sql).toContain("INSERT INTO caller_audit_events");
 
-      return {
-        insert(row: Record<string, unknown>) {
-          options?.onInsert?.(row);
+      options?.onInsert?.(values);
 
-          if (options?.insertError) {
-            return Promise.resolve({ error: options.insertError });
-          }
+      if (options?.insertError) {
+        return Promise.reject(options.insertError);
+      }
 
-          return Promise.resolve({ error: null });
-        },
-      };
+      return Promise.resolve({ rows: [], rowCount: 0 });
     },
   };
 
-  return client as unknown as SupabaseClient;
+  return pool as unknown as Pool;
+}
+
+/**
+ * Maps the positional $1.. values SupabaseCallerAuditSink passes to
+ * pool.query() back to named columns, in the same order as
+ * INSERT_CALLER_AUDIT_EVENT_SQL, for readable assertions.
+ */
+function toRow(values: readonly unknown[]): Record<string, unknown> {
+  const [type, occurred_at, route, caller_id, reason, signature_json_raw] =
+    values;
+
+  return {
+    type,
+    occurred_at,
+    route,
+    caller_id,
+    reason,
+    signature_json: JSON.parse(signature_json_raw as string),
+  };
 }
 
 const AUTHENTICATED_EVENT: CallerAuditEvent = {
@@ -89,18 +104,18 @@ const REJECTED_EVENT: CallerAuditEvent = {
 
 describe("SupabaseCallerAuditSink", () => {
   it("resolves on a successful insert", async () => {
-    const sink = new SupabaseCallerAuditSink(createFakeClient());
+    const sink = new SupabaseCallerAuditSink(createFakePool());
 
     await expect(sink.record(AUTHENTICATED_EVENT)).resolves.toBeUndefined();
   });
 
-  it("maps CallerAuditEvent fields to row columns, nulling absent optional fields", async () => {
+  it("maps CallerAuditEvent fields to query params, nulling absent optional fields", async () => {
     let capturedRow: Record<string, unknown> | undefined;
 
     const sink = new SupabaseCallerAuditSink(
-      createFakeClient({
-        onInsert: (row) => {
-          capturedRow = row;
+      createFakePool({
+        onInsert: (values) => {
+          capturedRow = toRow(values);
         },
       }),
     );
@@ -117,7 +132,7 @@ describe("SupabaseCallerAuditSink", () => {
         algorithm: "ed25519",
         keyId: "default",
         value: expect.any(String),
-        signedAt: expect.any(Date),
+        signedAt: expect.any(String),
       },
     });
   });
@@ -126,9 +141,9 @@ describe("SupabaseCallerAuditSink", () => {
     let capturedRow: Record<string, unknown> | undefined;
 
     const sink = new SupabaseCallerAuditSink(
-      createFakeClient({
-        onInsert: (row) => {
-          capturedRow = row;
+      createFakePool({
+        onInsert: (values) => {
+          capturedRow = toRow(values);
         },
       }),
     );
@@ -145,14 +160,14 @@ describe("SupabaseCallerAuditSink", () => {
         algorithm: "ed25519",
         keyId: "default",
         value: expect.any(String),
-        signedAt: expect.any(Date),
+        signedAt: expect.any(String),
       },
     });
   });
 
   it("preserves existing failure semantics: a storage error rejects the returned promise, unchanged from InMemoryCallerAuditSink's contract", async () => {
     const sink = new SupabaseCallerAuditSink(
-      createFakeClient({
+      createFakePool({
         insertError: { code: "08006", message: "connection failure" },
       }),
     );
@@ -166,9 +181,9 @@ describe("SupabaseCallerAuditSink", () => {
     let capturedRow: Record<string, unknown> | undefined;
 
     const sink = new SupabaseCallerAuditSink(
-      createFakeClient({
-        onInsert: (row) => {
-          capturedRow = row;
+      createFakePool({
+        onInsert: (values) => {
+          capturedRow = toRow(values);
         },
       }),
     );

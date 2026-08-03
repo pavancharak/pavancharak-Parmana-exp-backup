@@ -2,14 +2,14 @@ import crypto from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { SupabaseClientFactory } from "@parmana/storage";
+import { PostgresPoolFactory, SupabaseClientFactory } from "@parmana/storage";
 
 import { SupabaseCallerAuditSink } from "../../src/auth/SupabaseCallerAuditSink.js";
 import type { CallerAuditEvent } from "../../src/auth/CallerAuditSink.js";
 
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
-const supabaseConfigured = resolveSupabaseGate("Supabase Caller Audit Sink");
+const databaseConfigured = resolveDatabaseGate("Supabase Caller Audit Sink");
 
 /**
  * Closes G-13 (docs/VERIFICATION-GAPS.md): proves the caller-audit
@@ -21,8 +21,15 @@ const supabaseConfigured = resolveSupabaseGate("Supabase Caller Audit Sink");
  * Requires the caller_audit_events table from
  * supabase/migrations/20260718090000_add_nonce_and_caller_audit_
  * tables.sql to have been applied to the target project.
+ *
+ * TEMPORARY: the writing side goes through PostgresPoolFactory
+ * (DATABASE_URL), not SupabaseClientFactory — see
+ * SupabaseCallerAuditSink for why (PostgREST schema-cache workaround,
+ * Supabase ticket SU-437429). The reading side stays on
+ * SupabaseClientFactory deliberately: it also proves PostgREST can
+ * still see a row this suite wrote by bypassing it.
  */
-describe.skipIf(!supabaseConfigured)("SupabaseCallerAuditSink (live)", () => {
+describe.skipIf(!databaseConfigured)("SupabaseCallerAuditSink (live)", () => {
   it("records an event that a fresh client against the same backing can read back", async () => {
     const route = `/test-${crypto.randomUUID()}`;
 
@@ -33,8 +40,7 @@ describe.skipIf(!supabaseConfigured)("SupabaseCallerAuditSink (live)", () => {
       callerId: "integration-test-caller",
     };
 
-    const writingClient = SupabaseClientFactory.create();
-    const sink = new SupabaseCallerAuditSink(writingClient);
+    const sink = new SupabaseCallerAuditSink(PostgresPoolFactory.create());
 
     await sink.record(event);
 
@@ -66,12 +72,13 @@ describe.skipIf(!supabaseConfigured)("SupabaseCallerAuditSink (live)", () => {
       reason: "missing credential",
     };
 
-    const client = SupabaseClientFactory.create();
-    const sink = new SupabaseCallerAuditSink(client);
+    const sink = new SupabaseCallerAuditSink(PostgresPoolFactory.create());
 
     await sink.record(event);
 
-    const { data, error } = await client
+    const readingClient = SupabaseClientFactory.create();
+
+    const { data, error } = await readingClient
       .from("caller_audit_events")
       .select("*")
       .eq("route", route)
