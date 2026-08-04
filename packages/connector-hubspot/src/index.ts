@@ -60,3 +60,15 @@ export {
   type HubSpotDealUpdateHarness,
   type HubSpotDealUpdateHarnessOptions,
 } from "./HubSpotDealUpdateHarness.js";
+
+export {
+  executeHubSpotCapability,
+  hubSpotConnectorResponseMetadata,
+  type HubSpotCapabilityExecutionContent,
+  type HubSpotCapabilityExecutionOptions,
+} from "./HubSpotCapabilityExecution.js";
+
+export {
+  HubSpotSignalStateVerifier,
+  type HubSpotSignalStateVerifierOptions,
+} from "./HubSpotSignalStateVerifier.js";

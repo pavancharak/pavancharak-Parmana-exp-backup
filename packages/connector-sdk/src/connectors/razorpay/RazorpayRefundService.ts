@@ -1,15 +1,14 @@
-import { randomUUID, type KeyObject } from "node:crypto";
+import type { KeyObject } from "node:crypto";
 
-import { AuthorizationSigner, type CryptoProvider } from "@parmana/crypto";
+import type { CryptoProvider } from "@parmana/crypto";
 import type { ExecutionGateway } from "@parmana/execution-gateway";
-import type { ExecutionRequest } from "@parmana/execution-system";
 import { PolicyEngine, PolicyOutcome, type Policy } from "@parmana/policy";
-import type { ExecutableContent, ExecutionResult } from "@parmana/shared";
 
 import { RAZORPAY_PAYMENT_FETCH_CAPABILITY, RAZORPAY_REFUND_CREATE_CAPABILITY } from "./RazorpayConnector.js";
 import type { RazorpayCumulativeRefundLedger } from "./RazorpayCumulativeRefundLedger.js";
+import { executeRazorpayCapability, razorpayConnectorResponseMetadata } from "./RazorpayCapabilityExecution.js";
 import { buildRazorpayRefundReceipt, type RazorpayRefundReceipt } from "./RazorpayRefundReceipt.js";
-import { buildRazorpayRefundSignals } from "./RazorpayRefundSignals.js";
+import { buildRazorpayRefundSignals, RAZORPAY_DEFAULT_DAILY_CUMULATIVE_CAP_PAISE } from "./RazorpayRefundSignals.js";
 import type { RazorpayPayment, RazorpayRefund } from "./RazorpayTypes.js";
 
 export interface RazorpayRefundServiceOptions {
@@ -22,6 +21,12 @@ export interface RazorpayRefundServiceOptions {
   readonly ledger: RazorpayCumulativeRefundLedger;
   readonly crypto: CryptoProvider;
   readonly authorizationTtlSeconds?: number;
+  /**
+   * MUST match the policy's own "reject-exceeds-daily-cumulative-cap"
+   * rule value -- see RAZORPAY_DEFAULT_DAILY_CUMULATIVE_CAP_PAISE's own
+   * comment for why this coupling isn't mechanically enforced.
+   */
+  readonly dailyCumulativeCapPaise?: number;
 }
 
 export interface RequestRazorpayRefundInput {
@@ -59,11 +64,8 @@ export interface RazorpayRefundOutcome {
 export class RazorpayRefundService {
   private readonly outcomes = new Map<string, RazorpayRefundReceipt>();
   private readonly policyEngine = new PolicyEngine();
-  private readonly signer: AuthorizationSigner;
 
-  constructor(private readonly options: RazorpayRefundServiceOptions) {
-    this.signer = new AuthorizationSigner(options.crypto);
-  }
+  constructor(private readonly options: RazorpayRefundServiceOptions) {}
 
   async requestRefund(input: RequestRazorpayRefundInput): Promise<RazorpayRefundOutcome> {
     const cached = this.outcomes.get(input.businessTransactionId);
@@ -71,14 +73,14 @@ export class RazorpayRefundService {
       return { receipt: cached, replayed: true };
     }
 
-    const fetchResult = await this.executeCapability({
+    const fetchResult = await executeRazorpayCapability(this.options, {
       businessTransactionId: `${input.businessTransactionId}:payment-fetch`,
       action: RAZORPAY_PAYMENT_FETCH_CAPABILITY,
       target: `payments/${input.paymentId}`,
       parameters: { paymentId: input.paymentId },
     });
 
-    const payment = connectorResponseMetadata(fetchResult).payment as RazorpayPayment;
+    const payment = razorpayConnectorResponseMetadata(fetchResult).payment as RazorpayPayment;
     const requestedRefundAmountPaise = input.amountPaise ?? payment.amount - payment.amount_refunded;
     const dailyCumulativeSoFarPaise = this.options.ledger.cumulativeAmountToday(input.scopeId);
 
@@ -103,7 +105,51 @@ export class RazorpayRefundService {
       return { receipt, replayed: false };
     }
 
-    const refundResult = await this.executeCapability({
+    //
+    // Daily-cumulative-cap race guard: dailyCumulativeSoFarPaise above
+    // was read before this call's own payment fetch and policy
+    // evaluation, so a concurrent requestRefund() for the same scopeId
+    // could have been recorded in the meantime. Re-checks and reserves
+    // atomically -- one synchronous call, no `await` inside it -- right
+    // before the refund actually executes, closing that window. A
+    // rejection here means a concurrent request already consumed the
+    // remaining headroom; this request is refused before Razorpay is
+    // ever contacted, the same "zero external calls on a denial" shape
+    // every other REJECT path in this service already has.
+    //
+    const capPaise = this.options.dailyCumulativeCapPaise ?? RAZORPAY_DEFAULT_DAILY_CUMULATIVE_CAP_PAISE;
+
+    const reserved = this.options.ledger.recordApprovedRefundIfWithinCap(
+      input.scopeId,
+      requestedRefundAmountPaise,
+      input.businessTransactionId,
+      capPaise,
+    );
+
+    if (reserved === null) {
+      const raceDecision = {
+        ...decision,
+        outcome: PolicyOutcome.REJECT,
+        reason:
+          `Rejected: recording this refund would exceed the daily cumulative cap of ${capPaise} paise ` +
+          `for scope "${input.scopeId}" -- a concurrent request already consumed the remaining headroom ` +
+          "since this request's signals were evaluated.",
+        matchedRuleId: "reject-exceeds-daily-cumulative-cap-race-guard",
+      };
+
+      const receipt = await buildRazorpayRefundReceipt({
+        businessTransactionId: input.businessTransactionId,
+        approved: false,
+        paymentId: input.paymentId,
+        policyDecision: raceDecision,
+        crypto: this.options.crypto,
+        issuedAt: new Date(),
+      });
+      this.outcomes.set(input.businessTransactionId, receipt);
+      return { receipt, replayed: false };
+    }
+
+    const refundResult = await executeRazorpayCapability(this.options, {
       businessTransactionId: input.businessTransactionId,
       action: RAZORPAY_REFUND_CREATE_CAPABILITY,
       target: `payments/${input.paymentId}/refund`,
@@ -114,12 +160,14 @@ export class RazorpayRefundService {
       },
     });
 
-    const refundMetadata = connectorResponseMetadata(refundResult);
+    const refundMetadata = razorpayConnectorResponseMetadata(refundResult);
     const refund = refundMetadata.refund as RazorpayRefund;
     const connectorEvidence = refundResult.metadata?.connector as { connectorEvidenceHash?: string } | undefined;
     const keyIdRedacted = typeof refundMetadata.keyIdRedacted === "string" ? refundMetadata.keyIdRedacted : undefined;
 
-    this.options.ledger.recordApprovedRefund(input.scopeId, requestedRefundAmountPaise, input.businessTransactionId);
+    // Already recorded atomically by recordApprovedRefundIfWithinCap above,
+    // before this capability call -- not here. Recording after execution
+    // would reopen the exact race this guard exists to close.
 
     const receipt = await buildRazorpayRefundReceipt({
       businessTransactionId: input.businessTransactionId,
@@ -139,46 +187,4 @@ export class RazorpayRefundService {
     this.outcomes.set(input.businessTransactionId, receipt);
     return { receipt, replayed: false };
   }
-
-  private async executeCapability(content: {
-    readonly businessTransactionId: string;
-    readonly action: string;
-    readonly target: string;
-    readonly parameters: Readonly<Record<string, unknown>>;
-  }): Promise<ExecutionResult> {
-    const executableContent: ExecutableContent = Object.freeze({
-      ...content,
-      parameters: Object.freeze({ ...content.parameters }),
-    });
-
-    const authorization = await this.signer.sign(
-      {
-        decisionId: randomUUID(),
-        businessTransactionId: content.businessTransactionId,
-        policyName: this.options.policyName,
-        policyVersion: this.options.policyVersion,
-        executableContent,
-      },
-      this.options.signerPrivateKey,
-      this.options.signerKeyId,
-      this.options.authorizationTtlSeconds ?? 60,
-    );
-
-    const request: ExecutionRequest = {
-      businessTransactionId: content.businessTransactionId,
-      action: content.action,
-      target: content.target,
-      parameters: content.parameters,
-      authorization,
-    };
-
-    return this.options.gateway.execute(request);
-  }
-}
-
-function connectorResponseMetadata(result: ExecutionResult): Record<string, unknown> {
-  const connector = result.metadata?.connector as
-    | { responseSummary?: { metadata?: Record<string, unknown> } }
-    | undefined;
-  return connector?.responseSummary?.metadata ?? {};
 }

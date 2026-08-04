@@ -135,6 +135,26 @@ mismatch, principal spoofing, path traversal, cross-caller read), plus positive 
 for legitimate requests; the exploit sequence was re-run via real HTTP against a fresh,
 isolated clone with the fix applied and confirmed blocked in every case.
 
+**Update (2026-08-04):** the residual named above ("unbound signals remain caller-declared
+attestations, not yet independently re-verified") is now closed for both `razorpay-refund`
+and `hubspot-deal-update`, via a new, additive `SignalStateVerifier` port (one capability-
+scoped implementation each, combined via `CompositeSignalStateVerifier`) that independently
+re-fetches real vendor state before a caller-declared APPROVE is trusted, proven by a
+failing-then-passing regression test for each. `vendor-payment` was investigated per-fact and
+confirmed genuinely blocked, not merely unattempted: none of its five unbound facts
+(`vendorVerified`, `invoiceVerified`, `paymentApproved`, `sufficientFunds`, `riskScore`) has a
+real, fetchable source anywhere in this codebase -- every candidate connector (vendor-payment,
+SAP, Oracle, Workday) is a write-only, in-memory `MockConnector` explicitly documented as a
+placeholder, not a production-capable integration the way Razorpay's and HubSpot's connectors
+already are. No code was changed for `vendor-payment`. Separately, the daily-cumulative-cap
+ledger TOCTOU race flagged alongside the razorpay-refund residual is also now closed: an
+optimistic-concurrency guard (`RazorpayCumulativeRefundLedger
+.recordApprovedRefundIfWithinCap`) reserves the ledger slot atomically immediately before the
+refund actually executes, rather than reading the total early and writing unconditionally
+after success, proven by a concurrent-request regression test confirmed failing (both requests
+approved) against the pre-fix code before the fix, then passing after it. Full detail:
+`docs/VERIFICATION-GAPS.md` G-24's updates.
+
 ---
 
 ## INC-7 — Audit-sink events were durable but unsigned (INTEGRITY)

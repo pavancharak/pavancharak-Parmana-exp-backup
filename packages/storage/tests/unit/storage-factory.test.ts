@@ -7,9 +7,7 @@ import { SupabaseStorageProvider } from "../../src/supabase/SupabaseStorageProvi
 const ENV_KEYS = [
   "NODE_ENV",
   "PARMANA_STORAGE",
-  "SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "SUPABASE_ANON_KEY",
+  "DATABASE_URL",
 ] as const;
 
 /**
@@ -36,46 +34,40 @@ describe("StorageFactory.createFromEnvironment", () => {
   it("(G-15) returns MemoryStorageProvider when NODE_ENV=test, regardless of PARMANA_STORAGE", () => {
     process.env.NODE_ENV = "test";
     process.env.PARMANA_STORAGE = "supabase";
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.DATABASE_URL;
 
     expect(StorageFactory.createFromEnvironment()).toBeInstanceOf(
       MemoryStorageProvider,
     );
   });
 
-  it("(G-15) returns MemoryStorageProvider when NODE_ENV=test even with Supabase credentials present", () => {
+  it("(G-15) returns MemoryStorageProvider when NODE_ENV=test even with DATABASE_URL present", () => {
     process.env.NODE_ENV = "test";
     process.env.PARMANA_STORAGE = "supabase";
-    process.env.SUPABASE_URL = "https://example.supabase.co";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+    process.env.DATABASE_URL = "postgresql://user:pass@example.supabase.co:5432/postgres";
 
     expect(StorageFactory.createFromEnvironment()).toBeInstanceOf(
       MemoryStorageProvider,
     );
   });
 
-  it("(G-15) fails with a named, actionable error when NODE_ENV is not test, PARMANA_STORAGE=supabase, and Supabase is not configured", () => {
+  it("(G-15) fails with a named, actionable error when NODE_ENV is not test, PARMANA_STORAGE=supabase, and DATABASE_URL is not configured", () => {
     process.env.NODE_ENV = "production";
     process.env.PARMANA_STORAGE = "supabase";
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.DATABASE_URL;
 
     expect(() => StorageFactory.createFromEnvironment()).toThrow(
       /PARMANA_STORAGE=supabase/,
     );
     expect(() => StorageFactory.createFromEnvironment()).toThrow(
-      /SUPABASE_URL/,
+      /DATABASE_URL/,
     );
   });
 
-  it("returns SupabaseStorageProvider when NODE_ENV is not test and Supabase is configured", () => {
+  it("returns SupabaseStorageProvider when NODE_ENV is not test and DATABASE_URL is configured", () => {
     process.env.NODE_ENV = "production";
     process.env.PARMANA_STORAGE = "supabase";
-    process.env.SUPABASE_URL = "https://example.supabase.co";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+    process.env.DATABASE_URL = "postgresql://user:pass@example.supabase.co:5432/postgres";
 
     expect(StorageFactory.createFromEnvironment()).toBeInstanceOf(
       SupabaseStorageProvider,

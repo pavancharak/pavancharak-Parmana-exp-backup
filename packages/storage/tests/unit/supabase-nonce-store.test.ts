@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Pool } from "pg";
 
 import { SupabaseNonceStore } from "../../src/supabase/SupabaseNonceStore.js";
 
 /**
- * Fake client simulating a Postgres table with a PRIMARY KEY on
- * `nonce`: the insert's own synchronous body (no `await` between the
+ * Fake pg.Pool simulating a Postgres table with a PRIMARY KEY on
+ * `nonce`: the query's own synchronous body (no `await` between the
  * has-check and the add) mirrors exactly how a real unique
  * constraint is atomic at the database engine level, and how
  * MemoryNonceStore.checkAndRecord() is itself deterministic under
@@ -17,45 +17,40 @@ import { SupabaseNonceStore } from "../../src/supabase/SupabaseNonceStore.js";
  * SupabaseNonceStore interprets whatever the backing returns
  * correctly.
  */
-function createFakeClient(options?: {
+function createFakePool(options?: {
   readonly insertError?: { code?: string; message: string };
-}): SupabaseClient {
+}): Pool {
   const rows = new Set<string>();
 
-  const client = {
-    from(table: string) {
-      expect(table).toBe("consumed_nonces");
+  const pool = {
+    query(sql: string, values: readonly unknown[]) {
+      expect(sql).toContain("INSERT INTO consumed_nonces");
 
-      return {
-        insert(row: { nonce: string; expires_at: string }) {
-          if (options?.insertError) {
-            return Promise.resolve({ error: options.insertError });
-          }
+      if (options?.insertError) {
+        return Promise.reject(options.insertError);
+      }
 
-          if (rows.has(row.nonce)) {
-            return Promise.resolve({
-              error: {
-                code: "23505",
-                message:
-                  `duplicate key value violates unique constraint ` +
-                  `"consumed_nonces_pkey"`,
-              },
-            });
-          }
+      const [nonce] = values as [string, string];
 
-          rows.add(row.nonce);
-          return Promise.resolve({ error: null });
-        },
-      };
+      if (rows.has(nonce)) {
+        return Promise.reject({
+          code: "23505",
+          message:
+            'duplicate key value violates unique constraint "consumed_nonces_pkey"',
+        });
+      }
+
+      rows.add(nonce);
+      return Promise.resolve({ rows: [], rowCount: 1 });
     },
   };
 
-  return client as unknown as SupabaseClient;
+  return pool as unknown as Pool;
 }
 
 describe("SupabaseNonceStore", () => {
   it("returns true and records the nonce on first consumption", async () => {
-    const store = new SupabaseNonceStore(createFakeClient());
+    const store = new SupabaseNonceStore(createFakePool());
 
     await expect(
       store.checkAndRecord("nonce-1", "2026-01-01T00:01:00.000Z"),
@@ -63,7 +58,7 @@ describe("SupabaseNonceStore", () => {
   });
 
   it("maps a 23505 unique-violation on the second insert of the same nonce to false, not an error", async () => {
-    const store = new SupabaseNonceStore(createFakeClient());
+    const store = new SupabaseNonceStore(createFakePool());
 
     const first = await store.checkAndRecord(
       "nonce-1",
@@ -79,14 +74,14 @@ describe("SupabaseNonceStore", () => {
   });
 
   it("(concurrency) two simultaneous checkAndRecord calls for the same nonce: exactly one succeeds", async () => {
-    const store = new SupabaseNonceStore(createFakeClient());
+    const store = new SupabaseNonceStore(createFakePool());
 
     const [a, b] = await Promise.all([
       store.checkAndRecord("nonce-race", "2026-01-01T00:01:00.000Z"),
       store.checkAndRecord("nonce-race", "2026-01-01T00:01:00.000Z"),
     ]);
 
-    // Deterministic, not flaky: the fake client's insert() mutates its
+    // Deterministic, not flaky: the fake pool's query() mutates its
     // Set synchronously, before either call's first `await` yields —
     // exactly one of the two must observe the row as already present.
     expect([a, b].filter(Boolean)).toHaveLength(1);
@@ -94,7 +89,7 @@ describe("SupabaseNonceStore", () => {
 
   it("fails closed: a non-unique-violation storage error propagates rather than being treated as consumed or unconsumed", async () => {
     const store = new SupabaseNonceStore(
-      createFakeClient({
+      createFakePool({
         insertError: { code: "08006", message: "connection failure" },
       }),
     );
@@ -106,7 +101,7 @@ describe("SupabaseNonceStore", () => {
 
   it("fails closed on an error object with no code at all (e.g. a network-level throw)", async () => {
     const store = new SupabaseNonceStore(
-      createFakeClient({ insertError: { message: "network unreachable" } }),
+      createFakePool({ insertError: { message: "network unreachable" } }),
     );
 
     await expect(

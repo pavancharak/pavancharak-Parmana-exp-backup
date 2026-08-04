@@ -276,6 +276,53 @@ describe("RazorpayRefundService", () => {
     await expect(harness.gateway.execute(tamperedRequest)).rejects.toThrow(/businessTransactionHashMatches/);
     expect(server.refundsFor("pay_ABC123")).toHaveLength(0);
   });
+
+  it("two concurrent requests against the same daily cumulative cap cannot both succeed when only one should", async () => {
+    // Seed the day's cumulative total to 1,700,000 of the 2,000,000 cap
+    // (same seeding technique as the sequential cumulative-cap test
+    // above), leaving exactly 300,000 of headroom.
+    const ledger = new RazorpayCumulativeRefundLedger();
+    ledger.recordApprovedRefund("session-race", 1_700_000, "txn-race-seed");
+    harness = buildRazorpayRefundHarness({ baseUrl: server.baseUrl, keyId: KEY_ID, keySecret: KEY_SECRET, policy, ledger });
+
+    // Ample remaining refundable amount: only the daily cap, not the
+    // per-payment remainder or the per-refund cap, can reject either call.
+    server.setPayment(capturedPayment({ id: "pay_RACE", amount: 5_000_000, amount_refunded: 0 }));
+
+    // Two concurrent requests, each individually within the 300,000
+    // headroom AND the 500,000 per-refund cap (200,000 each), but
+    // 1,700,000 + 200,000 + 200,000 = 2,100,000 together exceeds the
+    // 2,000,000 daily cap. At most one may be approved.
+    const [outcomeA, outcomeB] = await Promise.all([
+      harness.service.requestRefund({
+        businessTransactionId: "txn-race-a",
+        paymentId: "pay_RACE",
+        amountPaise: 200_000,
+        reason: "concurrent request A",
+        scopeId: "session-race",
+      }),
+      harness.service.requestRefund({
+        businessTransactionId: "txn-race-b",
+        paymentId: "pay_RACE",
+        amountPaise: 200_000,
+        reason: "concurrent request B",
+        scopeId: "session-race",
+      }),
+    ]);
+
+    const approvedCount = [outcomeA, outcomeB].filter((outcome) => outcome.receipt.approved).length;
+
+    // The real, load-bearing assertion: never both. (Both-rejected would
+    // also be wrong -- one has genuine headroom -- but this test's
+    // purpose is proving the race can't let both through.)
+    expect(approvedCount).toBeLessThanOrEqual(1);
+
+    // Only one refund may have actually reached Razorpay.
+    expect(server.refundsFor("pay_RACE").length).toBeLessThanOrEqual(1);
+
+    // The ledger's own recorded total must never exceed the cap it exists to enforce.
+    expect(ledger.cumulativeAmountToday("session-race")).toBeLessThanOrEqual(2_000_000);
+  });
 });
 
 async function directRefundCreateCall(

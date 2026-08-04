@@ -1,12 +1,11 @@
-import { randomUUID, type KeyObject } from "node:crypto";
+import type { KeyObject } from "node:crypto";
 
-import { AuthorizationSigner, type CryptoProvider } from "@parmana/crypto";
+import type { CryptoProvider } from "@parmana/crypto";
 import type { ExecutionGateway } from "@parmana/execution-gateway";
-import type { ExecutionRequest } from "@parmana/execution-system";
 import { PolicyEngine, PolicyOutcome, type Policy } from "@parmana/policy";
-import type { ExecutableContent, ExecutionResult } from "@parmana/shared";
 
 import { HUBSPOT_DEAL_FETCH_CAPABILITY, HUBSPOT_DEAL_UPDATE_CAPABILITY } from "./HubSpotConnector.js";
+import { executeHubSpotCapability, hubSpotConnectorResponseMetadata } from "./HubSpotCapabilityExecution.js";
 import { buildHubSpotDealUpdateSignals } from "./HubSpotDealUpdateSignals.js";
 import { buildHubSpotDealUpdateReceipt, type HubSpotDealUpdateReceipt } from "./HubSpotDealUpdateReceipt.js";
 import type { HubSpotDeal } from "./HubSpotTypes.js";
@@ -61,11 +60,8 @@ export interface HubSpotDealUpdateOutcome {
 export class HubSpotDealUpdateService {
   private readonly outcomes = new Map<string, HubSpotDealUpdateReceipt>();
   private readonly policyEngine = new PolicyEngine();
-  private readonly signer: AuthorizationSigner;
 
-  constructor(private readonly options: HubSpotDealUpdateServiceOptions) {
-    this.signer = new AuthorizationSigner(options.crypto);
-  }
+  constructor(private readonly options: HubSpotDealUpdateServiceOptions) {}
 
   async requestDealUpdate(input: RequestHubSpotDealUpdateInput): Promise<HubSpotDealUpdateOutcome> {
     const cached = this.outcomes.get(input.businessTransactionId);
@@ -73,14 +69,14 @@ export class HubSpotDealUpdateService {
       return { receipt: cached, replayed: true };
     }
 
-    const fetchResult = await this.executeCapability({
+    const fetchResult = await executeHubSpotCapability(this.options, {
       businessTransactionId: `${input.businessTransactionId}:deal-fetch`,
       action: HUBSPOT_DEAL_FETCH_CAPABILITY,
       target: `deals/${input.dealId}`,
       parameters: { dealId: input.dealId },
     });
 
-    const deal = connectorResponseMetadata(fetchResult).deal as HubSpotDeal;
+    const deal = hubSpotConnectorResponseMetadata(fetchResult).deal as HubSpotDeal;
 
     const signals = buildHubSpotDealUpdateSignals({
       currentDeal: deal,
@@ -112,7 +108,7 @@ export class HubSpotDealUpdateService {
       return { receipt, replayed: false };
     }
 
-    const updateResult = await this.executeCapability({
+    const updateResult = await executeHubSpotCapability(this.options, {
       businessTransactionId: input.businessTransactionId,
       action: HUBSPOT_DEAL_UPDATE_CAPABILITY,
       target: `deals/${input.dealId}`,
@@ -123,7 +119,7 @@ export class HubSpotDealUpdateService {
       },
     });
 
-    const updateMetadata = connectorResponseMetadata(updateResult);
+    const updateMetadata = hubSpotConnectorResponseMetadata(updateResult);
     const updatedDeal = updateMetadata.deal as HubSpotDeal;
     const connectorEvidence = updateResult.metadata?.connector as { connectorEvidenceHash?: string } | undefined;
     const bearerRedacted = typeof updateMetadata.bearerRedacted === "string" ? updateMetadata.bearerRedacted : undefined;
@@ -147,46 +143,4 @@ export class HubSpotDealUpdateService {
     this.outcomes.set(input.businessTransactionId, receipt);
     return { receipt, replayed: false };
   }
-
-  private async executeCapability(content: {
-    readonly businessTransactionId: string;
-    readonly action: string;
-    readonly target: string;
-    readonly parameters: Readonly<Record<string, unknown>>;
-  }): Promise<ExecutionResult> {
-    const executableContent: ExecutableContent = Object.freeze({
-      ...content,
-      parameters: Object.freeze({ ...content.parameters }),
-    });
-
-    const authorization = await this.signer.sign(
-      {
-        decisionId: randomUUID(),
-        businessTransactionId: content.businessTransactionId,
-        policyName: this.options.policyName,
-        policyVersion: this.options.policyVersion,
-        executableContent,
-      },
-      this.options.signerPrivateKey,
-      this.options.signerKeyId,
-      this.options.authorizationTtlSeconds ?? 60,
-    );
-
-    const request: ExecutionRequest = {
-      businessTransactionId: content.businessTransactionId,
-      action: content.action,
-      target: content.target,
-      parameters: content.parameters,
-      authorization,
-    };
-
-    return this.options.gateway.execute(request);
-  }
-}
-
-function connectorResponseMetadata(result: ExecutionResult): Record<string, unknown> {
-  const connector = result.metadata?.connector as
-    | { responseSummary?: { metadata?: Record<string, unknown> } }
-    | undefined;
-  return connector?.responseSummary?.metadata ?? {};
 }

@@ -8,22 +8,33 @@ import type {
   Verification,
 } from "@parmana/shared";
 
-import type {
-  SupabaseClient,
-} from "@supabase/supabase-js";
+import type { Pool } from "pg";
 
 /**
- * Supabase implementation of ExecutionTrustRecordRepository.
+ * Postgres-backed implementation of ExecutionTrustRecordRepository.
  *
  * Stores the immutable Trust Record header in
  * execution_trust_records and stores runtime
  * artifacts in their respective tables.
+ *
+ * Writes via a direct Postgres connection (PostgresPoolFactory), not
+ * supabase-js/PostgREST -- part of removing PostgREST from every
+ * Supabase-backed table's failure modes, not just the audit sinks
+ * that broke first (see SupabaseCallerAuditSink for the originating
+ * incident). ORDER BY <timestamp> ASC, seq ASC on every sub-collection
+ * select reproduces exactly the ordering fix already proven by
+ * packages/storage/tests/integration/
+ * supabase-execution-trust-record-ordering.integration.test.ts -- seq
+ * is a BIGSERIAL populated by Postgres itself on insert
+ * (supabase/migrations/20260711120000_add_trust_record_sequence_columns.sql,
+ * and settlement_confirmations' own seq column at table creation), so
+ * this class never assigns it explicitly, only reads it back.
  */
 export class SupabaseExecutionTrustRecordRepository
   implements ExecutionTrustRecordRepository
 {
   constructor(
-    private readonly client: SupabaseClient,
+    private readonly pool: Pool,
   ) {}
 
   /**
@@ -32,455 +43,271 @@ export class SupabaseExecutionTrustRecordRepository
   async create(
     record: ExecutionTrustRecord,
   ): Promise<ExecutionTrustRecord> {
-    const { error } = await this.client
-      .from("execution_trust_records")
-      .insert({
-        trust_record_id:
-          record.trustRecordId,
-
-        business_transaction_id:
-          record.businessTransactionId,
-
-        transaction_json:
-          record.transaction,
-
-        trust_record_hash:
-          record.trustRecordHash,
-
-        signature_json:
-          record.signature,
-
-        created_at:
-          record.createdAt.toISOString(),
-
-        updated_at:
-          record.updatedAt.toISOString(),
-      });
-
-    if (error) {
-      throw error;
-    }
+    await this.pool.query(INSERT_TRUST_RECORD_SQL, [
+      record.trustRecordId,
+      record.businessTransactionId,
+      JSON.stringify(record.transaction),
+      record.trustRecordHash,
+      JSON.stringify(record.signature),
+      record.createdAt.toISOString(),
+      record.updatedAt.toISOString(),
+    ]);
 
     return record;
   }
-/**
- * Loads the complete Trust Record aggregate.
- */
-async findByTransactionId(
-  businessTransactionId: string,
-): Promise<ExecutionTrustRecord | null> {
 
-const {
-  data: record,
-  error,
-} = await this.client
-  .from("execution_trust_records")
-  .select("*")
-  .eq(
-    "business_transaction_id",
-    businessTransactionId,
-  )
-  .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  if (!record) {
-    return null;
-  }
-const executionResult = await this.client
-  .from("executions")
-  .select("execution_json")
-  .eq(
-    "business_transaction_id",
-    businessTransactionId,
-  )
-  .order(
-    "created_at",
-    { ascending: true },
-  )
-  .order(
-    "seq",
-    { ascending: true },
-  );
-
-
-
-const executions = executionResult.data;
-const executionError = executionResult.error;
-
-if (executionError) {
-  throw executionError;
-}
-
-
-const overrideResult = await this.client
-  .from("overrides")
-  .select("override_json")
-  .eq(
-    "business_transaction_id",
-    businessTransactionId,
-  )
-  .order(
-    "created_at",
-    { ascending: true },
-  )
-  .order(
-    "seq",
-    { ascending: true },
-  );
-
-const overrides = overrideResult.data;
-const overrideError = overrideResult.error;
-
-if (overrideError) {
-  throw overrideError;
-}
-
-
-const verificationResult = await this.client
-  .from("verifications")
-  .select("verification_json")
-  .eq(
-    "business_transaction_id",
-    businessTransactionId,
-  )
-  .order(
-    "verified_at",
-    { ascending: true },
-  )
-  .order(
-    "seq",
-    { ascending: true },
-  );
-const verifications = verificationResult.data;
-const verificationError = verificationResult.error;
-
-if (verificationError) {
-  throw verificationError;
-}
-
-
-const receiptResult = await this.client
-  .from("receipts")
-  .select("receipt_json")
-  .eq(
-    "business_transaction_id",
-    businessTransactionId,
-  )
-  .order(
-    "issued_at",
-    { ascending: true },
-  )
-  .order(
-    "seq",
-    { ascending: true },
-  );
-
-const receipts = receiptResult.data;
-const receiptError = receiptResult.error;
-if (receiptError) {
-  throw receiptError;
-}
-
-
-const settlementConfirmationResult = await this.client
-  .from("settlement_confirmations")
-  .select("confirmation_json")
-  .eq(
-    "business_transaction_id",
-    businessTransactionId,
-  )
-  .order(
-    "issued_at",
-    { ascending: true },
-  )
-  .order(
-    "seq",
-    { ascending: true },
-  );
-
-const settlementConfirmations = settlementConfirmationResult.data;
-const settlementConfirmationError = settlementConfirmationResult.error;
-if (settlementConfirmationError) {
-  throw settlementConfirmationError;
-}
-
-
-  const trustRecord: ExecutionTrustRecord = {
-  trustRecordId:
-    record.trust_record_id,
-
-  businessTransactionId:
-    record.business_transaction_id,
-
-  transaction:
-    record.transaction_json,
-
-
-executions:
-  (executions ?? []).map(
-    (
-      e: {
-        readonly execution_json: Execution;
-      },
-    ) => e.execution_json,
-  ),
-
-overrides:
-  (overrides ?? []).map(
-    (
-      o: {
-        readonly override_json: Override;
-      },
-    ) => o.override_json,
-  ),
-
-verifications:
-  (verifications ?? []).map(
-    (
-      v: {
-        readonly verification_json: Verification;
-      },
-    ) => v.verification_json,
-  ),
-
-receipts:
-  (receipts ?? []).map(
-    (
-      r: {
-        readonly receipt_json: Receipt;
-      },
-    ) => r.receipt_json,
-  ),
-
-settlementConfirmations:
-  (settlementConfirmations ?? []).map(
-    (
-      s: {
-        readonly confirmation_json: SettlementConfirmation;
-      },
-    ) => s.confirmation_json,
-  ),
-
-
-  trustRecordHash:
-    record.trust_record_hash,
-
-  signature:
-    record.signature_json,
-
-  createdAt:
-    new Date(record.created_at),
-
-  updatedAt:
-    new Date(record.updated_at),
-};
-
-
-
-return trustRecord;
-}
-/**
- * Appends an Execution.
- */
-async appendExecution(
-  businessTransactionId: string,
-  execution: Execution,
-): Promise<void> {
-  const { error } = await this.client
-    .from("executions")
-    .insert({
-      execution_id:
-        execution.executionId,
-
-      business_transaction_id:
-        businessTransactionId,
-
-      execution_json:
-        execution,
-
-      created_at:
-        execution.startedAt.toISOString(),
-    });
-
-  if (error) {
-    throw error;
-  }
-
-  await this.touch(
-    businessTransactionId,
-  );
-}
-/**
- * Replaces an immutable Execution snapshot.
- *
- * @deprecated
- */
-async replaceExecution(
-  execution: Execution,
-): Promise<void> {
-  const { error } = await this.client
-    .from("executions")
-    .update({
-      execution_json:
-        execution,
-    })
-    .eq(
-      "execution_id",
-      execution.executionId,
-    );
-
-  if (error) {
-    throw error;
-  }
-
-  await this.touch(
-    execution.businessTransactionId,
-  );
-}
-/**
- * Appends an Override.
- */
-async appendOverride(
-  businessTransactionId: string,
-  override: Override,
-): Promise<void> {
-  const { error } = await this.client
-    .from("overrides")
-    .insert({
-      override_id:
-        override.overrideId,
-
-      business_transaction_id:
-        businessTransactionId,
-
-      override_json:
-        override,
-
-      created_at:
-        override.approvedAt.toISOString(),
-    });
-
-  if (error) {
-    throw error;
-  }
-
-  await this.touch(
-    businessTransactionId,
-  );
-}
-/**
- * Appends a Verification.
- */
-async appendVerification(
-  businessTransactionId: string,
-  verification: Verification,
-): Promise<void> {
-  const { error } = await this.client
-    .from("verifications")
-    .insert({
-      verification_id: verification.verificationId,
-      business_transaction_id: businessTransactionId,
-      verification_json: verification,
-      verified_at: verification.verifiedAt.toISOString(),
-    });
-
-  if (error) {
-    throw error;
-  }
-
-  await this.touch(businessTransactionId);
-}
-/**
- * Appends a Receipt.
- */
-async appendReceipt(
-  businessTransactionId: string,
-  receipt: Receipt,
-): Promise<void> {
-  const { error } = await this.client
-    .from("receipts")
-    .insert({
-      receipt_id:
-        receipt.receiptId,
-
-      business_transaction_id:
-        businessTransactionId,
-
-      receipt_json:
-        receipt,
-
-      issued_at:
-        receipt.issuedAt.toISOString(),
-    });
-
-  if (error) {
-    throw error;
-  }
-
-  await this.touch(
-    businessTransactionId,
-  );
-}
-/**
- * Appends a Settlement Confirmation.
- */
-async appendSettlementConfirmation(
-  businessTransactionId: string,
-  confirmation: SettlementConfirmation,
-): Promise<void> {
-  const { error } = await this.client
-    .from("settlement_confirmations")
-    .insert({
-      confirmation_id:
-        confirmation.confirmationId,
-
-      business_transaction_id:
-        businessTransactionId,
-
-      confirmation_json:
-        confirmation,
-
-      issued_at:
-        confirmation.issuedAt.toISOString(),
-    });
-
-  if (error) {
-    throw error;
-  }
-
-  await this.touch(
-    businessTransactionId,
-  );
-}
-/**
- * Updates the Trust Record timestamp.
- */
-private async touch(
-  businessTransactionId: string,
-): Promise<void> {
-
- 
-
-  const result = await this.client
-    .from("execution_trust_records")
-    .update({
-      updated_at: new Date().toISOString(),
-    })
-    .eq(
-      "business_transaction_id",
+  /**
+   * Loads the complete Trust Record aggregate.
+   */
+  async findByTransactionId(
+    businessTransactionId: string,
+  ): Promise<ExecutionTrustRecord | null> {
+    const { rows: headerRows } = await this.pool.query(SELECT_HEADER_SQL, [
       businessTransactionId,
-    );
+    ]);
 
+    const header = headerRows[0] as TrustRecordHeaderRow | undefined;
 
+    if (!header) {
+      return null;
+    }
 
-  if (result.error) {
-    
-    throw result.error;
+    const [executionRows, overrideRows, verificationRows, receiptRows, settlementRows] =
+      await Promise.all([
+        this.pool.query(SELECT_EXECUTIONS_SQL, [businessTransactionId]),
+        this.pool.query(SELECT_OVERRIDES_SQL, [businessTransactionId]),
+        this.pool.query(SELECT_VERIFICATIONS_SQL, [businessTransactionId]),
+        this.pool.query(SELECT_RECEIPTS_SQL, [businessTransactionId]),
+        this.pool.query(SELECT_SETTLEMENT_CONFIRMATIONS_SQL, [businessTransactionId]),
+      ]);
+
+    return {
+      trustRecordId: header.trust_record_id,
+      businessTransactionId: header.business_transaction_id,
+      transaction: header.transaction_json,
+
+      executions: (executionRows.rows as { execution_json: Execution }[]).map(
+        (row) => row.execution_json,
+      ),
+
+      overrides: (overrideRows.rows as { override_json: Override }[]).map(
+        (row) => row.override_json,
+      ),
+
+      verifications: (verificationRows.rows as { verification_json: Verification }[]).map(
+        (row) => row.verification_json,
+      ),
+
+      receipts: (receiptRows.rows as { receipt_json: Receipt }[]).map(
+        (row) => row.receipt_json,
+      ),
+
+      settlementConfirmations: (
+        settlementRows.rows as { confirmation_json: SettlementConfirmation }[]
+      ).map((row) => row.confirmation_json),
+
+      trustRecordHash: header.trust_record_hash,
+      signature: header.signature_json,
+      createdAt: new Date(header.created_at),
+      updatedAt: new Date(header.updated_at),
+    };
   }
 
+  /**
+   * Appends an Execution.
+   */
+  async appendExecution(
+    businessTransactionId: string,
+    execution: Execution,
+  ): Promise<void> {
+    await this.pool.query(INSERT_EXECUTION_SQL, [
+      execution.executionId,
+      businessTransactionId,
+      JSON.stringify(execution),
+      execution.startedAt.toISOString(),
+    ]);
 
+    await this.touch(businessTransactionId);
+  }
+
+  /**
+   * Replaces an immutable Execution snapshot.
+   *
+   * @deprecated
+   */
+  async replaceExecution(
+    execution: Execution,
+  ): Promise<void> {
+    await this.pool.query(UPDATE_EXECUTION_SQL, [
+      JSON.stringify(execution),
+      execution.executionId,
+    ]);
+
+    await this.touch(execution.businessTransactionId);
+  }
+
+  /**
+   * Appends an Override.
+   */
+  async appendOverride(
+    businessTransactionId: string,
+    override: Override,
+  ): Promise<void> {
+    await this.pool.query(INSERT_OVERRIDE_SQL, [
+      override.overrideId,
+      businessTransactionId,
+      JSON.stringify(override),
+      override.approvedAt.toISOString(),
+    ]);
+
+    await this.touch(businessTransactionId);
+  }
+
+  /**
+   * Appends a Verification.
+   */
+  async appendVerification(
+    businessTransactionId: string,
+    verification: Verification,
+  ): Promise<void> {
+    await this.pool.query(INSERT_VERIFICATION_SQL, [
+      verification.verificationId,
+      businessTransactionId,
+      JSON.stringify(verification),
+      verification.verifiedAt.toISOString(),
+    ]);
+
+    await this.touch(businessTransactionId);
+  }
+
+  /**
+   * Appends a Receipt.
+   */
+  async appendReceipt(
+    businessTransactionId: string,
+    receipt: Receipt,
+  ): Promise<void> {
+    await this.pool.query(INSERT_RECEIPT_SQL, [
+      receipt.receiptId,
+      businessTransactionId,
+      JSON.stringify(receipt),
+      receipt.issuedAt.toISOString(),
+    ]);
+
+    await this.touch(businessTransactionId);
+  }
+
+  /**
+   * Appends a Settlement Confirmation.
+   */
+  async appendSettlementConfirmation(
+    businessTransactionId: string,
+    confirmation: SettlementConfirmation,
+  ): Promise<void> {
+    await this.pool.query(INSERT_SETTLEMENT_CONFIRMATION_SQL, [
+      confirmation.confirmationId,
+      businessTransactionId,
+      JSON.stringify(confirmation),
+      confirmation.issuedAt.toISOString(),
+    ]);
+
+    await this.touch(businessTransactionId);
+  }
+
+  /**
+   * Updates the Trust Record timestamp.
+   */
+  private async touch(
+    businessTransactionId: string,
+  ): Promise<void> {
+    await this.pool.query(TOUCH_TRUST_RECORD_SQL, [
+      new Date().toISOString(),
+      businessTransactionId,
+    ]);
+  }
 }
+
+const INSERT_TRUST_RECORD_SQL = `
+  INSERT INTO execution_trust_records
+    (trust_record_id, business_transaction_id, transaction_json,
+     trust_record_hash, signature_json, created_at, updated_at)
+  VALUES
+    ($1, $2, $3::jsonb, $4, $5::jsonb, $6, $7)
+`;
+
+const SELECT_HEADER_SQL = `
+  SELECT * FROM execution_trust_records WHERE business_transaction_id = $1
+`;
+
+const SELECT_EXECUTIONS_SQL = `
+  SELECT execution_json FROM executions
+  WHERE business_transaction_id = $1
+  ORDER BY created_at ASC, seq ASC
+`;
+
+const SELECT_OVERRIDES_SQL = `
+  SELECT override_json FROM overrides
+  WHERE business_transaction_id = $1
+  ORDER BY created_at ASC, seq ASC
+`;
+
+const SELECT_VERIFICATIONS_SQL = `
+  SELECT verification_json FROM verifications
+  WHERE business_transaction_id = $1
+  ORDER BY verified_at ASC, seq ASC
+`;
+
+const SELECT_RECEIPTS_SQL = `
+  SELECT receipt_json FROM receipts
+  WHERE business_transaction_id = $1
+  ORDER BY issued_at ASC, seq ASC
+`;
+
+const SELECT_SETTLEMENT_CONFIRMATIONS_SQL = `
+  SELECT confirmation_json FROM settlement_confirmations
+  WHERE business_transaction_id = $1
+  ORDER BY issued_at ASC, seq ASC
+`;
+
+const INSERT_EXECUTION_SQL = `
+  INSERT INTO executions (execution_id, business_transaction_id, execution_json, created_at)
+  VALUES ($1, $2, $3::jsonb, $4)
+`;
+
+const UPDATE_EXECUTION_SQL = `
+  UPDATE executions SET execution_json = $1::jsonb WHERE execution_id = $2
+`;
+
+const INSERT_OVERRIDE_SQL = `
+  INSERT INTO overrides (override_id, business_transaction_id, override_json, created_at)
+  VALUES ($1, $2, $3::jsonb, $4)
+`;
+
+const INSERT_VERIFICATION_SQL = `
+  INSERT INTO verifications (verification_id, business_transaction_id, verification_json, verified_at)
+  VALUES ($1, $2, $3::jsonb, $4)
+`;
+
+const INSERT_RECEIPT_SQL = `
+  INSERT INTO receipts (receipt_id, business_transaction_id, receipt_json, issued_at)
+  VALUES ($1, $2, $3::jsonb, $4)
+`;
+
+const INSERT_SETTLEMENT_CONFIRMATION_SQL = `
+  INSERT INTO settlement_confirmations (confirmation_id, business_transaction_id, confirmation_json, issued_at)
+  VALUES ($1, $2, $3::jsonb, $4)
+`;
+
+const TOUCH_TRUST_RECORD_SQL = `
+  UPDATE execution_trust_records SET updated_at = $1 WHERE business_transaction_id = $2
+`;
+
+interface TrustRecordHeaderRow {
+  readonly trust_record_id: string;
+  readonly business_transaction_id: string;
+  readonly transaction_json: ExecutionTrustRecord["transaction"];
+  readonly trust_record_hash: string;
+  readonly signature_json: ExecutionTrustRecord["signature"];
+  readonly created_at: string | Date;
+  readonly updated_at: string | Date;
 }

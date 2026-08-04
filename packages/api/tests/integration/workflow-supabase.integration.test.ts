@@ -21,11 +21,11 @@ beforeAll(() => {
 });
 
 import app from "../test-app.js";
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
-const supabaseConfigured = resolveSupabaseGate("Supabase Workflow Integration");
+const databaseConfigured = resolveDatabaseGate("Supabase Workflow Integration");
 
-describe.skipIf(!supabaseConfigured)(
+describe.skipIf(!databaseConfigured)(
   "Supabase Workflow Integration",
   () => {
     it(

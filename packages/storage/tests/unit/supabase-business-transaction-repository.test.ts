@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Pool } from "pg";
 
 import { DuplicateBusinessTransactionError } from "@parmana/shared";
 
@@ -8,47 +8,42 @@ import { SupabaseBusinessTransactionRepository } from "../../src/supabase/Supaba
 
 import { buildBusinessTransaction } from "../fixtures/multi-item-trust-record.js";
 
-function createFakeClient(options?: {
+function createFakePool(options?: {
   readonly insertError?: { code?: string; message: string };
-}): SupabaseClient {
-  const rows = new Set<string>();
+}): Pool {
+  const rows = new Map<string, Record<string, unknown>>();
 
-  const client = {
-    from(table: string) {
-      expect(table).toBe("business_transactions");
+  const pool = {
+    query(sql: string, values?: readonly unknown[]) {
+      if (sql.includes("INSERT INTO business_transactions")) {
+        if (options?.insertError) {
+          return Promise.reject(options.insertError);
+        }
 
-      return {
-        insert(row: { business_transaction_id: string }) {
-          if (options?.insertError) {
-            return Promise.resolve({ error: options.insertError });
-          }
+        const [id] = values as [string];
 
-          if (rows.has(row.business_transaction_id)) {
-            return Promise.resolve({
-              error: {
-                code: "23505",
-                message:
-                  `duplicate key value violates unique constraint ` +
-                  `"business_transactions_pkey"`,
-              },
-            });
-          }
+        if (rows.has(id)) {
+          return Promise.reject({
+            code: "23505",
+            message:
+              'duplicate key value violates unique constraint "business_transactions_pkey"',
+          });
+        }
 
-          rows.add(row.business_transaction_id);
-          return Promise.resolve({ error: null });
-        },
-      };
+        rows.set(id, { business_transaction_id: id });
+        return Promise.resolve({ rows: [] });
+      }
+
+      throw new Error(`test fake: unexpected SQL: ${sql}`);
     },
   };
 
-  return client as unknown as SupabaseClient;
+  return pool as unknown as Pool;
 }
 
 describe("SupabaseBusinessTransactionRepository (G-1)", () => {
   it("creates a transaction that does not yet exist", async () => {
-    const repository = new SupabaseBusinessTransactionRepository(
-      createFakeClient(),
-    );
+    const repository = new SupabaseBusinessTransactionRepository(createFakePool());
 
     await expect(
       repository.create(buildBusinessTransaction("txn-1")),
@@ -56,9 +51,7 @@ describe("SupabaseBusinessTransactionRepository (G-1)", () => {
   });
 
   it("maps a 23505 unique-violation to DuplicateBusinessTransactionError, not the raw Postgres error", async () => {
-    const repository = new SupabaseBusinessTransactionRepository(
-      createFakeClient(),
-    );
+    const repository = new SupabaseBusinessTransactionRepository(createFakePool());
 
     await repository.create(buildBusinessTransaction("txn-1"));
 
@@ -69,7 +62,7 @@ describe("SupabaseBusinessTransactionRepository (G-1)", () => {
 
   it("still fails closed on a non-unique-violation storage error: propagates the raw error rather than swallowing it or misreporting it as a duplicate", async () => {
     const repository = new SupabaseBusinessTransactionRepository(
-      createFakeClient({
+      createFakePool({
         insertError: { code: "08006", message: "connection failure" },
       }),
     );

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Pool } from "pg";
 
 import type { NonceStore } from "@parmana/envelope-verifier";
 
@@ -33,26 +33,36 @@ import { isUniqueViolation } from "../errors/PostgresErrorCodes.js";
  * error in that path already does — the caller marks the execution
  * failed rather than silently treating the nonce as accepted. An
  * unreachable NonceStore means no execution, never a silent fallback.
+ *
+ * Writes via a direct Postgres connection (PostgresPoolFactory), not
+ * supabase-js/PostgREST — this codebase depended on PostgREST for
+ * every Supabase-backed table until a stuck PostgREST schema cache on
+ * a different table caused a full authenticated-API outage (see
+ * SupabaseCallerAuditSink/SupabaseRazorpayWebhookAuditSink for the
+ * original incident). This migration removes that entire class of
+ * failure mode (schema cache, role config, exposed-schema settings)
+ * from every remaining Supabase-backed table, not just the two that
+ * broke first.
  */
 export class SupabaseNonceStore implements NonceStore {
-  constructor(private readonly client: SupabaseClient) {}
+  constructor(private readonly pool: Pool) {}
 
   async checkAndRecord(nonce: string, expiresAt: string): Promise<boolean> {
-    const { error } = await this.client
-      .from("consumed_nonces")
-      .insert({
-        nonce,
-        expires_at: expiresAt,
-      });
+    try {
+      await this.pool.query(INSERT_CONSUMED_NONCE_SQL, [nonce, expiresAt]);
 
-    if (error) {
+      return true;
+    } catch (error) {
       if (isUniqueViolation(error)) {
         return false;
       }
 
       throw error;
     }
-
-    return true;
   }
 }
+
+const INSERT_CONSUMED_NONCE_SQL = `
+  INSERT INTO consumed_nonces (nonce, expires_at)
+  VALUES ($1, $2)
+`;

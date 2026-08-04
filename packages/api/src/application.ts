@@ -13,6 +13,7 @@ import {
 } from "@parmana/shared";
 
 import {
+  CompositeSignalStateVerifier,
   FilePolicyRepository,
 } from "@parmana/policy";
 
@@ -30,6 +31,9 @@ import {
   refusalRecordRepository,
 } from "./repositories.js";
 
+import { createRazorpaySignalStateVerifier } from "./bootstrap/createRazorpaySignalStateVerifier.js";
+import { createHubSpotSignalStateVerifier } from "./bootstrap/createHubSpotSignalStateVerifier.js";
+
 const config =
   loadConfig();
 
@@ -41,12 +45,19 @@ export const policyRepository =
 export function createApplication(
   executionSystem: ExecutionSystem,
 ) {
+  const signalStateVerifier =
+    new CompositeSignalStateVerifier([
+      createRazorpaySignalStateVerifier(executionSystem),
+      createHubSpotSignalStateVerifier(executionSystem),
+    ]);
+
   return RuntimeFactory.create(
     businessTransactionRepository,
     executionTrustRecordRepository,
     policyRepository,
     executionSystem,
     refusalRecordRepository,
+    signalStateVerifier,
   );
 }
 

@@ -7,11 +7,11 @@ beforeAll(() => {
 });
 
 import app from "../test-app.js";
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
-const supabaseConfigured = resolveSupabaseGate("Negative Workflow Integration");
+const databaseConfigured = resolveDatabaseGate("Negative Workflow Integration");
 
-describe.skipIf(!supabaseConfigured)("Negative Workflow Integration", () => {
+describe.skipIf(!databaseConfigured)("Negative Workflow Integration", () => {
   it("fails verification for an unknown Business Transaction", async () => {
     const response = await request(app)
       .post("/verify")

@@ -7,11 +7,11 @@ beforeAll(() => {
 });
 
 import app from "../test-app.js";
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
-const supabaseConfigured = resolveSupabaseGate("Replay Integration");
+const databaseConfigured = resolveDatabaseGate("Replay Integration");
 
-describe.skipIf(!supabaseConfigured)("Replay Integration", () => {
+describe.skipIf(!databaseConfigured)("Replay Integration", () => {
   it(
     "replays a previously executed Business Transaction",
     async () => {

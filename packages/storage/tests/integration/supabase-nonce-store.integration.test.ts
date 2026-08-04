@@ -2,12 +2,12 @@ import crypto from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { SupabaseClientFactory } from "../../src/supabase/SupabaseClientFactory.js";
+import { PostgresPoolFactory } from "../../src/postgres/PostgresPoolFactory.js";
 import { SupabaseNonceStore } from "../../src/supabase/SupabaseNonceStore.js";
 
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
-const supabaseConfigured = resolveSupabaseGate("Supabase Nonce Store");
+const databaseConfigured = resolveDatabaseGate("Supabase Nonce Store");
 
 /**
  * Closes G-13 (docs/VERIFICATION-GAPS.md): proves replay protection is
@@ -16,11 +16,14 @@ const supabaseConfigured = resolveSupabaseGate("Supabase Nonce Store");
  * supabase-nonce-store.test.ts). Requires the consumed_nonces table
  * from supabase/migrations/20260718090000_add_nonce_and_caller_audit_
  * tables.sql to have been applied to the target project.
+ *
+ * Writes via PostgresPoolFactory (DATABASE_URL) now, not
+ * SupabaseClientFactory — see SupabaseNonceStore for why.
  */
-describe.skipIf(!supabaseConfigured)("SupabaseNonceStore (live)", () => {
+describe.skipIf(!databaseConfigured)("SupabaseNonceStore (live)", () => {
   it("consumes a nonce and rejects a second attempt against the same backing", async () => {
-    const client = SupabaseClientFactory.create();
-    const store = new SupabaseNonceStore(client);
+    const pool = PostgresPoolFactory.create();
+    const store = new SupabaseNonceStore(pool);
 
     const nonce = `test-nonce-${crypto.randomUUID()}`;
     const expiresAt = new Date(Date.now() + 60_000).toISOString();
@@ -33,8 +36,8 @@ describe.skipIf(!supabaseConfigured)("SupabaseNonceStore (live)", () => {
   });
 
   it("(concurrency, live database) two simultaneous checkAndRecord calls for the same nonce: exactly one succeeds", async () => {
-    const client = SupabaseClientFactory.create();
-    const store = new SupabaseNonceStore(client);
+    const pool = PostgresPoolFactory.create();
+    const store = new SupabaseNonceStore(pool);
 
     const nonce = `test-nonce-race-${crypto.randomUUID()}`;
     const expiresAt = new Date(Date.now() + 60_000).toISOString();
@@ -61,8 +64,8 @@ describe.skipIf(!supabaseConfigured)("SupabaseNonceStore (live)", () => {
       // same nonce)". MemoryNonceStore cannot pass this test at all:
       // a fresh MemoryNonceStore has an empty Map and would accept the
       // same nonce again. That gap is exactly G-13.
-      const firstInstanceClient = SupabaseClientFactory.create();
-      const firstInstance = new SupabaseNonceStore(firstInstanceClient);
+      const firstInstancePool = PostgresPoolFactory.create();
+      const firstInstance = new SupabaseNonceStore(firstInstancePool);
 
       const nonce = `test-nonce-restart-${crypto.randomUUID()}`;
       const expiresAt = new Date(Date.now() + 60_000).toISOString();
@@ -73,8 +76,8 @@ describe.skipIf(!supabaseConfigured)("SupabaseNonceStore (live)", () => {
       );
       expect(consumedByFirstInstance).toBe(true);
 
-      const freshInstanceClient = SupabaseClientFactory.create();
-      const freshInstance = new SupabaseNonceStore(freshInstanceClient);
+      const freshInstancePool = PostgresPoolFactory.create();
+      const freshInstance = new SupabaseNonceStore(freshInstancePool);
 
       const consumedByFreshInstance = await freshInstance.checkAndRecord(
         nonce,

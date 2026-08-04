@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Pool } from "pg";
 
 import { isUniqueViolation } from "@parmana/storage";
 
@@ -19,44 +19,62 @@ import type { PendingRazorpayWebhookEvent } from "./RazorpayWebhookTypes.js";
  * is rethrown, not swallowed — propagates to the webhook route's
  * catch/next(error), which surfaces as a real failure rather than a
  * silent 200 that lied about persisting the event.
+ *
+ * Writes via a direct Postgres connection (PostgresPoolFactory), not
+ * supabase-js/PostgREST — part of removing PostgREST from every
+ * Supabase-backed table's failure modes, not just the audit sinks
+ * that broke first (see SupabaseCallerAuditSink for the originating
+ * incident).
  */
 export class SupabaseRazorpayWebhookEventStore implements RazorpayWebhookEventStore {
-  constructor(private readonly client: SupabaseClient) {}
+  constructor(private readonly pool: Pool) {}
 
   async recordIfUnseen(event: PendingRazorpayWebhookEvent): Promise<boolean> {
-    const { error } = await this.client.from("razorpay_webhook_events").insert({
-      event_id: event.eventId,
-      event_type: event.eventType ?? null,
-      payload: event.payload,
-      received_at: event.receivedAt,
-    });
+    try {
+      await this.pool.query(INSERT_RAZORPAY_WEBHOOK_EVENT_SQL, [
+        event.eventId,
+        event.eventType ?? null,
+        event.payload,
+        event.receivedAt,
+      ]);
 
-    if (error) {
+      return true;
+    } catch (error) {
       if (isUniqueViolation(error)) {
         return false;
       }
 
       throw error;
     }
-
-    return true;
   }
 
   async listAll(): Promise<readonly PendingRazorpayWebhookEvent[]> {
-    const { data, error } = await this.client
-      .from("razorpay_webhook_events")
-      .select("event_id, event_type, payload, received_at")
-      .order("received_at", { ascending: true });
+    const { rows } = await this.pool.query(SELECT_ALL_RAZORPAY_WEBHOOK_EVENTS_SQL);
 
-    if (error) {
-      throw error;
-    }
-
-    return (data ?? []).map((row) => ({
-      eventId: row.event_id as string,
-      payload: row.payload as string,
-      receivedAt: row.received_at as string,
-      ...(row.event_type !== null ? { eventType: row.event_type as string } : {}),
+    return (rows as RazorpayWebhookEventRow[]).map((row) => ({
+      eventId: row.event_id,
+      payload: row.payload,
+      receivedAt:
+        row.received_at instanceof Date ? row.received_at.toISOString() : row.received_at,
+      ...(row.event_type !== null ? { eventType: row.event_type } : {}),
     }));
   }
+}
+
+const INSERT_RAZORPAY_WEBHOOK_EVENT_SQL = `
+  INSERT INTO razorpay_webhook_events (event_id, event_type, payload, received_at)
+  VALUES ($1, $2, $3, $4)
+`;
+
+const SELECT_ALL_RAZORPAY_WEBHOOK_EVENTS_SQL = `
+  SELECT event_id, event_type, payload, received_at
+  FROM razorpay_webhook_events
+  ORDER BY received_at ASC
+`;
+
+interface RazorpayWebhookEventRow {
+  readonly event_id: string;
+  readonly event_type: string | null;
+  readonly payload: string;
+  readonly received_at: string | Date;
 }

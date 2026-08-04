@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Pool } from "pg";
 
 import {
   DuplicateBusinessTransactionError,
@@ -12,27 +12,27 @@ import { SupabaseBusinessTransactionRepository } from "../../src/supabase/Supaba
 
 import { buildBusinessTransaction } from "../fixtures/multi-item-trust-record.js";
 
-function createFakeSupabaseClient(): SupabaseClient {
+function createFakePool(): Pool {
   const rows = new Set<string>();
 
-  const client = {
-    from() {
-      return {
-        insert(row: { business_transaction_id: string }) {
-          if (rows.has(row.business_transaction_id)) {
-            return Promise.resolve({
-              error: { code: "23505", message: "duplicate key value" },
-            });
-          }
+  const pool = {
+    query(sql: string, values?: readonly unknown[]) {
+      if (sql.includes("INSERT INTO business_transactions")) {
+        const [id] = values as [string];
 
-          rows.add(row.business_transaction_id);
-          return Promise.resolve({ error: null });
-        },
-      };
+        if (rows.has(id)) {
+          return Promise.reject({ code: "23505", message: "duplicate key value" });
+        }
+
+        rows.add(id);
+        return Promise.resolve({ rows: [] });
+      }
+
+      throw new Error(`test fake: unexpected SQL: ${sql}`);
     },
   };
 
-  return client as unknown as SupabaseClient;
+  return pool as unknown as Pool;
 }
 
 /**
@@ -44,7 +44,7 @@ describe.each<[string, () => BusinessTransactionRepository]>([
   ["MemoryBusinessTransactionRepository", () => new MemoryBusinessTransactionRepository()],
   [
     "SupabaseBusinessTransactionRepository",
-    () => new SupabaseBusinessTransactionRepository(createFakeSupabaseClient()),
+    () => new SupabaseBusinessTransactionRepository(createFakePool()),
   ],
 ])("%s", (_name, createRepository) => {
   it("throws DuplicateBusinessTransactionError, with the same message format, for a duplicate businessTransactionId", async () => {

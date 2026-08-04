@@ -7,11 +7,11 @@ beforeAll(() => {
 });
 
 import app from "../test-app.js";
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
-const supabaseConfigured = resolveSupabaseGate("Execution Trust Record Lifecycle");
+const databaseConfigured = resolveDatabaseGate("Execution Trust Record Lifecycle");
 
-describe.skipIf(!supabaseConfigured)("Execution Trust Record Lifecycle", () => {
+describe.skipIf(!databaseConfigured)("Execution Trust Record Lifecycle", () => {
   it("maintains the complete trust lifecycle", async () => {
     const transaction =
       createBusinessTransaction();

@@ -8,12 +8,16 @@ import type { StorageProvider } from "./StorageProvider.js";
 
 import type { StorageConfiguration } from "./StorageConfiguration.js";
 
-function hasSupabaseConfig(): boolean {
-  return Boolean(
-    process.env.SUPABASE_URL &&
-      (process.env.SUPABASE_SERVICE_ROLE_KEY ||
-        process.env.SUPABASE_ANON_KEY),
-  );
+/**
+ * Whether a direct Postgres connection string is configured.
+ * SupabaseStorageProvider's three repositories now write via
+ * PostgresPoolFactory (DATABASE_URL), not SupabaseClientFactory
+ * (SUPABASE_URL) — see SupabaseExecutionTrustRecordRepository for why
+ * (removing PostgREST from every Supabase-backed table's failure
+ * modes, not just the audit sinks that broke first).
+ */
+function hasDatabaseUrlConfig(): boolean {
+  return Boolean(process.env.DATABASE_URL);
 }
 
 /**
@@ -30,16 +34,17 @@ export class StorageFactory {
 
       case "supabase":
         // G-15: name both knobs (PARMANA_STORAGE and the missing
-        // SUPABASE_* var) before SupabaseClientFactory.create() would
-        // otherwise fail with supabase-js's generic "supabaseUrl is
-        // required." — or, worse, construct a client that only fails
-        // on first use.
-        if (!hasSupabaseConfig()) {
+        // DATABASE_URL) before PostgresPoolFactory.create() would
+        // otherwise fail with its generic "DATABASE_URL environment
+        // variable is missing." — or, worse, construct a pool that
+        // only fails on first use.
+        if (!hasDatabaseUrlConfig()) {
           throw new Error(
-            "PARMANA_STORAGE=supabase requires SUPABASE_URL and a " +
-              "Supabase key (SUPABASE_SERVICE_ROLE_KEY or " +
-              "SUPABASE_ANON_KEY) to be configured. Refusing to " +
-              "construct a Supabase storage provider with no credentials.",
+            "PARMANA_STORAGE=supabase requires DATABASE_URL (a direct " +
+              "Postgres connection string — see Settings → Database → " +
+              "Connection string in the Supabase dashboard) to be " +
+              "configured. Refusing to construct a Supabase storage " +
+              "provider with no credentials.",
           );
         }
 

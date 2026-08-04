@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Pool } from "pg";
 
 import type { RefusalRecord } from "@parmana/shared";
 
@@ -59,47 +59,64 @@ function buildRefusalRecord(
   };
 }
 
-function createFakeClient(): {
-  client: SupabaseClient;
-  rows: Map<string, Record<string, unknown>>;
-} {
+function createFakePool(options?: {
+  readonly insertError?: { code?: string; message: string };
+}): Pool {
   const rows = new Map<string, Record<string, unknown>>();
 
-  const client = {
-    from(table: string) {
-      expect(table).toBe("refusal_records");
+  const pool = {
+    query(sql: string, values?: readonly unknown[]) {
+      if (sql.includes("INSERT INTO refusal_records")) {
+        if (options?.insertError) {
+          return Promise.reject(options.insertError);
+        }
 
-      return {
-        insert(row: { business_transaction_id: string }) {
-          rows.set(row.business_transaction_id, row);
-          return Promise.resolve({ error: null });
-        },
+        const [
+          refusalRecordId,
+          businessTransactionId,
+          decisionJson,
+          evaluatedIntentJson,
+          bindingViolationsJson,
+          submittedBy,
+          refusalRecordHash,
+          signatureJson,
+          createdAt,
+        ] = values as readonly unknown[];
 
-        select() {
-          return {
-            eq(_column: string, value: string) {
-              return {
-                maybeSingle() {
-                  return Promise.resolve({
-                    data: rows.get(value) ?? null,
-                    error: null,
-                  });
-                },
-              };
-            },
-          };
-        },
-      };
+        rows.set(businessTransactionId as string, {
+          refusal_record_id: refusalRecordId,
+          business_transaction_id: businessTransactionId,
+          decision_json: JSON.parse(decisionJson as string),
+          evaluated_intent_json: JSON.parse(evaluatedIntentJson as string),
+          binding_violations_json: bindingViolationsJson
+            ? JSON.parse(bindingViolationsJson as string)
+            : null,
+          submitted_by: submittedBy,
+          refusal_record_hash: refusalRecordHash,
+          signature_json: JSON.parse(signatureJson as string),
+          created_at: createdAt,
+        });
+
+        return Promise.resolve({ rows: [] });
+      }
+
+      if (sql.includes("SELECT * FROM refusal_records WHERE")) {
+        const [businessTransactionId] = values as [string];
+        const row = rows.get(businessTransactionId);
+
+        return Promise.resolve({ rows: row ? [row] : [] });
+      }
+
+      throw new Error(`test fake: unexpected SQL: ${sql}`);
     },
   };
 
-  return { client: client as unknown as SupabaseClient, rows };
+  return pool as unknown as Pool;
 }
 
 describe("SupabaseRefusalRecordRepository (RFC-0021)", () => {
   it("creates a Refusal Record and round-trips it through findByTransactionId with all fields intact", async () => {
-    const { client } = createFakeClient();
-    const repository = new SupabaseRefusalRecordRepository(client);
+    const repository = new SupabaseRefusalRecordRepository(createFakePool());
 
     const record = buildRefusalRecord("txn-1");
 
@@ -110,18 +127,34 @@ describe("SupabaseRefusalRecordRepository (RFC-0021)", () => {
     expect(found).not.toBeNull();
     expect(found!.refusalRecordId).toBe(record.refusalRecordId);
     expect(found!.businessTransactionId).toBe("txn-1");
-    expect(found!.decision).toEqual(record.decision);
+
+    // decision_json round-trips through real JSONB exactly like it
+    // already did over supabase-js's REST wire format (JSON.stringify
+    // on the way in, JSON.parse on the way out) -- evaluatedAt comes
+    // back a string, not a Date, same as production traffic always
+    // produced; the pre-migration mock only looked lossless because
+    // it returned the identical in-memory object by reference,
+    // skipping serialization entirely. Not a regression from this
+    // migration -- a more faithful test of behavior that already
+    // existed.
+    expect(found!.decision).toEqual({
+      ...record.decision,
+      evaluatedAt: record.decision.evaluatedAt.toISOString(),
+    });
     expect(found!.evaluatedIntent).toEqual(record.evaluatedIntent);
     expect(found!.bindingViolations).toEqual(record.bindingViolations);
     expect(found!.submittedBy).toBe("caller-1");
     expect(found!.refusalRecordHash).toBe("test-hash");
-    expect(found!.signature).toEqual(record.signature);
+    // Same JSONB round-trip note as decision.evaluatedAt above.
+    expect(found!.signature).toEqual({
+      ...record.signature,
+      signedAt: record.signature.signedAt.toISOString(),
+    });
     expect(found!.createdAt).toEqual(record.createdAt);
   });
 
   it("round-trips a record with no bindingViolations (ordinary policy REJECT) as undefined, not null or []", async () => {
-    const { client } = createFakeClient();
-    const repository = new SupabaseRefusalRecordRepository(client);
+    const repository = new SupabaseRefusalRecordRepository(createFakePool());
 
     const record = { ...buildRefusalRecord("txn-2") };
     delete (record as { bindingViolations?: unknown }).bindingViolations;
@@ -134,8 +167,7 @@ describe("SupabaseRefusalRecordRepository (RFC-0021)", () => {
   });
 
   it("returns null for a transaction with no Refusal Record", async () => {
-    const { client } = createFakeClient();
-    const repository = new SupabaseRefusalRecordRepository(client);
+    const repository = new SupabaseRefusalRecordRepository(createFakePool());
 
     const found = await repository.findByTransactionId("txn-does-not-exist");
 
@@ -143,21 +175,9 @@ describe("SupabaseRefusalRecordRepository (RFC-0021)", () => {
   });
 
   it("propagates a storage error rather than swallowing it", async () => {
-    const client = {
-      from(table: string) {
-        expect(table).toBe("refusal_records");
-
-        return {
-          insert() {
-            return Promise.resolve({
-              error: { code: "08006", message: "connection failure" },
-            });
-          },
-        };
-      },
-    } as unknown as SupabaseClient;
-
-    const repository = new SupabaseRefusalRecordRepository(client);
+    const repository = new SupabaseRefusalRecordRepository(
+      createFakePool({ insertError: { code: "08006", message: "connection failure" } }),
+    );
 
     await expect(
       repository.create(buildRefusalRecord("txn-3")),

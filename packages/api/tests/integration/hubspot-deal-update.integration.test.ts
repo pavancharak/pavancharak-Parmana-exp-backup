@@ -269,4 +269,41 @@ describe("HubSpot deal update (HTTP boundary)", () => {
 
     fetchSpy.mockRestore();
   });
+
+  it("rejects by policy through POST /execute when caller-declared signals misrepresent the real HubSpot deal state", async () => {
+    const { app, server: mockServer } = await buildApp();
+
+    // Real deal: already closedlost (terminal) -- no forward transition is ever allowed out of it.
+    mockServer.setDeal({
+      id: "9004",
+      properties: { dealstage: "closedlost", amount: "5000", pipeline: "default" },
+    });
+
+    // Caller-declared signals falsely claim the deal is still at an early, non-terminal
+    // stage, so the proposed forward transition appears allowed -- untrue against the
+    // real deal.
+    const transaction = dealUpdateTransaction({
+      dealId: "9004",
+      dealstage: "qualifiedtobuy",
+      signals: {
+        currentDealStage: "appointmentscheduled",
+        proposedDealStage: "qualifiedtobuy",
+        dealStageChangeRequested: true,
+        dealStageTransitionAllowed: true,
+        amountChangeRequested: false,
+        amountDeltaAbs: 0,
+        amountChangeExceedsThreshold: false,
+        preAuthorizedForAmountChange: false,
+      },
+    });
+
+    const response = await request(app).post("/execute").send(transaction);
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe("POLICY_DENIED");
+
+    // The strongest proof: the deal is untouched on HubSpot's (mock) side, even though
+    // the caller-declared signals alone would have satisfied every policy rule.
+    expect(mockServer.getDeal("9004")?.properties.dealstage).toBe("closedlost");
+  });
 });

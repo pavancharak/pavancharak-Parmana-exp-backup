@@ -1,4 +1,4 @@
-import type { PolicyRepository } from "@parmana/policy";
+import type { PolicyRepository, SignalStateVerifier } from "@parmana/policy";
 
 import {
   BusinessTransactionRepository,
@@ -40,6 +40,7 @@ export class RuntimeFactory {
   policyRepository: PolicyRepository,
   executionSystem: ExecutionSystem,
   refusalRecords?: RefusalRecordRepository,
+  signalStateVerifier?: SignalStateVerifier,
 ): ExecutionTrustApplication {
     //
     // Application Services
@@ -77,11 +78,20 @@ export class RuntimeFactory {
     //
     // Runtime
     //
-    const runtime: Runtime =
+    const builder =
       new RuntimeBuilder()
         .withPolicyRepository(
           policyRepository,
-        )
+        );
+
+    if (signalStateVerifier) {
+      builder.withSignalStateVerifier(
+        signalStateVerifier,
+      );
+    }
+
+    const runtime: Runtime =
+      builder
         .addStage(
           new TrustChainValidationComponent(),
         )

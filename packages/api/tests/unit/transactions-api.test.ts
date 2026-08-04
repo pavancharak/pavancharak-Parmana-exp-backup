@@ -7,9 +7,9 @@ beforeAll(() => {
 
 import app from "../test-app.js";
 import { createBusinessTransaction } from "../fixtures/business-transaction.js";
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
-const supabaseConfigured = resolveSupabaseGate(
+const databaseConfigured = resolveDatabaseGate(
   "Transactions API (persistence cases)",
 );
 
@@ -46,7 +46,7 @@ describe("POST /transactions", () => {
     );
   });
 
-  it.skipIf(!supabaseConfigured)(
+  it.skipIf(!databaseConfigured)(
     "creates a Business Transaction with a server-set status, ignoring any client-supplied status",
     async () => {
       const transaction = createBusinessTransaction();
@@ -72,7 +72,7 @@ describe("POST /transactions", () => {
     },
   );
 
-  it.skipIf(!supabaseConfigured)(
+  it.skipIf(!databaseConfigured)(
     "drops unrecognized top-level fields instead of persisting them",
     async () => {
       const transaction = createBusinessTransaction();
@@ -98,7 +98,7 @@ describe("POST /transactions", () => {
     },
   );
 
-  it.skipIf(!supabaseConfigured)(
+  it.skipIf(!databaseConfigured)(
     "fails with the shared 400 envelope when a trust-chain invariant is violated",
     async () => {
       const transaction = createBusinessTransaction();

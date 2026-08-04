@@ -271,6 +271,191 @@ policy's `signalsSchema` has no existing field cleanly mappable to `intent.param
 paymentId` without inventing new policy-author-facing surface beyond this session's
 scope. Flagged here rather than silently left unmentioned.
 
+**Update (2026-08-04), RFC-0022: the razorpay-refund slice of this residual is now closed.**
+`SignalStateVerifier` (`packages/policy/src/types/SignalStateVerifier.ts`) is a new, optional,
+additive port. `RuntimeEngine.execute` computes a *provisional* decision exactly as before
+(`SignalIntentBinder` check, then `PolicyEngine.evaluate` if binding passed), and only when that
+provisional decision is `APPROVE` does it run the configured `SignalStateVerifier`, over the
+exact signals just evaluated; a violation overrides the decision to an ordinary REJECT
+(`matchedRuleId: "signal-state-verification-violation"`), the same fail-closed shape
+`SignalIntentBinder` violations already use. Gating on "provisional decision is APPROVE" rather
+than running unconditionally is deliberate: a request already going to be REJECTed (by binding or
+by an ordinary policy rule) needs no independent re-fetch, which preserves the existing "a policy
+denial makes zero calls to the external vendor system" property those tests already asserted
+(see `hubspot-deal-update.integration.test.ts`'s `fetchSpy` assertions, updated below). `SignalIntentBinder`
+itself is unmodified. `RazorpaySignalStateVerifier`
+(`packages/connector-sdk/src/connectors/razorpay/RazorpaySignalStateVerifier.ts`) is the
+concrete implementation wired into production `POST /execute`
+(`packages/api/src/bootstrap/createRazorpaySignalStateVerifier.ts`, composed in
+`packages/api/src/application.ts`): for `razorpay:refund-create` requests only, it independently
+re-fetches the real payment from Razorpay -- reusing the exact fetch `RazorpayRefundService`
+already performed (`executeRazorpayCapability`, extracted from `RazorpayRefundService` into
+`RazorpayCapabilityExecution.ts` so both share one implementation) -- and compares `paymentStatus`,
+`paymentCurrency`, `refundableRemainingPaise`, and `requestedExceedsRemainder` against the
+caller-declared signals. A fetch failure (network error, payment not found) is itself treated as
+a violation: fail-closed, never a silent pass-through. `requestedRefundAmountPaise` is read from
+the caller's declared signals rather than re-derived, because `SignalIntentBinder` has already
+proven it equals `intent.parameters.amountPaise` by the time this verifier runs.
+
+**Verified:** a new regression test,
+`packages/api/tests/integration/razorpay-refund.integration.test.ts` ("rejects by policy through
+POST /execute when caller-declared signals misrepresent the real Razorpay payment state"), was
+written first and confirmed failing (`200 APPROVED`, a real refund landing on the mock server)
+against the code as it stood before this fix, then confirmed passing (`403 POLICY_DENIED`, no
+refund reaches the mock server) after it. Full repo `tsc -b`, `eslint . --ext .ts`, and `vitest
+run` (762 passed, 40 pre-existing skips, no new skips) all clean, no regressions.
+
+**Explicitly still open, not addressed by this update:**
+- `dailyCumulativeAfterThisRefundPaise` is *not* independently verified -- it depends on
+  Parmana's own cumulative-refund ledger (`RazorpayCumulativeRefundLedger`), and no ledger is
+  wired to the production `POST /execute` path at all (only `RazorpayRefundService`'s
+  test/tutorial-only flow has one). This is the same daily-cap TOCTOU/ledger race already
+  identified as unaddressed accepted risk in the state-freshness investigation that preceded
+  this fix -- untouched by this change.
+- **`vendor-payment`** (`policies/vendor-payment/2.0.0/policy.json`) has the identical shape of
+  gap and no verifier: `vendorVerified`, `invoiceVerified`, `paymentApproved`, `sufficientFunds`,
+  and `riskScore` remain pure caller-declared attestations. There is no single external system in
+  this codebase these facts could be fetched from the way Razorpay's payment API supplies
+  `razorpay-refund`'s facts, so closing this one is a materially different, larger problem than
+  either closure below, not a trivial extension of them.
+
+**Update (2026-08-04), RFC-0022: the hubspot-deal-update slice of this residual is now also
+closed**, following the razorpay-refund closure above exactly, as its flagged "natural next
+candidate" (a real, fetchable external source -- HubSpot's own deal API -- already existed).
+`HubSpotSignalStateVerifier`
+(`packages/connector-hubspot/src/HubSpotSignalStateVerifier.ts`) is the concrete implementation,
+wired into production `POST /execute` the same way
+(`packages/api/src/bootstrap/createHubSpotSignalStateVerifier.ts`, composed alongside the Razorpay
+verifier in `packages/api/src/application.ts` via a new `CompositeSignalStateVerifier`
+(`packages/policy/src/CompositeSignalStateVerifier.ts`), since `RuntimeEngine` accepts exactly one
+`SignalStateVerifier` and each capability-scoped verifier only recognizes its own action, returning
+no violations for anything else): for `hubspot:deal-update` requests only, it independently
+re-fetches the real deal from HubSpot -- reusing the exact fetch `HubSpotDealUpdateService`
+already performed (`executeHubSpotCapability`, extracted from `HubSpotDealUpdateService` into
+`HubSpotCapabilityExecution.ts`, mirroring `RazorpayCapabilityExecution.ts` exactly) -- and
+compares `currentDealStage`, `dealStageChangeRequested`, `dealStageTransitionAllowed`,
+`amountChangeRequested`, `amountDeltaAbs`, and `amountChangeExceedsThreshold` against the
+caller-declared signals. A fetch failure is itself treated as a violation: fail-closed, never a
+silent pass-through. `proposedDealStage`/`proposedAmount` are read from the caller's declared
+signals rather than re-derived, because `SignalIntentBinder` has already proven they equal
+`intent.parameters.dealstage`/`intent.parameters.amount` by the time this verifier runs.
+`preAuthorizedForAmountChange` is deliberately excluded from verification: it is an explicitly
+out-of-band claim with no HubSpot-side fact to fetch and compare against (see
+`HubSpotDealUpdateSignals.ts`'s own comment on that field), the same category of exclusion as
+`dailyCumulativeAfterThisRefundPaise` above.
+
+**Verified:** a new regression test,
+`packages/api/tests/integration/hubspot-deal-update.integration.test.ts` ("rejects by policy
+through POST /execute when caller-declared signals misrepresent the real HubSpot deal state"),
+was written and confirmed failing (`200 APPROVED`, no deal-state check) with the HubSpot verifier
+deliberately left out of the composite while the Razorpay verifier stayed wired, then confirmed
+passing (`403 POLICY_DENIED`, the mock deal stage stays unchanged) once wired in. This also
+implicitly re-verified the ordering fix above: the two pre-existing `hubspot-deal-update`
+policy-denial tests, each asserting *zero* HTTP calls reached the mock HubSpot server on a
+denial, kept passing with the verifier now in the request path, because it only ever runs when
+the provisional decision is `APPROVE`. `HubSpotDealUpdateService`'s own 42 pre-existing unit
+tests pass unmodified -- this was a pure additive change to production wiring, not a change to
+that service's behavior. Full repo `tsc -b`, `eslint . --ext .ts`, `tsc --noEmit`, and `vitest
+run` (763 passed, 40 pre-existing skips, no new skips) all clean, no regressions.
+
+**Explicitly still open, not addressed by this update:** `vendor-payment` (above) remains the
+only capability of the three using this generic signals mechanism with no independent state
+verification at all, for the reason already stated: no single fetchable external source exists
+for its signals in this codebase.
+
+**Investigation (2026-08-04): `vendor-payment` remains genuinely blocked, not merely
+unattempted.** Per-fact breakdown of every unbound signal in
+`policies/vendor-payment/2.0.0/policy.json`'s `signalsSchema` (only `paymentAmount` and
+`vendorId` are bound, via `boundSignals`):
+
+- `vendorVerified` -- would need a vendor-verification/KYB (know-your-business) service. No
+  connector anywhere in this codebase represents one, not even as a write-only placeholder.
+- `invoiceVerified` -- would need an accounts-payable/invoicing system exposing invoice
+  match/approval status. `SapConnector` (`packages/connector-sdk/src/connectors/sap/
+  SapConnector.ts`) is the plausible real-world candidate (SAP is a common AP system), but it is
+  a bare `MockConnector` with exactly one capability, `sap:post-invoice` (write-only, scripted,
+  in-memory), explicitly documented as "temporary... until the real connector is implemented."
+  No fetch/read capability exists.
+- `paymentApproved` -- would need an approval-workflow system. `WorkdayConnector`
+  (`.../workday/WorkdayConnector.ts`) is the plausible candidate, same situation exactly:
+  `MockConnector`, one write-only capability (`workday:submit-expense-report`), no fetch
+  capability, same "temporary" doc comment.
+- `sufficientFunds` -- would need an account-balance/treasury API. `OracleConnector`
+  (`.../oracle/OracleConnector.ts`) is the plausible candidate, same situation: `MockConnector`,
+  one write-only capability (`oracle:create-purchase-order`), no fetch capability.
+- `riskScore` -- would need a risk/fraud-scoring service. No connector of any kind represents
+  one in this codebase, not even a write-only placeholder like the four above.
+
+`VendorPaymentConnector` itself (`.../vendor-payment/VendorPaymentConnector.ts`) is likewise a
+bare `MockConnector`, one write-only capability (`vendor-payment`), no fetch capability, same
+"temporary... until the real connector is implemented" doc comment.
+
+Unlike Razorpay and HubSpot, where `MockRazorpayServer`/`MockHubSpotServer` stand in for a real,
+already-production-capable HTTP integration (`RazorpayConnector`/`HubSpotConnector` speak to the
+real vendor API today whenever no test-only `*_BASE_URL` override is set), `MockConnector` here
+is not a test substitute for anything real: in production it would simply return
+`{ success: true, metadata: {} }` for whatever it's asked to execute. There is no real system,
+mocked in tests, that a verifier's fetch could be faithfully checked against for any of the five
+facts -- building one now would mean either fetching from a write-only capability that has
+nothing to fetch, or fabricating a new read capability backed by nothing but a hardcoded test
+double, which would not be independent verification, only the appearance of it. Per this
+investigation's own instructions: this is "genuinely blocked," not "could close this but
+haven't" -- **no code was changed for vendor-payment.** All five facts remain exactly as
+documented above: pure caller-declared attestations.
+
+**Update (2026-08-04): the daily-cumulative-cap ledger race (flagged above and in the
+state-freshness investigation that preceded the razorpay-refund closure) is now fixed.** The
+race: `RazorpayRefundService.requestRefund()` read `RazorpayCumulativeRefundLedger
+.cumulativeAmountToday(scopeId)` once, early (before that call's own payment fetch and policy
+evaluation), then -- across two further `await` points (the payment fetch, and later the actual
+refund-create capability call) -- unconditionally appended to the ledger only after a successful
+refund, with nothing re-checking the total in between. Two concurrent `requestRefund()` calls for
+the same `scopeId` could both read the same pre-write total, both independently pass the
+`reject-exceeds-daily-cumulative-cap` rule, and both execute, pushing the real combined total
+over the configured cap.
+
+Fix: `RazorpayCumulativeRefundLedger.recordApprovedRefundIfWithinCap(scopeId, amountPaise,
+businessTransactionId, capPaise, now?)`
+(`packages/connector-sdk/src/connectors/razorpay/RazorpayCumulativeRefundLedger.ts`) re-reads the
+current total and appends in a single synchronous call -- no `await` anywhere inside it, so
+JavaScript's run-to-completion semantics make the read-then-append atomic with no explicit lock
+needed. Returns the new total when the append is accepted, or `null` when appending would exceed
+`capPaise` (nothing appended). `RazorpayRefundService.requestRefund()` now calls this immediately
+before the actual refund-create capability call (not at the point signals are first built, and no
+longer unconditionally after success): a `null` result is treated as an ordinary REJECT
+(`matchedRuleId: "reject-exceeds-daily-cumulative-cap-race-guard"`) and Razorpay is never
+contacted for it, the same "zero external calls on a denial" shape every other REJECT path here
+already has. `capPaise` comes from a new `RazorpayRefundServiceOptions.dailyCumulativeCapPaise`
+field, defaulting to a new exported constant,
+`RAZORPAY_DEFAULT_DAILY_CUMULATIVE_CAP_PAISE = 2_000_000`
+(`packages/connector-sdk/src/connectors/razorpay/RazorpayRefundSignals.ts`) -- this must match
+`policies/razorpay-refund/1.0.0/policy.json`'s own cap literal exactly; the two are not
+mechanically linked (nothing reads a rule's literal value back out of hand-authored policy JSON),
+the same accepted coupling risk `HUBSPOT_DEFAULT_AMOUNT_CHANGE_THRESHOLD` already carries against
+`hubspot-deal-update`'s policy.
+
+Known, accepted trade-off of reserving before executing rather than only recording after success:
+if the reservation succeeds but the subsequent Razorpay-side refund-create call itself then fails
+(network error, Razorpay rejects it), the ledger entry is not rolled back --
+`AppendOnlyLedger` is deliberately append-only, by design, with no delete. The day's recorded
+cumulative total can therefore end up slightly higher than the sum of refunds that actually
+landed on Razorpay, conservatively reducing remaining headroom for the rest of that scope's day.
+This is the opposite failure direction from the race being fixed (under-permits rather than
+over-permits) and is flagged here rather than left implicit.
+
+**Verified:** a new regression test,
+`packages/connector-sdk/tests/unit/razorpay-refund-service.test.ts` ("two concurrent requests
+against the same daily cumulative cap cannot both succeed when only one should"), fires two
+concurrent `requestRefund()` calls via `Promise.all` against a ledger seeded to 1,700,000 of a
+2,000,000 cap, each individually requesting 200,000 (within the per-refund cap and, read
+naively, within headroom) but 2,100,000 combined -- over the cap. Proven failing empirically, not
+just reasoned about: `git stash`-ed the fix's own source changes (keeping the earlier
+razorpay-refund closure's extraction intact) and ran the test against the resulting pre-fix code,
+observing both concurrent requests approved and executed (`approvedCount` `2`, failing the `<= 1`
+assertion) before restoring the fix. Re-ran the now-passing test five consecutive times with no
+flake. Full repo `tsc -b`, `eslint . --ext .ts`, `tsc --noEmit`, and `vitest run` (764 passed, 40
+pre-existing skips, no new skips) all clean, no regressions.
+
 **G-1. Duplicate Business Transaction ID: real, deterministic data-loss race in
 `MemoryBusinessTransactionRepository`. RESOLVED (Option A, as written in D-1 below,
 implemented as written) in the audit-sink/G-1 hardening session that followed the G-13

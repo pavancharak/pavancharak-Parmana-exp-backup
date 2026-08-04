@@ -5,7 +5,7 @@ import { createApplication } from "../../../src/application.js";
 import { createApp } from "../../../src/app.js";
 import { createExecutionSystem } from "../../../src/bootstrap/createExecutionSystem.js";
 
-const ENV_KEYS = ["NODE_ENV", "PARMANA_STORAGE", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY"] as const;
+const ENV_KEYS = ["NODE_ENV", "PARMANA_STORAGE", "DATABASE_URL"] as const;
 
 function buildApp() {
   const executionSystem = createExecutionSystem();
@@ -36,7 +36,7 @@ describe("GET /ready", () => {
 
   it("reports READY without touching Supabase when storage is memory-backed outside test", async () => {
     // Built under NODE_ENV=test (see the next test's comment for why:
-    // createNonceStore.ts's own eager check always requires Supabase
+    // createNonceStore.ts's own eager check always requires DATABASE_URL
     // outside NODE_ENV=test, by design, independent of PARMANA_STORAGE
     // -- so flipping env before buildApp() would throw for a reason
     // unrelated to what this test exercises).
@@ -54,7 +54,7 @@ describe("GET /ready", () => {
   it("reports NOT_READY (503) with a reason when Supabase-backed and the connection fails", async () => {
     // Built under NODE_ENV=test (so app construction's own eager
     // assertStorageConfigured/createNonceStore checks don't themselves
-    // throw on the bad Supabase config below) -- the route handler
+    // throw on the bad DATABASE_URL below) -- the route handler
     // reads process.env fresh per request, independent of how the app
     // was constructed, so flipping env only around the request itself
     // still exercises the live-storage branch faithfully.
@@ -62,8 +62,7 @@ describe("GET /ready", () => {
 
     process.env.NODE_ENV = "production";
     process.env.PARMANA_STORAGE = "supabase";
-    process.env.SUPABASE_URL = "not-a-valid-url";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "unreachable-key";
+    process.env.DATABASE_URL = "postgresql://unreachable:unreachable@127.0.0.1:1/postgres";
 
     const response = await request(app).get("/ready");
 

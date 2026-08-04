@@ -5,12 +5,7 @@ import { SupabaseNonceStore } from "@parmana/storage";
 
 import { createNonceStore } from "../../../src/bootstrap/createNonceStore.js";
 
-const ENV_KEYS = [
-  "NODE_ENV",
-  "SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "SUPABASE_ANON_KEY",
-] as const;
+const ENV_KEYS = ["NODE_ENV", "DATABASE_URL"] as const;
 
 describe("createNonceStore", () => {
   const original = Object.fromEntries(
@@ -27,31 +22,25 @@ describe("createNonceStore", () => {
     }
   });
 
-  it("returns MemoryNonceStore when NODE_ENV=test, regardless of Supabase configuration", () => {
+  it("returns MemoryNonceStore when NODE_ENV=test, regardless of DATABASE_URL configuration", () => {
     process.env.NODE_ENV = "test";
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.DATABASE_URL;
 
     expect(createNonceStore()).toBeInstanceOf(MemoryNonceStore);
   });
 
-  it("(G-13) fails closed with a named, actionable error when NODE_ENV is not test and Supabase is not configured", () => {
+  it("(G-13) fails closed with a named, actionable error when NODE_ENV is not test and DATABASE_URL is not configured", () => {
     process.env.NODE_ENV = "production";
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.DATABASE_URL;
 
-    expect(() => createNonceStore()).toThrow(/SUPABASE_URL/);
+    expect(() => createNonceStore()).toThrow(/DATABASE_URL/);
     expect(() => createNonceStore()).toThrow(/NonceStore/);
     expect(() => createNonceStore()).toThrow(/G-13/);
   });
 
-  it("never silently falls back to MemoryNonceStore in production wiring when Supabase is unconfigured", () => {
+  it("never silently falls back to MemoryNonceStore in production wiring when DATABASE_URL is unconfigured", () => {
     process.env.NODE_ENV = "production";
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.DATABASE_URL;
 
     let result: unknown;
     try {
@@ -63,20 +52,9 @@ describe("createNonceStore", () => {
     expect(result).toBeUndefined();
   });
 
-  it("returns SupabaseNonceStore when NODE_ENV is not test and Supabase is configured", () => {
+  it("returns SupabaseNonceStore when NODE_ENV is not test and DATABASE_URL is configured", () => {
     process.env.NODE_ENV = "production";
-    process.env.SUPABASE_URL = "https://example.supabase.co";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
-    delete process.env.SUPABASE_ANON_KEY;
-
-    expect(createNonceStore()).toBeInstanceOf(SupabaseNonceStore);
-  });
-
-  it("accepts SUPABASE_ANON_KEY as an alternative to SUPABASE_SERVICE_ROLE_KEY", () => {
-    process.env.NODE_ENV = "production";
-    process.env.SUPABASE_URL = "https://example.supabase.co";
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    process.env.SUPABASE_ANON_KEY = "test-anon-key";
+    process.env.DATABASE_URL = "postgresql://user:pass@example.supabase.co:5432/postgres";
 
     expect(createNonceStore()).toBeInstanceOf(SupabaseNonceStore);
   });

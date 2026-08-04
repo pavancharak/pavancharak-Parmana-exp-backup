@@ -4,14 +4,14 @@ import { describe, expect, it } from "vitest";
 
 import { DuplicateBusinessTransactionError } from "@parmana/shared";
 
-import { SupabaseClientFactory } from "../../src/supabase/SupabaseClientFactory.js";
+import { PostgresPoolFactory } from "../../src/postgres/PostgresPoolFactory.js";
 import { SupabaseBusinessTransactionRepository } from "../../src/supabase/SupabaseBusinessTransactionRepository.js";
 
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
 import { buildBusinessTransaction } from "../fixtures/multi-item-trust-record.js";
 
-const supabaseConfigured = resolveSupabaseGate(
+const databaseConfigured = resolveDatabaseGate(
   "Supabase Business Transaction Duplicate",
 );
 
@@ -25,13 +25,17 @@ const supabaseConfigured = resolveSupabaseGate(
  * 20260629013035_initial_schema.sql) already provided the atomicity;
  * this suite proves the 23505 it produces is now mapped to
  * DuplicateBusinessTransactionError rather than a raw Postgres error.
+ *
+ * Writes via PostgresPoolFactory (DATABASE_URL) now, not
+ * SupabaseClientFactory — see SupabaseBusinessTransactionRepository
+ * for why.
  */
-describe.skipIf(!supabaseConfigured)(
+describe.skipIf(!databaseConfigured)(
   "SupabaseBusinessTransactionRepository duplicate handling (live)",
   () => {
     it("rejects a sequential duplicate with DuplicateBusinessTransactionError", async () => {
-      const client = SupabaseClientFactory.create();
-      const repository = new SupabaseBusinessTransactionRepository(client);
+      const pool = PostgresPoolFactory.create();
+      const repository = new SupabaseBusinessTransactionRepository(pool);
 
       const id = `test-txn-${crypto.randomUUID()}`;
       const transaction = buildBusinessTransaction(id);
@@ -44,8 +48,8 @@ describe.skipIf(!supabaseConfigured)(
     });
 
     it("(concurrency, live database) two simultaneous create() calls for the same id: exactly one succeeds, the other rejects with DuplicateBusinessTransactionError", async () => {
-      const client = SupabaseClientFactory.create();
-      const repository = new SupabaseBusinessTransactionRepository(client);
+      const pool = PostgresPoolFactory.create();
+      const repository = new SupabaseBusinessTransactionRepository(pool);
 
       const id = `test-txn-race-${crypto.randomUUID()}`;
       const first = buildBusinessTransaction(id);

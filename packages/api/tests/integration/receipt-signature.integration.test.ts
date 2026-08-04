@@ -9,7 +9,7 @@ import {
 } from "@parmana/crypto";
 
 import app from "../test-app.js";
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
 interface ReceiptResponse {
   receiptId: string;
@@ -25,9 +25,9 @@ beforeAll(() => {
   process.env.PARMANA_STORAGE = "supabase";
 });
 
-const supabaseConfigured = resolveSupabaseGate("Receipt Signature");
+const databaseConfigured = resolveDatabaseGate("Receipt Signature");
 
-describe.skipIf(!supabaseConfigured)("Receipt Signature", () => {
+describe.skipIf(!databaseConfigured)("Receipt Signature", () => {
   it(
     "generates a verifiable receipt signature",
     async () => {

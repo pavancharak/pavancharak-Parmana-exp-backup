@@ -225,4 +225,43 @@ describe("Razorpay refund (HTTP boundary)", () => {
 
     expect(mockServer.refundsFor("pay_HTTP002")).toHaveLength(0);
   });
+
+  it("rejects by policy through POST /execute when caller-declared signals misrepresent the real Razorpay payment state", async () => {
+    const { app, server: mockServer } = await buildApp();
+
+    // Real payment: only 50000 paise remain refundable (950000 of 1000000 already refunded).
+    mockServer.setPayment({
+      id: "pay_HTTP003",
+      entity: "payment",
+      status: "captured",
+      amount: 1000000,
+      currency: "INR",
+      amount_refunded: 950000,
+      captured: true,
+    });
+
+    // Caller-declared signals falsely claim the full amount is still refundable, so a
+    // 250000-paise request appears within the remainder -- untrue against the real payment.
+    const transaction = refundTransaction({
+      paymentId: "pay_HTTP003",
+      amountPaise: 250000,
+      signals: {
+        paymentStatus: "captured",
+        paymentCurrency: "INR",
+        refundableRemainingPaise: 1000000,
+        requestedRefundAmountPaise: 250000,
+        requestedExceedsRemainder: false,
+        dailyCumulativeAfterThisRefundPaise: 250000,
+      },
+    });
+
+    const response = await request(app).post("/execute").send(transaction);
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe("POLICY_DENIED");
+
+    // The strongest proof: no refund reached the (mock) Razorpay server, even though the
+    // caller-declared signals alone would have satisfied every policy rule.
+    expect(mockServer.refundsFor("pay_HTTP003")).toHaveLength(0);
+  });
 });

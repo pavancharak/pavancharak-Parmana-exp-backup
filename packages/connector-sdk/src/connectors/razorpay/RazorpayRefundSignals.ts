@@ -2,6 +2,20 @@ import type { PolicySignals } from "@parmana/policy";
 
 import type { RazorpayPayment } from "./RazorpayTypes.js";
 
+/**
+ * Default daily cumulative refund cap (in paise), used by
+ * RazorpayCumulativeRefundLedger.recordApprovedRefundIfWithinCap as the
+ * default for RazorpayRefundServiceOptions.dailyCumulativeCapPaise.
+ *
+ * MUST match policies/razorpay-refund/1.0.0/policy.json's
+ * "reject-exceeds-daily-cumulative-cap" rule value exactly -- the two
+ * are not mechanically linked (the policy is hand-authored JSON;
+ * nothing reads a rule's literal value back out of it), the same
+ * accepted coupling risk HUBSPOT_DEFAULT_AMOUNT_CHANGE_THRESHOLD
+ * already carries against hubspot-deal-update's policy.
+ */
+export const RAZORPAY_DEFAULT_DAILY_CUMULATIVE_CAP_PAISE = 2_000_000;
+
 export interface BuildRazorpayRefundSignalsInput {
   readonly payment: RazorpayPayment;
   readonly requestedRefundAmountPaise: number;

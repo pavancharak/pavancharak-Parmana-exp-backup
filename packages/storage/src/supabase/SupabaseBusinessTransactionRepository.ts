@@ -4,18 +4,24 @@ import {
   type BusinessTransactionRepository,
 } from "@parmana/shared";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Pool } from "pg";
 
 import { isUniqueViolation } from "../errors/PostgresErrorCodes.js";
 
 /**
- * Supabase implementation of BusinessTransactionRepository.
+ * Postgres-backed implementation of BusinessTransactionRepository.
+ *
+ * Writes via a direct Postgres connection (PostgresPoolFactory), not
+ * supabase-js/PostgREST -- part of removing PostgREST from every
+ * Supabase-backed table's failure modes, not just the audit sinks
+ * that broke first (see SupabaseCallerAuditSink for the originating
+ * incident).
  */
 export class SupabaseBusinessTransactionRepository
   implements BusinessTransactionRepository
 {
   constructor(
-    private readonly client: SupabaseClient,
+    private readonly pool: Pool,
   ) {}
 
   /**
@@ -25,46 +31,26 @@ export class SupabaseBusinessTransactionRepository
    * `business_transaction_id TEXT PRIMARY KEY` constraint
    * (supabase/migrations/20260629013035_initial_schema.sql) already
    * made a duplicate insert atomic at the database — this method
-   * previously just never mapped the resulting 23505
-   * unique_violation to anything meaningful, rethrowing the raw
-   * Postgres error instead of the same DuplicateBusinessTransactionError
-   * the in-memory repository throws.
+   * maps the resulting 23505 unique_violation to the same
+   * DuplicateBusinessTransactionError the in-memory repository
+   * throws.
    */
   async create(
     transaction: BusinessTransaction,
   ): Promise<BusinessTransaction> {
-    const { error } = await this.client
-      .from("business_transactions")
-      .insert({
-        business_transaction_id:
-          transaction.businessTransactionId,
-
-        status:
-          transaction.status,
-
-        authority_json:
-          transaction.authority,
-
-        authorization_json:
-          transaction.authorization,
-
-        intent_json:
-          transaction.intent,
-
-        metadata_json:
-          transaction.metadata,
-
-        policy_json:
-          transaction.policy,
-
-        signals_json:
-          transaction.signals,
-
-        created_at:
-          transaction.createdAt.toISOString(),
-      });
-
-    if (error) {
+    try {
+      await this.pool.query(INSERT_BUSINESS_TRANSACTION_SQL, [
+        transaction.businessTransactionId,
+        transaction.status,
+        JSON.stringify(transaction.authority),
+        JSON.stringify(transaction.authorization),
+        JSON.stringify(transaction.intent),
+        JSON.stringify(transaction.metadata),
+        JSON.stringify(transaction.policy),
+        JSON.stringify(transaction.signals),
+        transaction.createdAt.toISOString(),
+      ]);
+    } catch (error) {
       if (isUniqueViolation(error)) {
         throw new DuplicateBusinessTransactionError(
           transaction.businessTransactionId,
@@ -83,51 +69,17 @@ export class SupabaseBusinessTransactionRepository
   async findById(
     businessTransactionId: string,
   ): Promise<BusinessTransaction | null> {
-    const { data, error } = await this.client
-      .from("business_transactions")
-      .select("*")
-      .eq(
-        "business_transaction_id",
-        businessTransactionId,
-      )
-      .maybeSingle();
+    const { rows } = await this.pool.query(SELECT_BY_ID_SQL, [
+      businessTransactionId,
+    ]);
 
-    if (error) {
-      throw error;
-    }
+    const row = rows[0] as BusinessTransactionRow | undefined;
 
-    if (!data) {
+    if (!row) {
       return null;
     }
 
-    return {
-      businessTransactionId:
-        data.business_transaction_id,
-
-      status:
-        data.status,
-
-      authority:
-        data.authority_json,
-
-      authorization:
-        data.authorization_json,
-
-      intent:
-        data.intent_json,
-
-      metadata:
-        data.metadata_json,
-
-      policy:
-        data.policy_json,
-
-      signals:
-        data.signals_json,
-
-      createdAt:
-        new Date(data.created_at),
-    } as BusinessTransaction;
+    return rowToBusinessTransaction(row);
   }
 
   /**
@@ -136,26 +88,11 @@ export class SupabaseBusinessTransactionRepository
   async exists(
     businessTransactionId: string,
   ): Promise<boolean> {
-    const { count, error } =
-      await this.client
-        .from("business_transactions")
-        .select(
-          "*",
-          {
-            head: true,
-            count: "exact",
-          },
-        )
-        .eq(
-          "business_transaction_id",
-          businessTransactionId,
-        );
+    const { rows } = await this.pool.query(EXISTS_SQL, [
+      businessTransactionId,
+    ]);
 
-    if (error) {
-      throw error;
-    }
-
-    return (count ?? 0) > 0;
+    return rows.length > 0;
   }
 
   /**
@@ -167,58 +104,58 @@ export class SupabaseBusinessTransactionRepository
   ): Promise<
     readonly BusinessTransaction[]
   > {
-    const from =
-      (page - 1) * pageSize;
+    const offset = (page - 1) * pageSize;
 
-    const to =
-      from + pageSize - 1;
+    const { rows } = await this.pool.query(LIST_SQL, [pageSize, offset]);
 
-    const { data, error } =
-      await this.client
-        .from("business_transactions")
-        .select("*")
-        .order(
-          "created_at",
-          {
-            ascending: false,
-          },
-        )
-        .range(from, to);
-
-    if (error) {
-      throw error;
-    }
-
-    return (data ?? []).map(
-      (row) =>
-        ({
-          businessTransactionId:
-            row.business_transaction_id,
-
-          status:
-            row.status,
-
-          authority:
-            row.authority_json,
-
-          authorization:
-            row.authorization_json,
-
-          intent:
-            row.intent_json,
-
-          metadata:
-            row.metadata_json,
-
-          policy:
-            row.policy_json,
-
-          signals:
-            row.signals_json,
-
-          createdAt:
-            new Date(row.created_at),
-        }) as BusinessTransaction,
-    );
+    return (rows as BusinessTransactionRow[]).map(rowToBusinessTransaction);
   }
+}
+
+const INSERT_BUSINESS_TRANSACTION_SQL = `
+  INSERT INTO business_transactions
+    (business_transaction_id, status, authority_json, authorization_json,
+     intent_json, metadata_json, policy_json, signals_json, created_at)
+  VALUES
+    ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9)
+`;
+
+const SELECT_BY_ID_SQL = `
+  SELECT * FROM business_transactions WHERE business_transaction_id = $1
+`;
+
+const EXISTS_SQL = `
+  SELECT 1 FROM business_transactions WHERE business_transaction_id = $1
+`;
+
+const LIST_SQL = `
+  SELECT * FROM business_transactions
+  ORDER BY created_at DESC
+  LIMIT $1 OFFSET $2
+`;
+
+interface BusinessTransactionRow {
+  readonly business_transaction_id: string;
+  readonly status: BusinessTransaction["status"];
+  readonly authority_json: BusinessTransaction["authority"];
+  readonly authorization_json: BusinessTransaction["authorization"];
+  readonly intent_json: BusinessTransaction["intent"];
+  readonly metadata_json: BusinessTransaction["metadata"];
+  readonly policy_json: BusinessTransaction["policy"];
+  readonly signals_json: BusinessTransaction["signals"];
+  readonly created_at: string | Date;
+}
+
+function rowToBusinessTransaction(row: BusinessTransactionRow): BusinessTransaction {
+  return {
+    businessTransactionId: row.business_transaction_id,
+    status: row.status,
+    authority: row.authority_json,
+    authorization: row.authorization_json,
+    intent: row.intent_json,
+    metadata: row.metadata_json,
+    policy: row.policy_json,
+    signals: row.signals_json,
+    createdAt: new Date(row.created_at),
+  } as BusinessTransaction;
 }

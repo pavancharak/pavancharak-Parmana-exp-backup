@@ -8,11 +8,11 @@ beforeAll(() => {
 import app from "../test-app.js";
 import { executionTrustRecordRepository } from "../../src/repositories.js";
 import { createBusinessTransaction } from "../fixtures/business-transaction.js";
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
-const supabaseConfigured = resolveSupabaseGate("Receipt Negative Integration");
+const databaseConfigured = resolveDatabaseGate("Receipt Negative Integration");
 
-describe.skipIf(!supabaseConfigured)("Receipt Negative Integration", () => {
+describe.skipIf(!databaseConfigured)("Receipt Negative Integration", () => {
   it("fails with 404 for an unknown Business Transaction", async () => {
     const response = await request(app).post("/receipt").send({
       businessTransactionId: crypto.randomUUID(),

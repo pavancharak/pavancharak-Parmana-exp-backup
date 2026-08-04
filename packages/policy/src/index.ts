@@ -15,6 +15,14 @@ export type {
   SignalIntentBindingViolation,
 } from "./SignalIntentBinder.js";
 
+export type {
+  SignalStateVerificationRequest,
+  SignalStateVerifier,
+  SignalStateViolation,
+} from "./types/SignalStateVerifier.js";
+
+export { CompositeSignalStateVerifier } from "./CompositeSignalStateVerifier.js";
+
 // -----------------------------------------------------------------------------
 // Routing & Registry
 // -----------------------------------------------------------------------------

@@ -23,6 +23,8 @@ import {
   SignalIntentBinder,
   type PolicyDecision,
   type SignalIntentBindingViolation,
+  type SignalStateVerifier,
+  type SignalStateViolation,
 } from "@parmana/policy";
 
 import type {
@@ -78,6 +80,17 @@ export class RuntimeEngine {
      */
     private readonly refusalRecordBuilder?: RefusalRecordBuilder,
     private readonly refusalRecordRepository?: RefusalRecordRepository,
+    /**
+     * G-24 residual closure (RFC-0022). Optional and trailing for the
+     * same reason the RFC-0021 pair above is: every pre-existing call
+     * site (exactly 12 positional args) must keep compiling and
+     * behaving identically. When omitted, no independent state
+     * verification runs -- current behavior, unchanged. When
+     * supplied, a violation is treated exactly like a
+     * SignalIntentBinder violation: an ordinary policy REJECT, no
+     * rule evaluated, no authorization ever generated for it.
+     */
+    private readonly signalStateVerifier?: SignalStateVerifier,
   ) {
     if (!pipeline) {
       throw new Error("RuntimePipeline is required.");
@@ -180,7 +193,7 @@ export class RuntimeEngine {
       policy,
     );
 
-    const policyDecision: PolicyDecision =
+    const provisionalDecision: PolicyDecision =
       bindingViolations.length > 0
         ? {
             policyId: policy.policyId,
@@ -203,6 +216,61 @@ export class RuntimeEngine {
             policy,
             signals,
           );
+
+    //
+    // Signal/State verification (G-24 residual closure, RFC-0022)
+    //
+    // SignalIntentBinder (above) proves signals describe the same
+    // action as Intent; it never proves those signals are *true*.
+    // Runs only once the provisional decision is APPROVE: a request
+    // already rejected (by binding or by an ordinary policy rule)
+    // needs no independent re-fetch of real state -- REJECT is REJECT
+    // regardless of whether the underlying facts were also true, and
+    // skipping the fetch here preserves "a policy denial makes zero
+    // calls to the external system" for every REJECT that isn't
+    // itself a state mismatch. When a signalStateVerifier is
+    // configured and the provisional decision is APPROVE, it
+    // independently re-derives the relevant facts from a real
+    // external source; a mismatch overrides the decision to REJECT --
+    // no authorization is ever generated for an approval resting on a
+    // caller-declared signal that verified state contradicts.
+    //
+
+    const stateViolations: readonly SignalStateViolation[] =
+      provisionalDecision.outcome === PolicyOutcome.APPROVE &&
+      this.signalStateVerifier
+        ? await this.signalStateVerifier.findViolations(
+            {
+              action: transaction.intent.action,
+              businessTransactionId:
+                transaction.businessTransactionId,
+              intentParameters:
+                transaction.intent.parameters,
+            },
+            signals,
+          )
+        : [];
+
+    const policyDecision: PolicyDecision =
+      stateViolations.length > 0
+        ? {
+            policyId: policy.policyId,
+            policyVersion: policy.policyVersion,
+            outcome: PolicyOutcome.REJECT,
+            reason:
+              "Rejected: declared signal(s) do not match independently verified state (" +
+              stateViolations
+                .map(
+                  (violation) =>
+                    `${violation.signalKey}=${JSON.stringify(violation.declaredValue)} != verified ${violation.signalKey}=${JSON.stringify(violation.actualValue)}`,
+                )
+                .join(", ") +
+              ").",
+            matchedRuleId: "signal-state-verification-violation",
+            evaluatedRules: 0,
+            matchedPath: [],
+          }
+        : provisionalDecision;
 
     await this.hookRunner.afterPolicyEvaluation(
       transaction,

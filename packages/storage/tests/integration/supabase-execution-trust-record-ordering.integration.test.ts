@@ -5,10 +5,10 @@ import { VerificationCrypto } from "@parmana/crypto";
 import { describe, expect, it } from "vitest";
 
 import { SupabaseBusinessTransactionRepository } from "../../src/supabase/SupabaseBusinessTransactionRepository.js";
-import { SupabaseClientFactory } from "../../src/supabase/SupabaseClientFactory.js";
+import { PostgresPoolFactory } from "../../src/postgres/PostgresPoolFactory.js";
 import { SupabaseExecutionTrustRecordRepository } from "../../src/supabase/SupabaseExecutionTrustRecordRepository.js";
 
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
 import {
   buildBusinessTransaction,
@@ -17,12 +17,12 @@ import {
   buildVerificationPair,
 } from "../fixtures/multi-item-trust-record.js";
 
-const supabaseConfigured = resolveSupabaseGate(
+const databaseConfigured = resolveDatabaseGate(
   "Supabase Execution Trust Record Ordering",
 );
 
 /**
- * Live-Supabase counterpart to the unconditional in-memory ordering test
+ * Live-database counterpart to the unconditional in-memory ordering test
  * (tests/unit/execution-trust-record-ordering.test.ts). Confirms the
  * ORDER BY <timestamp> ASC, seq ASC fix in
  * SupabaseExecutionTrustRecordRepository.findByTransactionId reconstructs
@@ -33,20 +33,24 @@ const supabaseConfigured = resolveSupabaseGate(
  * Requires the seq migration (supabase/migrations/
  * 20260711120000_add_trust_record_sequence_columns.sql) to have been
  * applied to the target project.
+ *
+ * Writes via PostgresPoolFactory (DATABASE_URL) now, not
+ * SupabaseClientFactory — see SupabaseExecutionTrustRecordRepository
+ * for why.
  */
-describe.skipIf(!supabaseConfigured)(
+describe.skipIf(!databaseConfigured)(
   "SupabaseExecutionTrustRecordRepository ordering",
   () => {
     it(
       "round-trips a Trust Record with 2+ items per collection without breaking hash or signature",
       async () => {
-        const client = SupabaseClientFactory.create();
+        const pool = PostgresPoolFactory.create();
 
         const businessTransactions =
-          new SupabaseBusinessTransactionRepository(client);
+          new SupabaseBusinessTransactionRepository(pool);
 
         const trustRecords =
-          new SupabaseExecutionTrustRecordRepository(client);
+          new SupabaseExecutionTrustRecordRepository(pool);
 
         const transaction = buildBusinessTransaction(
           crypto.randomUUID(),

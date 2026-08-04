@@ -6,7 +6,7 @@ import type {
 
 import type { StorageProvider } from "../StorageProvider.js";
 
-import { SupabaseClientFactory } from "./SupabaseClientFactory.js";
+import { PostgresPoolFactory } from "../postgres/PostgresPoolFactory.js";
 
 import { SupabaseBusinessTransactionRepository } from "./SupabaseBusinessTransactionRepository.js";
 
@@ -15,7 +15,15 @@ import { SupabaseExecutionTrustRecordRepository } from "./SupabaseExecutionTrust
 import { SupabaseRefusalRecordRepository } from "./SupabaseRefusalRecordRepository.js";
 
 /**
- * Supabase Storage Provider
+ * Supabase Storage Provider.
+ *
+ * Wires all three repositories to a single, shared PostgresPoolFactory
+ * pool (DATABASE_URL) — a direct Postgres connection, not
+ * SupabaseClientFactory/PostgREST. This removes PostgREST from the
+ * failure modes of every table this provider touches (business
+ * transactions, execution trust records and their sub-collections,
+ * refusal records), not just the audit sinks that broke first (see
+ * SupabaseCallerAuditSink for the originating incident).
  */
 export class SupabaseStorageProvider implements StorageProvider {
   readonly businessTransactions: BusinessTransactionRepository;
@@ -23,16 +31,16 @@ export class SupabaseStorageProvider implements StorageProvider {
   readonly refusalRecords: RefusalRecordRepository;
 
   constructor() {
-    const client = SupabaseClientFactory.create();
+    const pool = PostgresPoolFactory.create();
 
     this.businessTransactions =
-      new SupabaseBusinessTransactionRepository(client);
+      new SupabaseBusinessTransactionRepository(pool);
 
     this.trustRecords =
-      new SupabaseExecutionTrustRecordRepository(client);
+      new SupabaseExecutionTrustRecordRepository(pool);
 
     this.refusalRecords =
-      new SupabaseRefusalRecordRepository(client);
+      new SupabaseRefusalRecordRepository(pool);
 
     Object.freeze(this);
   }

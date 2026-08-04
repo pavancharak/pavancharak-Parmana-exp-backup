@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { assertStorageConfigured } from "../../../src/bootstrap/assertStorageConfigured.js";
 
-const ENV_KEYS = ["NODE_ENV", "PARMANA_STORAGE", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY"] as const;
+const ENV_KEYS = ["NODE_ENV", "PARMANA_STORAGE", "DATABASE_URL"] as const;
 
 describe("assertStorageConfigured", () => {
   const original = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
@@ -20,9 +20,7 @@ describe("assertStorageConfigured", () => {
   it("is a no-op when NODE_ENV=test, regardless of storage configuration", () => {
     process.env.NODE_ENV = "test";
     process.env.PARMANA_STORAGE = "supabase";
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.DATABASE_URL;
 
     expect(() => assertStorageConfigured()).not.toThrow();
   });
@@ -30,30 +28,24 @@ describe("assertStorageConfigured", () => {
   it("is a no-op outside test mode when PARMANA_STORAGE=memory", () => {
     process.env.NODE_ENV = "production";
     process.env.PARMANA_STORAGE = "memory";
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.DATABASE_URL;
 
     expect(() => assertStorageConfigured()).not.toThrow();
   });
 
-  it("fails closed with a named, actionable error when PARMANA_STORAGE=supabase and Supabase is not configured", () => {
+  it("fails closed with a named, actionable error when PARMANA_STORAGE=supabase and DATABASE_URL is not configured", () => {
     process.env.NODE_ENV = "production";
     process.env.PARMANA_STORAGE = "supabase";
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.DATABASE_URL;
 
-    expect(() => assertStorageConfigured()).toThrow(/SUPABASE_URL/);
+    expect(() => assertStorageConfigured()).toThrow(/DATABASE_URL/);
     expect(() => assertStorageConfigured()).toThrow(/Storage/);
   });
 
-  it("does not throw when PARMANA_STORAGE=supabase and Supabase is configured", () => {
+  it("does not throw when PARMANA_STORAGE=supabase and DATABASE_URL is configured", () => {
     process.env.NODE_ENV = "production";
     process.env.PARMANA_STORAGE = "supabase";
-    process.env.SUPABASE_URL = "https://example.supabase.co";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
-    delete process.env.SUPABASE_ANON_KEY;
+    process.env.DATABASE_URL = "postgresql://user:pass@example.supabase.co:5432/postgres";
 
     expect(() => assertStorageConfigured()).not.toThrow();
   });

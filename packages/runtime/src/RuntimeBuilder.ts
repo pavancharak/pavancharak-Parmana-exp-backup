@@ -12,6 +12,7 @@ import {
 
 import type {
   PolicyRepository,
+  SignalStateVerifier,
 } from "@parmana/policy";
 
 import { DecisionBuilder } from "./DecisionBuilder.js";
@@ -45,6 +46,8 @@ export class RuntimeBuilder {
 
   private policyRepository?: PolicyRepository;
 
+  private signalStateVerifier?: SignalStateVerifier;
+
   /**
    * Configure policy directory.
    */
@@ -52,6 +55,19 @@ export class RuntimeBuilder {
     repository: PolicyRepository,
   ): this {
     this.policyRepository = repository;
+
+    return this;
+  }
+
+  /**
+   * Configure a Signal/State Verifier (G-24 residual closure,
+   * RFC-0022). Optional -- omitting this leaves current behavior
+   * unchanged.
+   */
+  public withSignalStateVerifier(
+    verifier: SignalStateVerifier,
+  ): this {
+    this.signalStateVerifier = verifier;
 
     return this;
   }
@@ -195,6 +211,7 @@ export class RuntimeBuilder {
         this.hooks,
         refusalRecordBuilder,
         refusalRecords,
+        this.signalStateVerifier,
       );
 
     //

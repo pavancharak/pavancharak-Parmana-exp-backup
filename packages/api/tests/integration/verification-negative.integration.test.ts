@@ -8,11 +8,11 @@ beforeAll(() => {
 import app from "../test-app.js";
 import { executionTrustRecordRepository } from "../../src/repositories.js";
 import { createBusinessTransaction } from "../fixtures/business-transaction.js";
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
-const supabaseConfigured = resolveSupabaseGate("Verification Negative Integration");
+const databaseConfigured = resolveDatabaseGate("Verification Negative Integration");
 
-describe.skipIf(!supabaseConfigured)("Verification Negative Integration", () => {
+describe.skipIf(!databaseConfigured)("Verification Negative Integration", () => {
   it(
     "reports FAILED when the persisted record is tampered after execution",
     async () => {

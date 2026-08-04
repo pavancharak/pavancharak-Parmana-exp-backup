@@ -65,3 +65,15 @@ export {
   type RazorpayRefundHarness,
   type RazorpayRefundHarnessOptions,
 } from "./RazorpayRefundHarness.js";
+
+export {
+  executeRazorpayCapability,
+  razorpayConnectorResponseMetadata,
+  type RazorpayCapabilityExecutionContent,
+  type RazorpayCapabilityExecutionOptions,
+} from "./RazorpayCapabilityExecution.js";
+
+export {
+  RazorpaySignalStateVerifier,
+  type RazorpaySignalStateVerifierOptions,
+} from "./RazorpaySignalStateVerifier.js";

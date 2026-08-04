@@ -7,11 +7,11 @@ beforeAll(() => {
 });
 
 import app from "../test-app.js";
-import { resolveSupabaseGate } from "../helpers/supabase-availability.js";
+import { resolveDatabaseGate } from "../helpers/database-availability.js";
 
-const supabaseConfigured = resolveSupabaseGate("Trust Record GET Integration");
+const databaseConfigured = resolveDatabaseGate("Trust Record GET Integration");
 
-describe.skipIf(!supabaseConfigured)("Trust Record GET Integration", () => {
+describe.skipIf(!databaseConfigured)("Trust Record GET Integration", () => {
   it("retrieves an existing Execution Trust Record", async () => {
     //
     const transaction = createBusinessTransaction();
