@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { StaticCredentialProvider, isCredentialHandle } from "@parmana/connector-sdk";
 
-import { CredentialVaultAdapter } from "../../src/index.js";
+import { CredentialVaultAdapter } from "../../src/connector-execution/index.js";
 
 describe("CredentialVaultAdapter", () => {
   it("adapts a CredentialProvider into execution-control's CredentialVault contract", async () => {

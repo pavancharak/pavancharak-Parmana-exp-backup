@@ -10,7 +10,7 @@ import {
   buildConnectorEvidence,
   redactSensitiveKeys,
   sanitizeEndpoint,
-} from "../../src/index.js";
+} from "../../src/connector-execution/index.js";
 
 const crypto = CryptoBootstrap.create();
 

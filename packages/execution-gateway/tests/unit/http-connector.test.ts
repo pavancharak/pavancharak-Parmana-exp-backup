@@ -10,7 +10,7 @@ import {
   type ConnectorRequest,
 } from "@parmana/connector-sdk";
 
-import { GatewayHttpAdapter } from "../../src/index.js";
+import { GatewayHttpAdapter } from "../../src/connector-execution/index.js";
 
 let server: Server;
 let baseUrl: string;

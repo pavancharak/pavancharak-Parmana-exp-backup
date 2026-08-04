@@ -13,7 +13,7 @@ import {
   StaticCredentialProvider,
   connectorCapabilities,
 } from "@parmana/connector-sdk";
-import { GatewayRazorpayAdapter } from "@parmana/execution-gateway";
+import { createGatewayRazorpayConnector } from "@parmana/execution-gateway";
 
 import { createApplication } from "../../src/application.js";
 import { createApp } from "../../src/app.js";
@@ -186,7 +186,7 @@ describe("Razorpay refund lifecycle end to end: execute -> mock refund -> simula
       // Settlement processing is out-of-band from the webhook request
       // cycle (M4a's 200 already returned above) — drive it explicitly,
       // against the same mock server the execute call used.
-      const settlementConnector = new GatewayRazorpayAdapter({
+      const settlementConnector = createGatewayRazorpayConnector({
         connectorId: "razorpay",
         capabilities: connectorCapabilities([
           RAZORPAY_PAYMENT_FETCH_CAPABILITY,

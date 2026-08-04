@@ -32,8 +32,7 @@ import {
 
 import {
   ExecutionGateway,
-  GatewayCapabilityConnectorPolicy,
-  GatewayConnectorRegistry,
+  createGatewayConnectorRegistry,
   type ConnectorRequest,
 } from "@parmana/execution-gateway";
 
@@ -244,39 +243,37 @@ async function main(): Promise<void> {
     );
 
   const registry =
-    new GatewayConnectorRegistry();
+    createGatewayConnectorRegistry([
+      {
+        connector: new MockConnector({
+          connectorId: "sap",
+          capabilities: connectorCapabilities(["sap:post-invoice"]),
+        }),
 
-  registry.register({
-    connector: new MockConnector({
-      connectorId: "sap",
-      capabilities: connectorCapabilities(["sap:post-invoice"]),
-    }),
+        metadata: {
+          connectorId: "sap",
+          displayName: "SAP",
+          version: { major: 1, minor: 0, patch: 0 },
+          health: healthyNow(),
+        },
 
-    metadata: {
-      connectorId: "sap",
-      displayName: "SAP",
-      version: { major: 1, minor: 0, patch: 0 },
-      health: healthyNow(),
-    },
+        connectorIdentity,
 
-    connectorIdentity,
+        credentialProvider:
+          new StaticCredentialProvider({
+            sap: { apiKey: "sap-secret-100" },
+          }),
 
-    credentialProvider:
-      new StaticCredentialProvider({
-        sap: { apiKey: "sap-secret-100" },
-      }),
+        policy:
+          new DefaultConnectorPolicy(authenticator, sessions),
 
-    policy:
-      new GatewayCapabilityConnectorPolicy(
-        new DefaultConnectorPolicy(authenticator, sessions),
-      ),
+        gatewayAuthentication: registrationAttestation,
 
-    gatewayAuthentication: registrationAttestation,
+        crypto,
 
-    crypto,
-
-    audit,
-  });
+        audit,
+      },
+    ]);
 
   const executionControl =
     new SessionCredentialExecutionControl({

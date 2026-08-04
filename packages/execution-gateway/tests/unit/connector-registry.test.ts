@@ -10,7 +10,7 @@ import {
 } from "@parmana/connector-sdk";
 import { describe, expect, it } from "vitest";
 
-import { GatewayConnectorRegistry } from "../../src/index.js";
+import { GatewayConnectorRegistry } from "../../src/connector-execution/index.js";
 
 const crypto = CryptoBootstrap.create();
 

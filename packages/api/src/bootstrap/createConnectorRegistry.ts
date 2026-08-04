@@ -5,8 +5,8 @@ import {
 import { createCredentialProvider } from "./createCredentialProvider.js";
 
 import {
-  GatewayConnectorRegistry,
-  GatewayCapabilityConnectorPolicy,
+  createGatewayConnectorRegistry,
+  type GatewayConnectorRegistration,
 } from "@parmana/execution-gateway";
 
 import {
@@ -46,13 +46,13 @@ export function createConnectorRegistry(
   audit: ExecutionAuditSink,
   gatewayAuthentication: unknown,
 ): ConnectorRegistry {
-  const registry = new GatewayConnectorRegistry();
+  const registrations: GatewayConnectorRegistration[] = [];
 
   const crypto = CryptoBootstrap.create();
 
   const connector = createVendorPaymentConnector();
 
-  registry.register({
+  registrations.push({
     connector,
 
     metadata: {
@@ -80,11 +80,9 @@ export function createConnectorRegistry(
   createCredentialProvider(),
 
     policy:
-      new GatewayCapabilityConnectorPolicy(
-        new DefaultConnectorPolicy(
-          authenticator,
-          sessions,
-        ),
+      new DefaultConnectorPolicy(
+        authenticator,
+        sessions,
       ),
 
     gatewayAuthentication,
@@ -102,7 +100,7 @@ export function createConnectorRegistry(
       reason: "RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are not configured.",
     });
   } else {
-    registry.register({
+    registrations.push({
       connector: createRazorpayConnector(),
 
       metadata: RazorpayMetadata,
@@ -115,9 +113,7 @@ export function createConnectorRegistry(
 
       credentialProvider: razorpayCredentialProvider,
 
-      policy: new GatewayCapabilityConnectorPolicy(
-        new DefaultConnectorPolicy(authenticator, sessions),
-      ),
+      policy: new DefaultConnectorPolicy(authenticator, sessions),
 
       gatewayAuthentication,
 
@@ -135,7 +131,7 @@ export function createConnectorRegistry(
       reason: "HUBSPOT_PRIVATE_APP_TOKEN is not configured.",
     });
   } else {
-    registry.register({
+    registrations.push({
       connector: createHubSpotConnector(),
 
       metadata: HubSpotMetadata,
@@ -148,7 +144,7 @@ export function createConnectorRegistry(
 
       credentialProvider: hubspotCredentialProvider,
 
-      policy: new GatewayCapabilityConnectorPolicy(new DefaultConnectorPolicy(authenticator, sessions)),
+      policy: new DefaultConnectorPolicy(authenticator, sessions),
 
       gatewayAuthentication,
 
@@ -158,5 +154,5 @@ export function createConnectorRegistry(
     });
   }
 
-  return registry;
+  return createGatewayConnectorRegistry(registrations);
 }

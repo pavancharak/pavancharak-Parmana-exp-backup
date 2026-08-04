@@ -13,7 +13,7 @@ import {
   type ConnectorExecutionContext,
 } from "@parmana/connector-sdk";
 
-import { GatewayHubSpotAdapter } from "../../src/index.js";
+import { GatewayHubSpotAdapter } from "../../src/connector-execution/index.js";
 
 const TOKEN = "HUBSPOT_TEST_TOKEN";
 

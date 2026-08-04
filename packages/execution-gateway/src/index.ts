@@ -22,4 +22,21 @@ export * from "./ExecutionGateway.js";
 export * from "./HttpConnector.js";
 export * from "./deepFreeze.js";
 export * from "./connector-runtime/index.js";
-export * from "./connector-execution/index.js";
+
+/**
+ * Connector-execution public surface (Phase 1D).
+ *
+ * Deliberately NOT `export * from "./connector-execution/index.js"` —
+ * that internal barrel also carries GatewayConnectorRegistry,
+ * GatewayCapabilityConnectorPolicy, SdkConnectorExecutor,
+ * CredentialVaultAdapter, ConnectorEvidence, GatewayRazorpayAdapter,
+ * GatewayHubSpotAdapter, and GatewayHttpAdapter — implementation classes
+ * bootstrap composition constructs internally. Only the factory functions
+ * and the DTO callers need to build a registration are public.
+ */
+export {
+  createGatewayConnectorRegistry,
+  type GatewayConnectorRegistration,
+} from "./connector-execution/createGatewayConnectorRegistry.js";
+export { createGatewayRazorpayConnector } from "./connector-execution/createGatewayRazorpayConnector.js";
+export { createGatewayHubSpotConnector } from "./connector-execution/createGatewayHubSpotConnector.js";

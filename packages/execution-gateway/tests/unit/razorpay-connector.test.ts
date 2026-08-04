@@ -12,7 +12,7 @@ import {
   type RazorpayPayment,
 } from "@parmana/connector-sdk";
 
-import { GatewayRazorpayAdapter } from "../../src/index.js";
+import { GatewayRazorpayAdapter } from "../../src/connector-execution/index.js";
 
 const KEY_ID = "rzp_test_1234567890";
 const KEY_SECRET = "super_secret_value_never_leaked";

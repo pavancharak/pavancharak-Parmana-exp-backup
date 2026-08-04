@@ -23,7 +23,7 @@ import {
   type RazorpayRefund,
   type RazorpayRefundList,
 } from "@parmana/connector-sdk";
-import { GatewayRazorpayAdapter } from "@parmana/execution-gateway";
+import { createGatewayRazorpayConnector } from "@parmana/execution-gateway";
 
 import { createApplication } from "../../src/application.js";
 import { createApp } from "../../src/app.js";
@@ -582,7 +582,7 @@ describe.skipIf(!razorpayLiveConfigured)(
             // Razorpay API (no baseUrl override) with the REAL
             // credentials already resolved for this whole describe
             // block.
-            const settlementConnector = new GatewayRazorpayAdapter({
+            const settlementConnector = createGatewayRazorpayConnector({
               connectorId: "razorpay",
               capabilities: connectorCapabilities([
                 RAZORPAY_PAYMENT_FETCH_CAPABILITY,

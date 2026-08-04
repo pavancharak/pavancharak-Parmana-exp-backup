@@ -13,8 +13,9 @@ import {
   RAZORPAY_REFUND_FETCH_CAPABILITY,
   StaticCredentialProvider,
   connectorCapabilities,
+  type Connector,
 } from "@parmana/connector-sdk";
-import { GatewayRazorpayAdapter } from "@parmana/execution-gateway";
+import { createGatewayRazorpayConnector } from "@parmana/execution-gateway";
 
 import { RazorpaySettlementProcessor } from "../../../src/webhooks/RazorpaySettlementProcessor.js";
 import { InMemoryRazorpayWebhookEventStore } from "../../../src/webhooks/InMemoryRazorpayWebhookEventStore.js";
@@ -86,7 +87,7 @@ function refundProcessedEvent(overrides: {
 
 describe("RazorpaySettlementProcessor", () => {
   let server: MockRazorpayServer;
-  let connector: GatewayRazorpayAdapter;
+  let connector: Connector;
   let credentialProvider: StaticCredentialProvider;
   let trustRecords: MemoryExecutionTrustRecordRepository;
   let eventStore: InMemoryRazorpayWebhookEventStore;
@@ -97,7 +98,7 @@ describe("RazorpaySettlementProcessor", () => {
     server = new MockRazorpayServer({ keyId: KEY_ID, keySecret: KEY_SECRET });
     await server.listen();
 
-    connector = new GatewayRazorpayAdapter({
+    connector = createGatewayRazorpayConnector({
       connectorId: "razorpay",
       capabilities: connectorCapabilities([
         RAZORPAY_PAYMENT_FETCH_CAPABILITY,

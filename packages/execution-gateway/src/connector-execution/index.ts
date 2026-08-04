@@ -8,6 +8,16 @@
  * 1C) — connector packages retain only capability definitions, schemas,
  * metadata, and interfaces; this is where those get wired into a real,
  * running execution path.
+ *
+ * Internal barrel (Phase 1D): this file is imported by the package's own
+ * tests via a relative path, not through ../index.ts. The implementation
+ * classes below (ConnectorEvidence, CredentialVaultAdapter,
+ * SdkConnectorExecutor, GatewayCapabilityConnectorPolicy,
+ * GatewayConnectorRegistry, GatewayRazorpayAdapter, GatewayHubSpotAdapter,
+ * GatewayHttpAdapter) are NOT re-exported from ../index.ts — the package's
+ * public surface is the three createGateway*() factories plus the
+ * GatewayConnectorRegistration DTO, which construct and return these
+ * classes without exposing them.
  */
 
 export * from "./ConnectorEvidence.js";
@@ -18,3 +28,6 @@ export * from "./GatewayConnectorRegistry.js";
 export * from "./GatewayRazorpayAdapter.js";
 export * from "./GatewayHubSpotAdapter.js";
 export * from "./GatewayHttpAdapter.js";
+export * from "./createGatewayConnectorRegistry.js";
+export * from "./createGatewayRazorpayConnector.js";
+export * from "./createGatewayHubSpotConnector.js";

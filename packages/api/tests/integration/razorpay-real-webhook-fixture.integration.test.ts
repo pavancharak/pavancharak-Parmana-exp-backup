@@ -12,7 +12,7 @@ import {
   StaticCredentialProvider,
   connectorCapabilities,
 } from "@parmana/connector-sdk";
-import { GatewayRazorpayAdapter } from "@parmana/execution-gateway";
+import { createGatewayRazorpayConnector } from "@parmana/execution-gateway";
 
 import { createApplication } from "../../src/application.js";
 import { createApp } from "../../src/app.js";
@@ -117,7 +117,7 @@ describe("Razorpay real webhook fixture replay (real delivery, hermetic)", () =>
         created_at: Math.floor(Date.now() / 1000),
       });
 
-      const connector = new GatewayRazorpayAdapter({
+      const connector = createGatewayRazorpayConnector({
         connectorId: "razorpay",
         capabilities: connectorCapabilities([
           RAZORPAY_PAYMENT_FETCH_CAPABILITY,
