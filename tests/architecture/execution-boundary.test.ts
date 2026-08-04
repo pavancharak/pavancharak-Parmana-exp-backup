@@ -258,4 +258,129 @@ describe("execution boundary — exactly one production execution pipeline", () 
       expect(content).not.toMatch(/new (Gateway|Connector|Http|Razorpay|HubSpot)\w*\(/);
     });
   });
+
+  describe("package-level ownership: execution-control and execution-gateway have a closed dependent set", () => {
+    // Package-level complement to the file-content checks above (Phase 1F).
+    // A dependency-cruiser config exists in this repo (.dependency-cruiser.cjs)
+    // but was found, while working on this phase, not to resolve @parmana/*
+    // workspace-scoped imports at all for this repo's TS-project-references +
+    // NodeNext setup (verified: a known real import of @parmana/execution-control
+    // resolved to zero dependencies in depcruise's own JSON output) — its 5
+    // pre-existing rules have likely never caught a real cross-package
+    // violation. Rather than wire a silently-non-functional check into CI, this
+    // extends the mechanism already proven to work in this file: a direct scan
+    // of import specifiers. See docs/architecture/repository-invariants.md.
+    const controlImportPattern = /from\s+["']@parmana\/execution-control["']/;
+    const gatewayImportPattern = /from\s+["']@parmana\/execution-gateway["']/;
+
+    const controlAllowed = (path: string): boolean =>
+      path.startsWith("packages/execution-control/") ||
+      path.startsWith("packages/execution-gateway/") ||
+      path.startsWith("packages/api/") ||
+      // Type-only consumer: ExecutionReceiptBuilder/ExecutionReceipt import
+      // only the ExecutionPermit *type* to shape the receipt model — no
+      // executable class, no adapter, no .execute() call. Pre-existing,
+      // not an execution-ownership violation. (Separately: receipt/package.json
+      // does not declare @parmana/execution-control as a dependency despite
+      // importing from it — a pre-existing package.json hygiene gap, out of
+      // Phase 1F's execution-ownership scope; noted in the invariants doc.)
+      path.startsWith("packages/receipt/");
+
+    const gatewayAllowed = (path: string): boolean =>
+      path.startsWith("packages/execution-gateway/") || path.startsWith("packages/api/");
+
+    const controlImporters = [...srcFiles.entries()]
+      .filter(([, content]) => controlImportPattern.test(content))
+      .map(([path]) => path);
+
+    const gatewayImporters = [...srcFiles.entries()]
+      .filter(([, content]) => gatewayImportPattern.test(content))
+      .map(([path]) => path);
+
+    it("found at least the known real @parmana/execution-control importers (sanity check the scan isn't vacuous)", () => {
+      expect(controlImporters.length).toBeGreaterThan(0);
+    });
+
+    it("found at least the known real @parmana/execution-gateway importers (sanity check the scan isn't vacuous)", () => {
+      expect(gatewayImporters.length).toBeGreaterThan(0);
+    });
+
+    it("only execution-control, execution-gateway, or api import @parmana/execution-control", () => {
+      const unapproved = controlImporters.filter((path) => !controlAllowed(path));
+      expect(unapproved).toEqual([]);
+    });
+
+    it("only execution-gateway or api import @parmana/execution-gateway", () => {
+      const unapproved = gatewayImporters.filter((path) => !gatewayAllowed(path));
+      expect(unapproved).toEqual([]);
+    });
+
+    it("no connector package (present or future) imports execution-control or execution-gateway", () => {
+      const connectorPackages = listPackages().filter((name) => name.startsWith("connector-"));
+      const violators = [...controlImporters, ...gatewayImporters].filter((path) =>
+        connectorPackages.some((pkg) => path.startsWith(`packages/${pkg}/`)),
+      );
+      expect(violators).toEqual([]);
+    });
+  });
+
+  describe("Phase 1D public API boundary stays generically enforced (not just a hardcoded symbol list)", () => {
+    // packages/execution-gateway/tests/unit/public-api-boundary.test.ts checks
+    // a hardcoded list of 10 known internal symbols against the built
+    // package's runtime exports — valuable, but a *new* internal class added
+    // to connector-execution/ later wouldn't be covered until someone
+    // remembers to add its name to that list. This derives the "must stay
+    // internal" set from connector-execution/index.ts itself (minus the
+    // three factory files, which are the intended public surface), so it
+    // covers symbols that don't exist yet.
+    const internalBarrelPath = "packages/execution-gateway/src/connector-execution/index.ts";
+    const publicBarrelPath = "packages/execution-gateway/src/index.ts";
+
+    /** Strips /* *\/ block comments and // line comments so prose mentioning a class name (e.g. explaining why it's NOT exported) doesn't false-positive as an export. */
+    function stripComments(content: string): string {
+      return content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    }
+
+    const internalBarrel = srcFiles.get(internalBarrelPath);
+    const publicBarrelRaw = srcFiles.get(publicBarrelPath);
+    const publicBarrel = publicBarrelRaw === undefined ? undefined : stripComments(publicBarrelRaw);
+
+    const publicFactoryFiles = new Set([
+      "createGatewayConnectorRegistry",
+      "createGatewayRazorpayConnector",
+      "createGatewayHubSpotConnector",
+    ]);
+
+    it("both barrel files exist and were scanned", () => {
+      expect(internalBarrel).toBeDefined();
+      expect(publicBarrel).toBeDefined();
+    });
+
+    const reExportedFiles = [...(internalBarrel ?? "").matchAll(/export \* from ["']\.\/([\w-]+)\.js["']/g)].map(
+      (m) => m[1]!,
+    );
+
+    it("found files re-exported by the internal connector-execution barrel (sanity check)", () => {
+      expect(reExportedFiles.length).toBeGreaterThan(0);
+    });
+
+    const implementationFiles = reExportedFiles.filter((name) => !publicFactoryFiles.has(name));
+
+    it("at least one implementation file (non-factory) is present to check (sanity check)", () => {
+      expect(implementationFiles.length).toBeGreaterThan(0);
+    });
+
+    for (const fileName of implementationFiles) {
+      const filePath = `packages/execution-gateway/src/connector-execution/${fileName}.ts`;
+      const fileContent = srcFiles.get(filePath);
+
+      const exportedNames = [
+        ...(fileContent ?? "").matchAll(/^export (?:class|interface|function|const|type)\s+(\w+)/gm),
+      ].map((m) => m[1]!);
+
+      it.each(exportedNames)(`${fileName}.ts's exported symbol %s does not leak into the public package barrel`, (name) => {
+        expect(publicBarrel).not.toMatch(new RegExp(`\\b${name}\\b`));
+      });
+    }
+  });
 });
