@@ -22,3 +22,4 @@ export * from "./ExecutionGateway.js";
 export * from "./HttpConnector.js";
 export * from "./deepFreeze.js";
 export * from "./connector-runtime/index.js";
+export * from "./connector-execution/index.js";

@@ -4,7 +4,14 @@ import type {
   ConnectorExecutionContext,
   ConnectorRequest,
   ConnectorResponse,
-} from "../../ConnectorTypes.js";
+} from "@parmana/connector-sdk";
+
+import {
+  RAZORPAY_PAYMENT_FETCH_CAPABILITY,
+  RAZORPAY_REFUND_CREATE_CAPABILITY,
+  RAZORPAY_REFUND_FETCH_CAPABILITY,
+  type RazorpayConnectorOptions,
+} from "@parmana/connector-sdk";
 
 import {
   PARMANA_TXN_NOTES_KEY,
@@ -13,36 +20,7 @@ import {
   redactRazorpayKeyId,
   type RazorpayRefund,
   type RazorpayRefundList,
-  type RazorpayRefundSpeed,
-} from "./RazorpayTypes.js";
-
-export const RAZORPAY_PAYMENT_FETCH_CAPABILITY = "razorpay:payment-fetch";
-export const RAZORPAY_REFUND_CREATE_CAPABILITY = "razorpay:refund-create";
-export const RAZORPAY_REFUND_FETCH_CAPABILITY = "razorpay:refund-fetch";
-
-export interface RazorpayConnectorOptions {
-  readonly connectorId: string;
-  readonly capabilities: ConnectorCapabilities;
-
-  /** Defaults to Razorpay's production base URL; tests and the tutorial override with a local mock server. */
-  readonly baseUrl?: string;
-}
-
-export interface RazorpayRefundCreateParameters {
-  readonly paymentId: string;
-  readonly amountPaise?: number;
-  readonly speed?: RazorpayRefundSpeed;
-  readonly reason?: string;
-  readonly receipt?: string;
-}
-
-export interface RazorpayPaymentFetchParameters {
-  readonly paymentId: string;
-}
-
-export interface RazorpayRefundFetchParameters {
-  readonly refundId: string;
-}
+} from "@parmana/connector-sdk";
 
 const DEFAULT_BASE_URL = "https://api.razorpay.com/v1";
 
@@ -58,8 +36,14 @@ const DEFAULT_BASE_URL = "https://api.razorpay.com/v1";
  * implementation is used instead, following HttpConnector's own pattern:
  * fetch-based, AbortController timeout, fail-closed on any non-2xx
  * response or network error.
+ *
+ * Gateway-owned production adapter (Phase 1C) — migrated verbatim from
+ * @parmana/connector-sdk's RazorpayConnector; capability identifiers and
+ * option/parameter DTOs stayed behind in connector-sdk's
+ * RazorpayCapabilities.ts (imported back here), only the executable class
+ * moved.
  */
-export class RazorpayConnector implements Connector {
+export class GatewayRazorpayAdapter implements Connector {
   readonly connectorId: string;
   readonly capabilities: ConnectorCapabilities;
   private readonly baseUrl: string;

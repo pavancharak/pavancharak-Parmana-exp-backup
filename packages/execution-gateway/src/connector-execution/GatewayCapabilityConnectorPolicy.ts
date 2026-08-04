@@ -1,6 +1,6 @@
 import type { ConnectorPolicy, GatewayExecutionRequest, SecureConnector } from "@parmana/execution-control";
 
-import { isNamespacedCapability } from "./ConnectorTypes.js";
+import { isNamespacedCapability } from "@parmana/connector-sdk";
 
 /**
  * Wraps an existing execution-control ConnectorPolicy (typically
@@ -13,7 +13,7 @@ import { isNamespacedCapability } from "./ConnectorTypes.js";
  * verified-transaction, capability-declared, and one-time-session checks all
  * remain exactly DefaultConnectorPolicy's, unchanged.
  */
-export class CapabilityConnectorPolicy implements ConnectorPolicy {
+export class GatewayCapabilityConnectorPolicy implements ConnectorPolicy {
   constructor(private readonly inner: ConnectorPolicy) {}
 
   async assertAllowed(

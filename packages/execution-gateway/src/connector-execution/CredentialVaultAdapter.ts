@@ -1,6 +1,6 @@
 import type { CredentialVault, ExecutionCredential } from "@parmana/execution-control";
 
-import type { CredentialProvider } from "./CredentialProvider.js";
+import type { CredentialProvider } from "@parmana/connector-sdk";
 
 /**
  * Adapts a CredentialProvider into execution-control's CredentialVault

@@ -4,12 +4,13 @@ import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
-  HttpConnector,
   brandCredentialHandle,
   connectorCapabilities,
   type ConnectorExecutionContext,
   type ConnectorRequest,
-} from "../../src/index.js";
+} from "@parmana/connector-sdk";
+
+import { GatewayHttpAdapter } from "../../src/index.js";
 
 let server: Server;
 let baseUrl: string;
@@ -68,9 +69,9 @@ function request(overrides: Partial<ConnectorRequest> = {}): ConnectorRequest {
   };
 }
 
-describe("HttpConnector", () => {
+describe("GatewayHttpAdapter", () => {
   it("executes a declared capability, injecting the resolved credential as a Bearer token", async () => {
-    const connector = new HttpConnector({
+    const connector = new GatewayHttpAdapter({
       connectorId: "stripe",
       capabilities: connectorCapabilities(["http:post"]),
       baseUrl,
@@ -86,7 +87,7 @@ describe("HttpConnector", () => {
   });
 
   it("derives the HTTP method from the http: namespaced capability", async () => {
-    const connector = new HttpConnector({
+    const connector = new GatewayHttpAdapter({
       connectorId: "stripe",
       capabilities: connectorCapabilities(["http:get"]),
       baseUrl,
@@ -99,7 +100,7 @@ describe("HttpConnector", () => {
 
   it("fails closed on a non-2xx response", async () => {
     responseStatus = 500;
-    const connector = new HttpConnector({
+    const connector = new GatewayHttpAdapter({
       connectorId: "stripe",
       capabilities: connectorCapabilities(["http:post"]),
       baseUrl,
@@ -110,7 +111,7 @@ describe("HttpConnector", () => {
 
   it("fails closed on a timeout, never returning a partial success", async () => {
     responseDelayMs = 200;
-    const connector = new HttpConnector({
+    const connector = new GatewayHttpAdapter({
       connectorId: "stripe",
       capabilities: connectorCapabilities(["http:post"]),
       baseUrl,
@@ -121,7 +122,7 @@ describe("HttpConnector", () => {
   });
 
   it("rejects a capability the connector did not declare", async () => {
-    const connector = new HttpConnector({
+    const connector = new GatewayHttpAdapter({
       connectorId: "stripe",
       capabilities: connectorCapabilities(["http:get"]),
       baseUrl,
@@ -132,7 +133,7 @@ describe("HttpConnector", () => {
   });
 
   it("forwards additional configured headers on the request", async () => {
-    const connector = new HttpConnector({
+    const connector = new GatewayHttpAdapter({
       connectorId: "stripe",
       capabilities: connectorCapabilities(["http:post"]),
       baseUrl,

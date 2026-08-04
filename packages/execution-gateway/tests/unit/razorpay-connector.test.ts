@@ -6,12 +6,13 @@ import {
   RAZORPAY_REFUND_CREATE_CAPABILITY,
   RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_ID,
   RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_SECRET,
-  RazorpayConnector,
   brandCredentialHandle,
   connectorCapabilities,
   type ConnectorExecutionContext,
   type RazorpayPayment,
-} from "../../src/index.js";
+} from "@parmana/connector-sdk";
+
+import { GatewayRazorpayAdapter } from "../../src/index.js";
 
 const KEY_ID = "rzp_test_1234567890";
 const KEY_SECRET = "super_secret_value_never_leaked";
@@ -40,8 +41,8 @@ function context(overrides: Partial<ConnectorExecutionContext> = {}): ConnectorE
   };
 }
 
-function connector(): RazorpayConnector {
-  return new RazorpayConnector({
+function connector(): GatewayRazorpayAdapter {
+  return new GatewayRazorpayAdapter({
     connectorId: "razorpay",
     capabilities: connectorCapabilities([RAZORPAY_PAYMENT_FETCH_CAPABILITY, RAZORPAY_REFUND_CREATE_CAPABILITY]),
     baseUrl: server.baseUrl,
@@ -61,7 +62,7 @@ function capturedPayment(overrides: Partial<RazorpayPayment> = {}): RazorpayPaym
   };
 }
 
-describe("RazorpayConnector", () => {
+describe("GatewayRazorpayAdapter", () => {
   it("fetches a payment", async () => {
     server.setPayment(capturedPayment());
 
@@ -233,10 +234,10 @@ describe("RazorpayConnector", () => {
   it("refuses to send the built-in test-mode placeholder credential to Razorpay's real API, before any network call", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-    // No baseUrl override: defaults to RazorpayConnector's own default,
+    // No baseUrl override: defaults to GatewayRazorpayAdapter's own default,
     // Razorpay's real production API — this is exactly the unsafe
     // combination the guard exists to catch.
-    const realBaseUrlConnector = new RazorpayConnector({
+    const realBaseUrlConnector = new GatewayRazorpayAdapter({
       connectorId: "razorpay",
       capabilities: connectorCapabilities([
         RAZORPAY_PAYMENT_FETCH_CAPABILITY,
@@ -286,7 +287,7 @@ describe("RazorpayConnector", () => {
       await placeholderMockServer.listen();
       placeholderMockServer.setPayment(capturedPayment());
 
-      const mockConnector = new RazorpayConnector({
+      const mockConnector = new GatewayRazorpayAdapter({
         connectorId: "razorpay",
         capabilities: connectorCapabilities([
           RAZORPAY_PAYMENT_FETCH_CAPABILITY,

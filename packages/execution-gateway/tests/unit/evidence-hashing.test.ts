@@ -1,12 +1,15 @@
 import { CryptoBootstrap, TrustRecordHasher } from "@parmana/crypto";
 import { describe, expect, it } from "vitest";
 
+import type {
+  ConnectorRequest,
+  ConnectorResponse,
+} from "@parmana/connector-sdk";
+
 import {
   buildConnectorEvidence,
   redactSensitiveKeys,
   sanitizeEndpoint,
-  type ConnectorRequest,
-  type ConnectorResponse,
 } from "../../src/index.js";
 
 const crypto = CryptoBootstrap.create();

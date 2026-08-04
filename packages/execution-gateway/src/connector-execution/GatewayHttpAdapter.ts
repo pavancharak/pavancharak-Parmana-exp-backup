@@ -4,7 +4,7 @@ import type {
   ConnectorExecutionContext,
   ConnectorRequest,
   ConnectorResponse,
-} from "./ConnectorTypes.js";
+} from "@parmana/connector-sdk";
 
 export interface HttpConnectorOptions {
   readonly connectorId: string;
@@ -40,8 +40,13 @@ function isCredentialTokenValue(value: unknown): value is CredentialTokenValue {
  *
  * This is a capability-aware connector implementation with its own
  * capability-to-method mapping.
+ *
+ * Gateway-owned production adapter (Phase 1C) — migrated verbatim from
+ * @parmana/connector-sdk's HttpConnector; no protected file depended on
+ * this one, so it moved wholesale (unlike Razorpay/HubSpot, no capability
+ * constants needed to stay behind).
  */
-export class HttpConnector implements Connector {
+export class GatewayHttpAdapter implements Connector {
   readonly connectorId: string;
   readonly capabilities: ConnectorCapabilities;
 

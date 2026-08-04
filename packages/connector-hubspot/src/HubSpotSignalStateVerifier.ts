@@ -8,7 +8,7 @@ import type {
 } from "@parmana/policy";
 
 import { executeHubSpotCapability, hubSpotConnectorResponseMetadata } from "./HubSpotCapabilityExecution.js";
-import { HUBSPOT_DEAL_FETCH_CAPABILITY, HUBSPOT_DEAL_UPDATE_CAPABILITY } from "./HubSpotConnector.js";
+import { HUBSPOT_DEAL_FETCH_CAPABILITY, HUBSPOT_DEAL_UPDATE_CAPABILITY } from "./HubSpotCapabilities.js";
 import { buildHubSpotDealUpdateSignals } from "./HubSpotDealUpdateSignals.js";
 import type { HubSpotDeal } from "./HubSpotTypes.js";
 

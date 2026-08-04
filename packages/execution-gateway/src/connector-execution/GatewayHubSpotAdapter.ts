@@ -7,34 +7,19 @@ import type {
 } from "@parmana/connector-sdk";
 
 import {
+  HUBSPOT_DEAL_FETCH_CAPABILITY,
+  HUBSPOT_DEAL_UPDATE_CAPABILITY,
+  type HubSpotConnectorOptions,
+} from "@parmana/connector-hubspot";
+
+import {
   HUBSPOT_ALLOWED_DEAL_UPDATE_PROPERTIES,
   HUBSPOT_TEST_MODE_PLACEHOLDER_TOKEN,
   isHubSpotCredentialValue,
   redactHubSpotToken,
   type HubSpotAllowedDealUpdateProperty,
   type HubSpotDeal,
-} from "./HubSpotTypes.js";
-
-export const HUBSPOT_DEAL_FETCH_CAPABILITY = "hubspot:deal-fetch";
-export const HUBSPOT_DEAL_UPDATE_CAPABILITY = "hubspot:deal-update";
-
-export interface HubSpotConnectorOptions {
-  readonly connectorId: string;
-  readonly capabilities: ConnectorCapabilities;
-
-  /** Defaults to HubSpot's production base URL; tests point this at a local MockHubSpotServer. */
-  readonly baseUrl?: string;
-}
-
-export interface HubSpotDealFetchParameters {
-  readonly dealId: string;
-}
-
-export interface HubSpotDealUpdateParameters {
-  readonly dealId: string;
-  readonly dealstage?: string;
-  readonly amount?: number;
-}
+} from "@parmana/connector-hubspot";
 
 const DEFAULT_BASE_URL = "https://api.hubapi.com";
 
@@ -60,8 +45,14 @@ const DEFAULT_BASE_URL = "https://api.hubapi.com";
  * property could mask a caller's real intent (e.g. a bug that meant to
  * update "closedate" alongside dealstage) behind an update that quietly
  * did less than requested.
+ *
+ * Gateway-owned production adapter (Phase 1C) — migrated verbatim from
+ * @parmana/connector-hubspot's HubSpotConnector; capability identifiers and
+ * option/parameter DTOs stayed behind in connector-hubspot's
+ * HubSpotCapabilities.ts (imported back here), only the executable class
+ * moved.
  */
-export class HubSpotConnector implements Connector {
+export class GatewayHubSpotAdapter implements Connector {
   readonly connectorId: string;
   readonly capabilities: ConnectorCapabilities;
   private readonly baseUrl: string;

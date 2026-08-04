@@ -24,15 +24,18 @@ import {
 } from "@parmana/execution-control";
 
 import {
-  CapabilityConnectorPolicy,
-  ConnectorSdkRegistry,
   MockConnector,
   StaticCredentialProvider,
   connectorCapabilities,
   healthyNow,
 } from "@parmana/connector-sdk";
 
-import { ExecutionGateway, type ConnectorRequest } from "@parmana/execution-gateway";
+import {
+  ExecutionGateway,
+  GatewayCapabilityConnectorPolicy,
+  GatewayConnectorRegistry,
+  type ConnectorRequest,
+} from "@parmana/execution-gateway";
 
 import { PolicyAction, PolicyEngine, PolicyOutcome, type Policy } from "@parmana/policy";
 
@@ -241,7 +244,7 @@ async function main(): Promise<void> {
     );
 
   const registry =
-    new ConnectorSdkRegistry();
+    new GatewayConnectorRegistry();
 
   registry.register({
     connector: new MockConnector({
@@ -264,7 +267,7 @@ async function main(): Promise<void> {
       }),
 
     policy:
-      new CapabilityConnectorPolicy(
+      new GatewayCapabilityConnectorPolicy(
         new DefaultConnectorPolicy(authenticator, sessions),
       ),
 

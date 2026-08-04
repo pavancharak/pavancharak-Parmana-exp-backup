@@ -15,10 +15,10 @@ import {
   type SecureConnector,
 } from "@parmana/execution-control";
 
-import type { Connector } from "./ConnectorTypes.js";
+import type { Connector } from "@parmana/connector-sdk";
 import { CredentialVaultAdapter } from "./CredentialVaultAdapter.js";
-import type { CredentialProvider } from "./CredentialProvider.js";
-import type { ConnectorMetadata, ConnectorVersion } from "./ConnectorMetadata.js";
+import type { CredentialProvider } from "@parmana/connector-sdk";
+import type { ConnectorMetadata, ConnectorVersion } from "@parmana/connector-sdk";
 import { SdkConnectorExecutor } from "./SdkConnectorExecutor.js";
 
 const DEFAULT_SESSION_CREDENTIAL_LIFETIME_MS = 30_000;
@@ -63,15 +63,16 @@ export interface ConnectorRegistryEntry {
 }
 
 /**
- * Extends execution-control's ConnectorRegistry with connector-authoring
- * ergonomics: metadata, versioning, health, and credential-provider wiring.
+ * ExecutionGateway's canonical connector registry: connector-authoring
+ * ergonomics (metadata, versioning, health, credential-provider wiring) on
+ * top of execution-control's ConnectorRegistry.
  *
  * Implements execution-control's ConnectorRegistry interface (`get`) by
  * composing an InMemoryConnectorRegistry internally — the existing registry
  * class is used, not modified, and remains a valid drop-in wherever a plain
  * ConnectorRegistry is expected (e.g. ExecutionControlService).
  */
-export class ConnectorSdkRegistry implements ConnectorRegistry {
+export class GatewayConnectorRegistry implements ConnectorRegistry {
   private readonly inner = new InMemoryConnectorRegistry();
   private readonly entries = new Map<string, ConnectorRegistryEntry>();
 
@@ -147,26 +148,25 @@ export class ConnectorSdkRegistry implements ConnectorRegistry {
   get(name: string): SecureConnector {
     return this.inner.get(name);
   }
-resolveCapability(
-  capability: string,
-): SecureConnector {
 
-  for (const entry of this.entries.values()) {
-
-    if (
-      entry.secureConnector.capabilities.includes(
-        capability,
-      )
-    ) {
-      return entry.secureConnector;
+  resolveCapability(
+    capability: string,
+  ): SecureConnector {
+    for (const entry of this.entries.values()) {
+      if (
+        entry.secureConnector.capabilities.includes(
+          capability,
+        )
+      ) {
+        return entry.secureConnector;
+      }
     }
 
+    throw new Error(
+      `No connector registered for capability '${capability}'.`,
+    );
   }
 
-  throw new Error(
-    `No connector registered for capability '${capability}'.`,
-  );
-}
   entry(name: string): ConnectorRegistryEntry {
     const entry = this.entries.get(name);
     if (entry === undefined) throw new Error(`Unknown connector: ${name}.`);

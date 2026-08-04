@@ -8,7 +8,7 @@ import type {
 } from "@parmana/policy";
 
 import { executeRazorpayCapability, razorpayConnectorResponseMetadata } from "./RazorpayCapabilityExecution.js";
-import { RAZORPAY_PAYMENT_FETCH_CAPABILITY, RAZORPAY_REFUND_CREATE_CAPABILITY } from "./RazorpayConnector.js";
+import { RAZORPAY_PAYMENT_FETCH_CAPABILITY, RAZORPAY_REFUND_CREATE_CAPABILITY } from "./RazorpayCapabilities.js";
 import { buildRazorpayRefundSignals } from "./RazorpayRefundSignals.js";
 import type { RazorpayPayment } from "./RazorpayTypes.js";
 

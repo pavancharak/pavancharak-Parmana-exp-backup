@@ -6,13 +6,13 @@ import { SettlementStatus } from "@parmana/shared";
 import { MemoryExecutionTrustRecordRepository } from "@parmana/storage";
 import {
   MockRazorpayServer,
-  RazorpayConnector,
   RAZORPAY_PAYMENT_FETCH_CAPABILITY,
   RAZORPAY_REFUND_CREATE_CAPABILITY,
   RAZORPAY_REFUND_FETCH_CAPABILITY,
   StaticCredentialProvider,
   connectorCapabilities,
 } from "@parmana/connector-sdk";
+import { GatewayRazorpayAdapter } from "@parmana/execution-gateway";
 
 import { createApplication } from "../../src/application.js";
 import { createApp } from "../../src/app.js";
@@ -117,7 +117,7 @@ describe("Razorpay real webhook fixture replay (real delivery, hermetic)", () =>
         created_at: Math.floor(Date.now() / 1000),
       });
 
-      const connector = new RazorpayConnector({
+      const connector = new GatewayRazorpayAdapter({
         connectorId: "razorpay",
         capabilities: connectorCapabilities([
           RAZORPAY_PAYMENT_FETCH_CAPABILITY,

@@ -1,22 +1,20 @@
 /**
  * @parmana/connector-hubspot
  *
- * HubSpot Deal connector for Parmana: dealstage and amount updates on
- * CRM Objects API Deals only (this milestone's scope — see
- * docs/CLAIMS.md). Depends on @parmana/connector-sdk's Connector
- * authoring contract rather than execution-control directly, the same
- * pattern the Razorpay connector (packages/connector-sdk/src/connectors/
- * razorpay) follows.
+ * HubSpot Deal capability definitions, schemas, and signal-state
+ * verification support for Parmana: dealstage and amount updates on CRM
+ * Objects API Deals only (this milestone's scope — see docs/CLAIMS.md).
+ * Passive by design — the executable connector (GatewayHubSpotAdapter)
+ * is owned by @parmana/execution-gateway (Phase 1C).
  */
 
 export {
-  HubSpotConnector,
   HUBSPOT_DEAL_FETCH_CAPABILITY,
   HUBSPOT_DEAL_UPDATE_CAPABILITY,
   type HubSpotConnectorOptions,
   type HubSpotDealFetchParameters,
   type HubSpotDealUpdateParameters,
-} from "./HubSpotConnector.js";
+} from "./HubSpotCapabilities.js";
 
 export { HubSpotMetadata } from "./HubSpotMetadata.js";
 

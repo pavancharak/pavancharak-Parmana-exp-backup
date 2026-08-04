@@ -8,13 +8,13 @@ import { FileKeyProvider } from "@parmana/crypto";
 import {
   MockRazorpayServer,
   PARMANA_TXN_NOTES_KEY,
-  RazorpayConnector,
   RAZORPAY_PAYMENT_FETCH_CAPABILITY,
   RAZORPAY_REFUND_CREATE_CAPABILITY,
   RAZORPAY_REFUND_FETCH_CAPABILITY,
   StaticCredentialProvider,
   connectorCapabilities,
 } from "@parmana/connector-sdk";
+import { GatewayRazorpayAdapter } from "@parmana/execution-gateway";
 
 import { RazorpaySettlementProcessor } from "../../../src/webhooks/RazorpaySettlementProcessor.js";
 import { InMemoryRazorpayWebhookEventStore } from "../../../src/webhooks/InMemoryRazorpayWebhookEventStore.js";
@@ -86,7 +86,7 @@ function refundProcessedEvent(overrides: {
 
 describe("RazorpaySettlementProcessor", () => {
   let server: MockRazorpayServer;
-  let connector: RazorpayConnector;
+  let connector: GatewayRazorpayAdapter;
   let credentialProvider: StaticCredentialProvider;
   let trustRecords: MemoryExecutionTrustRecordRepository;
   let eventStore: InMemoryRazorpayWebhookEventStore;
@@ -97,7 +97,7 @@ describe("RazorpaySettlementProcessor", () => {
     server = new MockRazorpayServer({ keyId: KEY_ID, keySecret: KEY_SECRET });
     await server.listen();
 
-    connector = new RazorpayConnector({
+    connector = new GatewayRazorpayAdapter({
       connectorId: "razorpay",
       capabilities: connectorCapabilities([
         RAZORPAY_PAYMENT_FETCH_CAPABILITY,

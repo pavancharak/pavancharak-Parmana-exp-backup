@@ -1,16 +1,16 @@
 import { CryptoBootstrap } from "@parmana/crypto";
 import type { ConnectorIdentity } from "@parmana/execution-control";
 import { DefaultConnectorPolicy, InMemoryConnectorAuthenticator, InMemoryGatewaySessionStore } from "@parmana/execution-control";
-import { describe, expect, it } from "vitest";
-
 import {
-  ConnectorSdkRegistry,
   MockConnector,
   StaticCredentialProvider,
   connectorCapabilities,
   healthyNow,
   type ConnectorMetadata,
-} from "../../src/index.js";
+} from "@parmana/connector-sdk";
+import { describe, expect, it } from "vitest";
+
+import { GatewayConnectorRegistry } from "../../src/index.js";
 
 const crypto = CryptoBootstrap.create();
 
@@ -67,9 +67,9 @@ function fixtureRegistration(connectorId: string) {
   };
 }
 
-describe("ConnectorSdkRegistry", () => {
+describe("GatewayConnectorRegistry", () => {
   it("registers a connector and exposes it through the execution-control ConnectorRegistry interface", () => {
-    const registry = new ConnectorSdkRegistry();
+    const registry = new GatewayConnectorRegistry();
     const registration = fixtureRegistration("stripe");
 
     registry.register(registration);
@@ -80,7 +80,7 @@ describe("ConnectorSdkRegistry", () => {
   });
 
   it("exposes registered metadata and connector via entry()/list()", () => {
-    const registry = new ConnectorSdkRegistry();
+    const registry = new GatewayConnectorRegistry();
     const registration = fixtureRegistration("stripe");
     registry.register(registration);
 
@@ -91,14 +91,14 @@ describe("ConnectorSdkRegistry", () => {
   });
 
   it("rejects duplicate registration", () => {
-    const registry = new ConnectorSdkRegistry();
+    const registry = new GatewayConnectorRegistry();
     registry.register(fixtureRegistration("stripe"));
     expect(() => registry.register(fixtureRegistration("stripe")))
       .toThrow("Connector already registered: stripe.");
   });
 
   it("rejects lookups of unknown connectors", () => {
-    const registry = new ConnectorSdkRegistry();
+    const registry = new GatewayConnectorRegistry();
     expect(() => registry.get("sap")).toThrow("Unknown connector");
     expect(() => registry.entry("sap")).toThrow("Unknown connector: sap.");
   });

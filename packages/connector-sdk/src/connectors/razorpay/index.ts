@@ -3,7 +3,6 @@
  */
 
 export {
-  RazorpayConnector,
   RAZORPAY_PAYMENT_FETCH_CAPABILITY,
   RAZORPAY_REFUND_CREATE_CAPABILITY,
   RAZORPAY_REFUND_FETCH_CAPABILITY,
@@ -11,7 +10,7 @@ export {
   type RazorpayPaymentFetchParameters,
   type RazorpayRefundCreateParameters,
   type RazorpayRefundFetchParameters,
-} from "./RazorpayConnector.js";
+} from "./RazorpayCapabilities.js";
 
 export {
   RazorpayMetadata,

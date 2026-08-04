@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CredentialVaultAdapter,
   EnvironmentCredentialProvider,
   StaticCredentialProvider,
   brandCredentialHandle,
@@ -77,22 +76,6 @@ describe("CredentialProvider", () => {
       expect(isCredentialHandle("sk_live_secret")).toBe(false);
       expect(isCredentialHandle(null)).toBe(false);
       expect(isCredentialHandle(undefined)).toBe(false);
-    });
-  });
-
-  describe("CredentialVaultAdapter", () => {
-    it("adapts a CredentialProvider into execution-control's CredentialVault contract", async () => {
-      const provider = new StaticCredentialProvider({ stripe: { apiKey: "sk_live_secret" } });
-      const vault = new CredentialVaultAdapter(provider);
-      const credential = await vault.getCredential("stripe");
-      expect(isCredentialHandle(credential.value)).toBe(true);
-    });
-
-    it("propagates provider resolution failures without wrapping in extra secret-bearing context", async () => {
-      const provider = new StaticCredentialProvider();
-      const vault = new CredentialVaultAdapter(provider);
-      await expect(vault.getCredential("stripe"))
-        .rejects.toThrow("No static credential configured for connector: stripe.");
     });
   });
 });

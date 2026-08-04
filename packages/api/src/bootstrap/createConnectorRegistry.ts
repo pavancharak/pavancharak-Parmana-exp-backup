@@ -5,9 +5,11 @@ import {
 import { createCredentialProvider } from "./createCredentialProvider.js";
 
 import {
-  ConnectorSdkRegistry,
+  GatewayConnectorRegistry,
+  GatewayCapabilityConnectorPolicy,
+} from "@parmana/execution-gateway";
 
-  CapabilityConnectorPolicy,
+import {
   RazorpayMetadata,
 } from "@parmana/connector-sdk";
 
@@ -44,7 +46,7 @@ export function createConnectorRegistry(
   audit: ExecutionAuditSink,
   gatewayAuthentication: unknown,
 ): ConnectorRegistry {
-  const registry = new ConnectorSdkRegistry();
+  const registry = new GatewayConnectorRegistry();
 
   const crypto = CryptoBootstrap.create();
 
@@ -78,7 +80,7 @@ export function createConnectorRegistry(
   createCredentialProvider(),
 
     policy:
-      new CapabilityConnectorPolicy(
+      new GatewayCapabilityConnectorPolicy(
         new DefaultConnectorPolicy(
           authenticator,
           sessions,
@@ -113,7 +115,7 @@ export function createConnectorRegistry(
 
       credentialProvider: razorpayCredentialProvider,
 
-      policy: new CapabilityConnectorPolicy(
+      policy: new GatewayCapabilityConnectorPolicy(
         new DefaultConnectorPolicy(authenticator, sessions),
       ),
 
@@ -146,7 +148,7 @@ export function createConnectorRegistry(
 
       credentialProvider: hubspotCredentialProvider,
 
-      policy: new CapabilityConnectorPolicy(new DefaultConnectorPolicy(authenticator, sessions)),
+      policy: new GatewayCapabilityConnectorPolicy(new DefaultConnectorPolicy(authenticator, sessions)),
 
       gatewayAuthentication,
 

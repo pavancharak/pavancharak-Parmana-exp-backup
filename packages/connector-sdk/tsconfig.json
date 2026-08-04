@@ -13,7 +13,6 @@
   "references": [
     { "path": "../shared" },
     { "path": "../crypto" },
-    { "path": "../execution-control" },
     { "path": "../envelope-verifier" },
     { "path": "../execution-system" },
     { "path": "../policy" }

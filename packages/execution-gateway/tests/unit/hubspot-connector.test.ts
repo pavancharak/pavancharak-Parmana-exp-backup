@@ -4,15 +4,16 @@ import {
   HUBSPOT_DEAL_FETCH_CAPABILITY,
   HUBSPOT_DEAL_UPDATE_CAPABILITY,
   HUBSPOT_TEST_MODE_PLACEHOLDER_TOKEN,
-  HubSpotConnector,
   MockHubSpotServer,
   type HubSpotDeal,
-} from "../../src/index.js";
+} from "@parmana/connector-hubspot";
 import {
   brandCredentialHandle,
   connectorCapabilities,
   type ConnectorExecutionContext,
 } from "@parmana/connector-sdk";
+
+import { GatewayHubSpotAdapter } from "../../src/index.js";
 
 const TOKEN = "HUBSPOT_TEST_TOKEN";
 
@@ -40,8 +41,8 @@ function context(overrides: Partial<ConnectorExecutionContext> = {}): ConnectorE
   };
 }
 
-function connector(): HubSpotConnector {
-  return new HubSpotConnector({
+function connector(): GatewayHubSpotAdapter {
+  return new GatewayHubSpotAdapter({
     connectorId: "hubspot",
     capabilities: connectorCapabilities([HUBSPOT_DEAL_FETCH_CAPABILITY, HUBSPOT_DEAL_UPDATE_CAPABILITY]),
     baseUrl: server.baseUrl,
@@ -60,7 +61,7 @@ function seededDeal(overrides: Partial<HubSpotDeal["properties"]> = {}): HubSpot
   };
 }
 
-describe("HubSpotConnector", () => {
+describe("GatewayHubSpotAdapter", () => {
   it("fetches a deal", async () => {
     server.setDeal(seededDeal());
 
@@ -270,10 +271,10 @@ describe("HubSpotConnector", () => {
   it("refuses to send the built-in test-mode placeholder credential to HubSpot's real API, before any network call", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-    // No baseUrl override: defaults to HubSpotConnector's own default,
+    // No baseUrl override: defaults to GatewayHubSpotAdapter's own default,
     // HubSpot's real production API — this is exactly the unsafe
     // combination the guard exists to catch.
-    const realBaseUrlConnector = new HubSpotConnector({
+    const realBaseUrlConnector = new GatewayHubSpotAdapter({
       connectorId: "hubspot",
       capabilities: connectorCapabilities([HUBSPOT_DEAL_FETCH_CAPABILITY, HUBSPOT_DEAL_UPDATE_CAPABILITY]),
     });
@@ -314,7 +315,7 @@ describe("HubSpotConnector", () => {
       await placeholderMockServer.listen();
       placeholderMockServer.setDeal(seededDeal());
 
-      const mockConnector = new HubSpotConnector({
+      const mockConnector = new GatewayHubSpotAdapter({
         connectorId: "hubspot",
         capabilities: connectorCapabilities([HUBSPOT_DEAL_FETCH_CAPABILITY, HUBSPOT_DEAL_UPDATE_CAPABILITY]),
         baseUrl: placeholderMockServer.baseUrl,

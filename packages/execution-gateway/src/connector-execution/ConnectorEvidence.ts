@@ -1,9 +1,9 @@
 import type { CryptoProvider } from "@parmana/crypto";
 import { TrustRecordHasher } from "@parmana/crypto";
 
-import type { ConnectorCapability, ConnectorRequest, ConnectorResponse } from "./ConnectorTypes.js";
-import type { ConnectorVersion } from "./ConnectorMetadata.js";
-import { formatConnectorVersion } from "./ConnectorMetadata.js";
+import type { ConnectorCapability, ConnectorRequest, ConnectorResponse } from "@parmana/connector-sdk";
+import type { ConnectorVersion } from "@parmana/connector-sdk";
+import { formatConnectorVersion } from "@parmana/connector-sdk";
 
 /**
  * Connector execution evidence.

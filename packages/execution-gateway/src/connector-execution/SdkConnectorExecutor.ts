@@ -3,10 +3,10 @@ import type { ConnectorExecutor, ExecutionCredential } from "@parmana/execution-
 import type { ExecutableContent, ExecutionResult } from "@parmana/shared";
 
 import { buildConnectorEvidence } from "./ConnectorEvidence.js";
-import type { Connector, ConnectorExecutionContext, ConnectorRequest } from "./ConnectorTypes.js";
-import { isCredentialHandle } from "./CredentialProvider.js";
-import type { ConnectorMetadata, ConnectorVersion } from "./ConnectorMetadata.js";
-import { connectorVersionsEqual, formatConnectorVersion } from "./ConnectorMetadata.js";
+import type { Connector, ConnectorExecutionContext, ConnectorRequest } from "@parmana/connector-sdk";
+import { isCredentialHandle } from "@parmana/connector-sdk";
+import type { ConnectorMetadata, ConnectorVersion } from "@parmana/connector-sdk";
+import { connectorVersionsEqual, formatConnectorVersion } from "@parmana/connector-sdk";
 
 export interface SdkConnectorExecutorOptions {
   readonly connector: Connector;
@@ -31,9 +31,9 @@ const DEFAULT_TIMEOUT_MS = 30_000;
  * Adapts the SDK's Connector contract into execution-control's
  * ConnectorExecutor — the existing, unchanged extension seam
  * InMemorySecureConnector already calls after policy and credential-vault
- * checks pass. This is the only place connector-sdk touches the
- * execution-control execution path, and it does so purely by implementing
- * an existing interface, not by modifying it.
+ * checks pass. This is the only place the Gateway's connector-execution
+ * layer touches the execution-control execution path, and it does so purely
+ * by implementing an existing interface, not by modifying it.
  */
 export class SdkConnectorExecutor implements ConnectorExecutor {
   constructor(private readonly options: SdkConnectorExecutorOptions) {}
