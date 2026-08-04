@@ -110,16 +110,17 @@ npm install
 npm test
 ```
 
-To see the full chain run against a local mock payment provider, no
-network access or credentials required:
+To see the full chain run against a local mock connector, no network
+access or credentials required:
 
 ```bash
-npx tsx examples/tutorials/61-razorpay-refund/run.ts
+npx tsx examples/tutorials/60-end-to-end-enterprise-execution/run.ts
 ```
 
-This walks through all four outcomes a design partner would want to see:
-approval and execution, denial by policy, replay returning the recorded
-result without a second call, and rejection of a tampered request.
+This walks through the full pipeline: policy evaluation, signed
+authorization, envelope verification, request-bound attestation, session
+credential issuance, connector execution, credential destruction, and the
+signed audit/trust record.
 
 For a real deployment, see [DEPLOYMENT.md](DEPLOYMENT.md). It covers
 required configuration, fail-closed startup validation, and what was

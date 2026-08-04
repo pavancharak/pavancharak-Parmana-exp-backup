@@ -38,11 +38,6 @@ export {
 } from "./RazorpayTypes.js";
 
 export {
-  RazorpayCumulativeRefundLedger,
-  type RazorpayRefundLedgerPayload,
-} from "./RazorpayCumulativeRefundLedger.js";
-
-export {
   buildRazorpayRefundSignals,
   type BuildRazorpayRefundSignalsInput,
 } from "./RazorpayRefundSignals.js";
@@ -52,19 +47,6 @@ export {
   type BuildRazorpayRefundReceiptOptions,
   type RazorpayRefundReceipt,
 } from "./RazorpayRefundReceipt.js";
-
-export {
-  RazorpayRefundService,
-  type RazorpayRefundOutcome,
-  type RazorpayRefundServiceOptions,
-  type RequestRazorpayRefundInput,
-} from "./RazorpayRefundService.js";
-
-export {
-  buildRazorpayRefundHarness,
-  type RazorpayRefundHarness,
-  type RazorpayRefundHarnessOptions,
-} from "./RazorpayRefundHarness.js";
 
 export {
   executeRazorpayCapability,

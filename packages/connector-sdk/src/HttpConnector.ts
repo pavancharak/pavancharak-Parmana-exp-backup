@@ -38,9 +38,8 @@ function isCredentialTokenValue(value: unknown): value is CredentialTokenValue {
  * network error, timeout, or non-2xx response is a rejection, never a
  * guessed or partial success.
  *
- * This is a new, capability-aware connector distinct from
- * @parmana/execution-gateway's legacy HttpConnector (which remains
- * untouched and serves the Gateway's separate "direct connector" mode).
+ * This is a capability-aware connector implementation with its own
+ * capability-to-method mapping.
  */
 export class HttpConnector implements Connector {
   readonly connectorId: string;

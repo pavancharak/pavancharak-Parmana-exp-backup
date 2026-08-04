@@ -49,19 +49,6 @@ export {
 } from "./HubSpotDealUpdateReceipt.js";
 
 export {
-  HubSpotDealUpdateService,
-  type HubSpotDealUpdateOutcome,
-  type HubSpotDealUpdateServiceOptions,
-  type RequestHubSpotDealUpdateInput,
-} from "./HubSpotDealUpdateService.js";
-
-export {
-  buildHubSpotDealUpdateHarness,
-  type HubSpotDealUpdateHarness,
-  type HubSpotDealUpdateHarnessOptions,
-} from "./HubSpotDealUpdateHarness.js";
-
-export {
   executeHubSpotCapability,
   hubSpotConnectorResponseMetadata,
   type HubSpotCapabilityExecutionContent,

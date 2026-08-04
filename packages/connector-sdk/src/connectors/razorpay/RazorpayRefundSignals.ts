@@ -4,8 +4,7 @@ import type { RazorpayPayment } from "./RazorpayTypes.js";
 
 /**
  * Default daily cumulative refund cap (in paise), used by
- * RazorpayCumulativeRefundLedger.recordApprovedRefundIfWithinCap as the
- * default for RazorpayRefundServiceOptions.dailyCumulativeCapPaise.
+ * the policy's own daily cumulative cap rule.
  *
  * MUST match policies/razorpay-refund/1.0.0/policy.json's
  * "reject-exceeds-daily-cumulative-cap" rule value exactly -- the two
