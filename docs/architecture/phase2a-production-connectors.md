@@ -206,3 +206,7 @@ Live vendor suites (`*-live.integration.test.ts`) were **not** run, per this pha
 **Repository state:** fixed, tested, and documented. **Deployed state:** unchanged — the live `v39` deployment (2026-08-03) predates this fix and was not redeployed this session. **Deployment action required:** yes, a redeploy of `parmana-api` from a commit including this phase's changes, not performed here — deployment to shared production infrastructure requires explicit user confirmation before this assistant would take that action.
 
 The production trust gap identified during Phase 1H (TD-1) is eliminated **in the repository**. It remains present **in the currently deployed environment** until that environment is redeployed.
+
+---
+
+**Addendum (2026-08-05, Phase 2A.4):** the paragraph above reflects this report's status at the time it was written. The repository state has since changed: `parmana-api` was redeployed from this exact commit and independently verified (Phase 2A.2, `docs/operations/phase2a-deployment-verification.md`), and the pre-existing historical-record question was separately resolved against production evidence with a finding of zero non-test-attributed records (Phase 2A.3, `docs/operations/phase2a-historical-integrity-verification.md`). TD-1 is now closed; canonical evidence chain in `docs/operations/td1-closure-summary.md`. This report's original findings and static-audit evidence above remain accurate and unedited.
