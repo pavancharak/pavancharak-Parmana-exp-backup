@@ -50,13 +50,46 @@ jobs:
 
       - name: Guard against retired terminology
         # Locked vocabulary is "execution authorization" / "AI Execution
-        # Authorization". A handful of paths are intentionally excluded:
-        # docs/ROADMAP-v1.md narrates the terminology sweep itself (quotes
-        # the retired term to describe the gap it closed); docs/site's two
-        # "Related work" notes cite an unrelated third-party academic
-        # framework that is actually named "Execution Governance" (Ku,
-        # 2026); docs/VERIFICATION-GAPS.md documents this repo's own
-        # terminology history. None of those are live product usage.
+        # Authorization". Every exclusion below falls into exactly one of
+        # two legitimate categories — never "we didn't want to fix it":
+        #
+        # (1) Historical self-narration: this repo's own docs describing
+        #     its own retired term and the sweep that replaced it. The
+        #     phrase appears quoted, in the past tense, as a historical
+        #     fact — never as live vocabulary a reader would adopt.
+        #       - docs/ROADMAP-v1.md, docs/VERIFICATION-GAPS.md: narrate
+        #         the terminology sweep itself.
+        #       - docs/architecture/repository-certification.md,
+        #         docs/architecture/phase2b-technical-debt-assessment.md,
+        #         docs/architecture/phase2c-terminology-guard.md: each
+        #         independently found and/or fixed this exact guard gap,
+        #         and necessarily quotes the retired phrase to document
+        #         what was found. Expect this category to keep gaining
+        #         entries over time — that is normal, not a regression;
+        #         see phase2c-terminology-guard.md for why a per-file list
+        #         is the deliberate choice here, not a stopgap.
+        #
+        # (2) Third-party citation: docs/site's two "Related work" notes
+        #     cite an unrelated third-party academic framework that is
+        #     itself actually named "Execution Governance" (Ku, 2026) —
+        #     not this repo's retired term, just a name collision.
+        #       - docs/site/how-parmana-thinks.mdx
+        #       - docs/site/concepts/execution-authorization.mdx
+        #
+        # docs/site/changelog.mdx is category (1): it's this repo's public
+        # changelog narrating the same terminology history in past tense.
+        #
+        # ci.yml and tests/architecture/terminology-guard.test.ts (its
+        # regression-test reimplementation) each exclude themselves because
+        # their own comments/patterns/fixtures must name the retired phrase
+        # to check for it.
+        #
+        # If you hit this guard on a new file: first check whether you've
+        # actually typed "execution governance" as live, current
+        # terminology (fix the doc, don't touch this list) — or whether,
+        # like every entry below, you're citing history or an external
+        # work by name (add the file here, in the matching category above,
+        # with a one-line reason, exactly like its neighbors).
         run: |
           if grep -rIn \
             --exclude-dir=node_modules \
@@ -67,7 +100,12 @@ jobs:
             --exclude='VERIFICATION-GAPS.md' \
             --exclude='how-parmana-thinks.mdx' \
             --exclude='execution-authorization.mdx' \
+            --exclude='repository-certification.md' \
+            --exclude='phase2b-technical-debt-assessment.md' \
+            --exclude='phase2c-terminology-guard.md' \
+            --exclude='changelog.mdx' \
             --exclude='ci.yml' \
+            --exclude='terminology-guard.test.ts' \
             -i "execution governance" .; then
             echo "::error::Found retired term 'execution governance' — replace with 'execution authorization' / 'AI Execution Authorization'."
             exit 1
