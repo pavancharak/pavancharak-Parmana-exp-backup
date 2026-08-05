@@ -318,17 +318,17 @@ Evidence
 
 
 
-Parmana supports replay of recorded execution decisions for verification and analysis.
+Parmana supports replay of recorded execution decisions for verification and analysis, via the standalone `@parmana/replay` package (`ReplayEngine`), which re-evaluates a recorded policy decision against its recorded signals and reports whether the outcome matches.
 
-
+**Scope note (independently verified, Phase 2G):** this is a package-level capability, not yet wired into the HTTP API. `POST /replay` exists and returns 200, but its actual implementation (`ExecutionTrustApplication.replay()`) performs a signature/hash recheck of the stored Trust Record — the same category of check as `/verify` — not a call into `@parmana/replay`. Both behaviors are real and tested; they are simply two different things sharing the word "replay." See `docs/site/replay/overview.mdx` for the full disambiguation and `docs/architecture/phase2g-replay-semantics.md` for the independent verification, call graphs, and regression tests establishing this as the current, intentional, and separately production-contracted (both SDKs are typed against `POST /replay`'s current response shape) behavior — not an unwired bug awaiting a fix.
 
 Evidence
 
-
-
-* Replay package
+* Replay package (packages/replay/src/ReplayEngine.ts)
 
 * G-08
+
+* docs/architecture/phase2g-replay-semantics.md
 
 
 
@@ -532,7 +532,7 @@ Evidence
 
 
 
-Every route except /health requires a valid caller credential. createApp's callerAuth option is mandatory: it accepts either an authenticator/auditSink pair or the literal string "disabled", so every call site states its choice explicitly; there is no default that silently mounts the API with no caller authentication. Production (server.ts) refuses to start with PARMANA_AUTH_DISABLED unset and no PARMANA_API_KEYS configured (2.17). A key valid for one caller does not grant a different caller's identity, and every accept/reject outcome is audited without ever recording the raw key. In production, that audit trail is durable (see 3.2's sibling claim for the NonceStore side of the same fix), backed by Supabase and shared across every process, not scoped to one process's uptime; `createCallerAuditSink.ts` fails closed at startup if Supabase is not configured. `InMemoryCallerAuditSink` remains available and correct for tests (NODE_ENV=test).
+Every route except `/health`, `/ready`, `/openapi.yaml`, `/documentation`, `POST /refusal/verify`, and `POST /audit/verify` requires a valid caller credential (`packages/api/src/app.ts`). The first four are liveness/readiness probes and API documentation; the last two are deliberately unauthenticated, independently third-party-verifiable signature-verification capabilities (RFC-0021 Refusal Record verification and caller-audit/webhook-audit signature verification, see 2.19's sibling claim), not routes that expose any caller's data. createApp's callerAuth option is mandatory: it accepts either an authenticator/auditSink pair or the literal string "disabled", so every call site states its choice explicitly; there is no default that silently mounts the API with no caller authentication. Production (server.ts) refuses to start with PARMANA_AUTH_DISABLED unset and no PARMANA_API_KEYS configured (2.17). A key valid for one caller does not grant a different caller's identity, and every accept/reject outcome is audited without ever recording the raw key. In production, that audit trail is durable (see 3.2's sibling claim for the NonceStore side of the same fix), backed by Supabase and shared across every process, not scoped to one process's uptime; `createCallerAuditSink.ts` fails closed at startup if Supabase is not configured. `InMemoryCallerAuditSink` remains available and correct for tests (NODE_ENV=test).
 
 
 
@@ -832,7 +832,7 @@ Evidence
 
 * packages/api/src/bootstrap/createRazorpayConnector.ts, createRazorpayCredentialProvider.ts (production registration; fails closed, the connector is never registered, when `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are unset outside test mode), createConnectorRegistry.ts (conditional registration), createConnectorAuthenticator.ts (razorpay added to the trusted connector identity list)
 
-* packages/api/tests/unit/bootstrap/create-razorpay-credential-provider.test.ts, create-connector-registry.test.ts (credential present/absent/malformed cases; fail-closed capability resolution when unconfigured; vendor-payment remains resolvable when razorpay is not; key_secret never embedded in a thrown error)
+* packages/api/tests/unit/bootstrap/create-razorpay-credential-provider.test.ts, create-connector-registry.test.ts (credential present/absent/malformed cases; fail-closed capability resolution when unconfigured; **vendor-payment and razorpay each independently fail closed outside `NODE_ENV=test`** — vendor-payment's own fail-closed behavior was TD-1/Phase 2A's fix (previously it was unconditionally registered in every environment); see `docs/operations/td1-closure-summary.md` for the complete Implementation (Phase 2A) → Deployment Verification (Phase 2A.2) → Historical Integrity Verification (Phase 2A.3) → Technical Debt Closure (Phase 2A.4, TD-1 CLOSED) evidence chain; key_secret never embedded in a thrown error)
 
 * packages/api/tests/integration/razorpay-refund.integration.test.ts: a refund authorized, verified, and executed through a real `POST /execute` HTTP request against the production bootstrap chain (`createExecutionSystem`), landing on MockRazorpayServer; and a policy-denied refund through the same path making zero calls to Razorpay
 
@@ -1054,7 +1054,7 @@ Closes the last gap 3.7 left open: 3.7's real Razorpay-initiated webhook deliver
 
 
 
-**Deployment**: `parmana-api`, a single Docker image (see DEPLOYMENT.md), running on Fly.io across two machines in the `lhr` region (`fly.toml` declares `primary_region = 'bom'`; the actually running machines are `lhr` — this claim states the observed region, not the configured one). Durable storage (`PARMANA_STORAGE=supabase`) and the webhook/settlement event stores are Supabase-backed, shared across both machines. The API requires caller authentication at every route except `/health`: an unauthenticated `POST /execute` was observed returning `401` with `WWW-Authenticate: Bearer realm="Parmana"`, never falling open.
+**Deployment**: `parmana-api`, a single Docker image (see DEPLOYMENT.md), running on Fly.io across two machines in the `lhr` region (`fly.toml` declares `primary_region = 'bom'`; the actually running machines are `lhr` — this claim states the observed region, not the configured one). Durable storage (`PARMANA_STORAGE=supabase`) and the webhook/settlement event stores are Supabase-backed, shared across both machines. The API requires caller authentication at every route except `/health`, `/ready`, `/openapi.yaml`, `/documentation`, `POST /refusal/verify`, and `POST /audit/verify` (2.16): an unauthenticated `POST /execute` was observed returning `401` with `WWW-Authenticate: Bearer realm="Parmana"`, never falling open.
 
 
 
