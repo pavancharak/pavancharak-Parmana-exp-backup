@@ -101,13 +101,17 @@ enterprise connector is implemented."* These are reference mocks, not integratio
 should not be represented as SAP, Oracle, Workday, or Salesforce connectivity.
 
 <Warning>
-**Only one connector is registered in the default server today**: `vendor-payment`
-(`packages/api/src/bootstrap/createVendorPaymentConnector.ts`, a `MockConnector` under
-capability `"payments:execute"`). The four enterprise mocks above exist in
-`@parmana/connector-sdk` and are unit-tested there, but nothing in
-`packages/api/src/bootstrap` registers them, `POST /execute` with any action other than
-`"payments:execute"` fails closed with `"No connector registered for action"`. Adding a
-connector to the running server is a bootstrap code change today (`createConnectorRoute.ts`,
+**Update (Phase 2A):** `vendor-payment` (`packages/api/src/bootstrap/createVendorPaymentConnector.ts`)
+previously registered a `MockConnector` unconditionally, including in production — see
+[the production certification and fix](/../architecture/phase2a-production-connectors.md)
+for why that was a trust gap. It now only registers outside test mode when a real
+implementation exists, which today it does not: **in production, no connector backs
+`payments:execute`**, and it fails closed with the same `"No connector registered for
+capability"` error any other unregistered action gets. `MockConnector` still backs it when
+`NODE_ENV=test` (unit/integration tests, and any explicit demo/local run started that way).
+The four enterprise mocks above exist in `@parmana/connector-sdk` and are unit-tested there,
+but nothing in `packages/api/src/bootstrap` registers them either. Adding a real connector
+to the running server is a bootstrap code change today (`createConnectorRoute.ts`,
 `createConnectorRegistry.ts`, `createConnectorAuthenticator.ts`), not configuration. See
 [Add a connector with the Connector SDK](/integrations/connector-development-guide).
 </Warning>

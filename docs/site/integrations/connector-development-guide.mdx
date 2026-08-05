@@ -122,34 +122,47 @@ without any change to its schema or hashing pipeline.
 ## What reaching the default server actually requires
 
 <Warning>
-This is the part that's easy to assume is configuration and isn't. The default server
-registers exactly one connector, `vendor-payment`
-(`packages/api/src/bootstrap/createVendorPaymentConnector.ts`), following this real,
-running pattern:
+This is the part that's easy to assume is configuration and isn't. **Update (Phase 2A):**
+the default *production* server registers zero connectors out of the box today —
+`vendor-payment` (`packages/api/src/bootstrap/createVendorPaymentConnector.ts`) used to
+register a `MockConnector` unconditionally, including in production; that was a trust gap
+(a `payments:execute` request would get a genuinely signed success Trust Record with no real
+vendor ever contacted) and has been closed. `payments:execute` now fails closed in
+production, the same as any other unregistered capability. The registration pattern below
+still applies once a real implementation exists, or when `NODE_ENV=test` (where
+`createVendorPaymentConnector()` still returns a `MockConnector`, exactly as before, for
+unit/integration tests and explicit demo/local runs):
 
 ```typescript
 // packages/api/src/bootstrap/createConnectorRegistry.ts (abridged, real source)
 const registry = new ConnectorSdkRegistry();
-registry.register({
-  connector: createVendorPaymentConnector(),
-  metadata: { connectorId: "vendor-payment", displayName: "Vendor Payment", version: { major: 1, minor: 0, patch: 0 }, health: { status: "healthy", checkedAt: new Date().toISOString() } },
-  connectorIdentity: { connectorId: "vendor-payment", publicIdentity: "spiffe://parmana/connectors/vendor-payment", authenticationMetadata: {} },
-  credentialProvider: createCredentialProvider(),
-  policy: new CapabilityConnectorPolicy(new DefaultConnectorPolicy(authenticator, sessions)),
-  gatewayAuthentication,
-  crypto,
-  audit,
-});
+const connector = createVendorPaymentConnector(); // undefined outside NODE_ENV=test today
+if (connector !== undefined) {
+  registry.register({
+    connector,
+    metadata: { connectorId: "vendor-payment", displayName: "Vendor Payment", version: { major: 1, minor: 0, patch: 0 }, health: { status: "healthy", checkedAt: new Date().toISOString() } },
+    connectorIdentity: { connectorId: "vendor-payment", publicIdentity: "spiffe://parmana/connectors/vendor-payment", authenticationMetadata: {} },
+    credentialProvider: createCredentialProvider(),
+    policy: new CapabilityConnectorPolicy(new DefaultConnectorPolicy(authenticator, sessions)),
+    gatewayAuthentication,
+    crypto,
+    audit,
+  });
+}
 ```
 
-Adding a second connector to the running server means editing three files:
+Adding a connector to the running server means editing three files:
 `createConnectorRoute.ts` (add a `case` mapping an action to your connector's ID),
-`createConnectorRegistry.ts` (register it, following the shape above), and
+`createConnectorRegistry.ts` (register it, following the shape above — return `undefined`
+in production until a real implementation exists, exactly like this pattern and like
+`createRazorpayCredentialProvider.ts`/`createHubSpotCredentialProvider.ts` already do), and
 `createConnectorAuthenticator.ts` (trust its identity). There is no dynamic registration
 path, no environment variable that adds a connector, this is a code change today. Razorpay
-and HubSpot are the two exceptions wired beyond `vendor-payment` in the default server, see
+and HubSpot are the two connectors actually reachable in the default production server, see
 [Razorpay](/integrations/razorpay) and [HubSpot](/integrations/hubspot) for those connectors
-specifically.
+specifically. See
+[the Phase 2A production-connectors report](/../architecture/phase2a-production-connectors.md)
+for the full before/after.
 </Warning>
 
 ## The pattern, proven twice: Razorpay and HubSpot

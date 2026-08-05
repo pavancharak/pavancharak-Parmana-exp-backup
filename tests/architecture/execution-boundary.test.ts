@@ -85,14 +85,18 @@ describe("execution boundary — exactly one production execution pipeline", () 
       "packages/execution-gateway/src/connector-execution/GatewayHubSpotAdapter.ts",
       "packages/execution-gateway/src/connector-execution/GatewayHttpAdapter.ts",
       // Explicit, intentional test double — never executes a real vendor
-      // call. IS constructed by production bootstrap: it backs the
-      // "vendor-payment" connector (packages/api/src/bootstrap/
-      // createVendorPaymentConnector.ts, registered unconditionally in
-      // createConnectorRegistry.ts) as a deliberate stand-in pending a real
-      // enterprise connector — see docs/architecture/execution-pipeline-report.md
-      // §8 and docs/architecture/repository-certification.md. Still the one
-      // class outside execution-gateway allowed to `implement Connector`;
-      // it flows through the full ExecutionGateway pipeline like any other.
+      // call. Constructed by production bootstrap (createVendorPaymentConnector.ts,
+      // via createConnectorRegistry.ts) ONLY when NODE_ENV=test; outside test
+      // mode it returns undefined and "vendor-payment" is not registered at
+      // all, so payments:execute fails closed like any other unimplemented
+      // capability (Phase 2A — see
+      // docs/architecture/phase2a-production-connectors.md; the prior
+      // unconditional-registration gap is documented in
+      // docs/architecture/execution-pipeline-report.md §8 and
+      // docs/architecture/repository-certification.md §4.9/TD-1 as the
+      // finding this fixed). Still the one class outside execution-gateway
+      // allowed to `implement Connector`; when it is constructed, it flows
+      // through the full ExecutionGateway pipeline like any other.
       "packages/connector-sdk/src/MockConnector.ts",
     ]);
 

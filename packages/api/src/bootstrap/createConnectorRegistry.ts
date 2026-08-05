@@ -52,45 +52,56 @@ export function createConnectorRegistry(
 
   const connector = createVendorPaymentConnector();
 
-  registrations.push({
-    connector,
+  if (connector === undefined) {
+    console.warn({
+      event: "vendor_payment_connector_unavailable",
+      reason:
+        "No real vendor-payment implementation exists outside NODE_ENV=test; " +
+        "payments:execute is not registered in production rather than being " +
+        "served by MockConnector (Phase 2A — see " +
+        "docs/architecture/phase2a-production-connectors.md).",
+    });
+  } else {
+    registrations.push({
+      connector,
 
-    metadata: {
-      connectorId: "vendor-payment",
-      displayName: "Vendor Payment",
-      version: {
-        major: 1,
-        minor: 0,
-        patch: 0,
+      metadata: {
+        connectorId: "vendor-payment",
+        displayName: "Vendor Payment",
+        version: {
+          major: 1,
+          minor: 0,
+          patch: 0,
+        },
+        health: {
+          status: "healthy",
+          checkedAt: new Date().toISOString(),
+        },
       },
-      health: {
-        status: "healthy",
-        checkedAt: new Date().toISOString(),
+
+      connectorIdentity: {
+        connectorId: "vendor-payment",
+        publicIdentity:
+          "spiffe://parmana/connectors/vendor-payment",
+        authenticationMetadata: {},
       },
-    },
 
-    connectorIdentity: {
-      connectorId: "vendor-payment",
-      publicIdentity:
-        "spiffe://parmana/connectors/vendor-payment",
-      authenticationMetadata: {},
-    },
+      credentialProvider:
+        createCredentialProvider(),
 
-  credentialProvider:
-  createCredentialProvider(),
+      policy:
+        new DefaultConnectorPolicy(
+          authenticator,
+          sessions,
+        ),
 
-    policy:
-      new DefaultConnectorPolicy(
-        authenticator,
-        sessions,
-      ),
+      gatewayAuthentication,
 
-    gatewayAuthentication,
+      crypto,
 
-    crypto,
-
-    audit,
-  });
+      audit,
+    });
+  }
 
   const razorpayCredentialProvider = createRazorpayCredentialProvider();
 
