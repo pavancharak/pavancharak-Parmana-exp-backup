@@ -105,16 +105,12 @@ export function createExecuteRouter(
           };
         }
 
-console.log("[ROUTE] before execute");
+        const result =
+          await application.execute(
+            transaction,
+          );
 
-const result =
-  await application.execute(
-    transaction,
-  );
-
-console.log("[ROUTE] after execute");
-
-res.json(result);
+        res.json(result);
         return;
       } catch (error) {
         next(error);

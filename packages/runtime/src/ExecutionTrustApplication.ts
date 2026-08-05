@@ -65,33 +65,41 @@ export class ExecutionTrustApplication {
     transaction: BusinessTransaction,
   ): Promise<ExecutionTrustRecord> {
 
-    console.log("[APP] 1 - accept");
+    //
+    // Accept Business Transaction
+    //
     await this.transactions.accept(
       transaction,
     );
 
-    console.log("[APP] 2 - runtime");
+    //
+    // Execute Runtime
+    //
     await this.runtime.execute(
       transaction,
     );
 
-    console.log("[APP] 3 - verification");
+    //
+    // Verification
+    //
     await this.verification.verify(
       transaction.businessTransactionId,
     );
 
-    console.log("[APP] 4 - receipt");
+    //
+    // Receipt
+    //
     await this.receipts.generate(
       transaction.businessTransactionId,
     );
 
-    console.log("[APP] 5 - load trust record");
+    //
+    // Load completed Trust Record
+    //
     const trustRecord =
       await this.trustRecords.findByTransactionId(
         transaction.businessTransactionId,
       );
-
-    console.log("[APP] 6 - found trust record");
 
     if (!trustRecord) {
       throw new Error(
@@ -99,7 +107,6 @@ export class ExecutionTrustApplication {
       );
     }
 
-    console.log("[APP] 7 - returning");
     return trustRecord;
   }
 
