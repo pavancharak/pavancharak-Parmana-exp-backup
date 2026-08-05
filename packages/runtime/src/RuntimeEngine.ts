@@ -21,6 +21,7 @@ import {
   PolicyOutcome,
   PolicyRouter,
   SignalIntentBinder,
+  type CapabilityPolicyBinder,
   type PolicyDecision,
   type SignalIntentBindingViolation,
   type SignalStateVerifier,
@@ -91,6 +92,19 @@ export class RuntimeEngine {
      * rule evaluated, no authorization ever generated for it.
      */
     private readonly signalStateVerifier?: SignalStateVerifier,
+    /**
+     * TD-22 (capability/policy binding). Optional and trailing for the
+     * same backward-compatibility reason as signalStateVerifier above:
+     * every pre-existing call site must keep compiling and behaving
+     * identically. When omitted, no capability/policy binding is
+     * enforced -- current behavior, unchanged. When supplied, a
+     * capability with a canonical policy binding (see
+     * CapabilityPolicyBinding.ts) rejects any request that declares a
+     * different policy for it, before that policy is ever loaded or
+     * evaluated -- an ordinary policy REJECT, no authorization ever
+     * generated.
+     */
+    private readonly capabilityPolicyBinder?: CapabilityPolicyBinder,
   ) {
     if (!pipeline) {
       throw new Error("RuntimePipeline is required.");
@@ -174,15 +188,42 @@ export class RuntimeEngine {
     // ever generated for it.
     //
 
-    const bindingViolations =
-      this.signalIntentBinder.findViolations(
-        policy,
-        signals,
-        {
-          target: transaction.intent.target,
-          parameters: transaction.intent.parameters,
-        },
+    //
+    // Capability/Policy binding (TD-22)
+    //
+    // Some policies' boundSignals/SignalStateVerifier protections are
+    // scoped to one specific policy — those protections only apply
+    // when that specific policy is the one evaluated. Nothing
+    // upstream of this check enforces that a capability is only ever
+    // evaluated under its intended policy; a caller could otherwise
+    // pair a real capability with an unrelated, unprotected policy and
+    // bypass that capability's protections entirely. Runs before
+    // SignalIntentBinder for the same reason SignalIntentBinder runs
+    // before PolicyEngine: checking a narrower guarantee against an
+    // already-wrong policy is meaningless. A violation is treated as
+    // an ordinary policy rejection: no rule is evaluated, no
+    // authorization is ever generated for it. Capabilities with no
+    // canonical binding (every test/tutorial/example action) are
+    // entirely unaffected.
+    //
+
+    const capabilityBindingViolation =
+      this.capabilityPolicyBinder?.findViolation(
+        transaction.intent.action,
+        transaction.policy,
       );
+
+    const bindingViolations =
+      capabilityBindingViolation === undefined
+        ? this.signalIntentBinder.findViolations(
+            policy,
+            signals,
+            {
+              target: transaction.intent.target,
+              parameters: transaction.intent.parameters,
+            },
+          )
+        : [];
 
     //
     // Policy evaluation
@@ -194,7 +235,20 @@ export class RuntimeEngine {
     );
 
     const provisionalDecision: PolicyDecision =
-      bindingViolations.length > 0
+      capabilityBindingViolation !== undefined
+        ? {
+            policyId: policy.policyId,
+            policyVersion: policy.policyVersion,
+            outcome: PolicyOutcome.REJECT,
+            reason:
+              `Rejected: capability "${capabilityBindingViolation.action}" requires policy ` +
+              `"${capabilityBindingViolation.expected.name}"@"${capabilityBindingViolation.expected.version}", but ` +
+              `"${capabilityBindingViolation.declared.name}"@"${capabilityBindingViolation.declared.version}" was declared.`,
+            matchedRuleId: "capability-policy-binding-violation",
+            evaluatedRules: 0,
+            matchedPath: [],
+          }
+        : bindingViolations.length > 0
         ? {
             policyId: policy.policyId,
             policyVersion: policy.policyVersion,

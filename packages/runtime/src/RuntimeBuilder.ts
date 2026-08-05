@@ -5,6 +5,7 @@ import {
 } from "@parmana/shared";
 
 import {
+  CapabilityPolicyBinder,
   PolicyEngine,
   PolicyRouter,
   SignalIntentBinder,
@@ -169,6 +170,9 @@ export class RuntimeBuilder {
     const signalIntentBinder =
       new SignalIntentBinder();
 
+    const capabilityPolicyBinder =
+      new CapabilityPolicyBinder();
+
     //
     // Trust subsystem
     //
@@ -212,6 +216,7 @@ export class RuntimeBuilder {
         refusalRecordBuilder,
         refusalRecords,
         this.signalStateVerifier,
+        capabilityPolicyBinder,
       );
 
     //

@@ -264,4 +264,61 @@ describe("Razorpay refund (HTTP boundary)", () => {
     // caller-declared signals alone would have satisfied every policy rule.
     expect(mockServer.refundsFor("pay_HTTP003")).toHaveLength(0);
   });
+
+  it("(TD-22) rejects by policy through POST /execute when razorpay:refund-create is paired with an unrelated, unprotected policy", async () => {
+    const { app, server: mockServer } = await buildApp();
+
+    // Real payment: the full 1000000 paise is refundable.
+    mockServer.setPayment({
+      id: "pay_HTTP004",
+      entity: "payment",
+      status: "captured",
+      amount: 1000000,
+      currency: "INR",
+      amount_refunded: 0,
+      captured: true,
+    });
+
+    // The exact live-shaped exploit found during Phase 2K's marketing-claim
+    // verification: razorpay:refund-create (a fund-moving capability whose
+    // amount/payment-state protections are scoped to razorpay-refund/1.0.0's
+    // own boundSignals) paired with customer-refund/1.0.0 -- a real,
+    // production-loadable policy (PARMANA_POLICY_DIR=./policies) that
+    // declares no boundSignals at all. Its own approve rule is trivially
+    // satisfiable by caller-declared signals alone, entirely decoupled from
+    // the real intent.parameters.amountPaise that would actually execute.
+    const transaction = {
+      ...refundTransaction({
+        paymentId: "pay_HTTP004",
+        // The real amount that would execute if this were approved --
+        // far beyond razorpay-refund/1.0.0's own per-refund cap (500000)
+        // and customer-refund/1.0.0's own maximumRefundAmount (10000).
+        amountPaise: 999999,
+        signals: {
+          // Satisfies customer-refund/1.0.0's approve-refund rule.
+          refundEligible: true,
+          managerApproved: true,
+          fraudCheckPassed: true,
+          refundAmount: 1,
+        },
+      }),
+      policy: {
+        name: "customer-refund",
+        version: "1.0.0",
+        schemaVersion: "1.0.0",
+      },
+    };
+
+    const response = await request(app).post("/execute").send(transaction);
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe("POLICY_DENIED");
+    expect(response.body.error).toContain("razorpay:refund-create");
+    expect(response.body.error).toContain("razorpay-refund");
+    expect(response.body.error).toContain("customer-refund");
+
+    // The strongest proof: no refund reached the (mock) Razorpay server --
+    // the mismatched policy never even reaches PolicyEngine.evaluate.
+    expect(mockServer.refundsFor("pay_HTTP004")).toHaveLength(0);
+  });
 });

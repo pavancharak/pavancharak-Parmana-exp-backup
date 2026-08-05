@@ -306,4 +306,59 @@ describe("HubSpot deal update (HTTP boundary)", () => {
     // the caller-declared signals alone would have satisfied every policy rule.
     expect(mockServer.getDeal("9004")?.properties.dealstage).toBe("closedlost");
   });
+
+  it("(TD-22) rejects by policy through POST /execute when hubspot:deal-update is paired with an unrelated, unprotected policy", async () => {
+    const { app, server: mockServer } = await buildApp();
+
+    mockServer.setDeal({
+      id: "9005",
+      properties: { dealstage: "closedlost", amount: "5000", pipeline: "default" },
+    });
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    // The same live-shaped exploit as razorpay-refund.integration.test.ts's
+    // TD-22 case, for the other fund/record-mutating capability:
+    // hubspot:deal-update paired with customer-refund/1.0.0, a real,
+    // production-loadable policy with no boundSignals for dealstage/amount
+    // at all. Its own approve rule is trivially satisfiable by
+    // caller-declared signals alone, entirely decoupled from the real
+    // intent.parameters.dealstage/amount that would actually execute --
+    // here, moving a deal out of a terminal closedlost stage, which the
+    // real hubspot-deal-update policy would never allow.
+    const transaction = {
+      ...dealUpdateTransaction({
+        dealId: "9005",
+        dealstage: "qualifiedtobuy",
+        amount: 999_999,
+        signals: {
+          refundEligible: true,
+          managerApproved: true,
+          fraudCheckPassed: true,
+          refundAmount: 1,
+        },
+      }),
+      policy: {
+        name: "customer-refund",
+        version: "1.0.0",
+        schemaVersion: "1.0.0",
+      },
+    };
+
+    const response = await request(app).post("/execute").send(transaction);
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe("POLICY_DENIED");
+    expect(response.body.error).toContain("hubspot:deal-update");
+    expect(response.body.error).toContain("hubspot-deal-update");
+    expect(response.body.error).toContain("customer-refund");
+
+    // The deal is untouched, and not even a network call was made -- the
+    // mismatched policy never even reaches PolicyEngine.evaluate.
+    expect(mockServer.getDeal("9005")?.properties.dealstage).toBe("closedlost");
+    const hubspotCalls = fetchSpy.mock.calls.filter((call) => String(call[0]).startsWith(mockServer.baseUrl));
+    expect(hubspotCalls).toHaveLength(0);
+
+    fetchSpy.mockRestore();
+  });
 });
