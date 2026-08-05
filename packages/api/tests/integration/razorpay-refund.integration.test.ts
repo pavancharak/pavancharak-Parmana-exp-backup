@@ -321,4 +321,164 @@ describe("Razorpay refund (HTTP boundary)", () => {
     // the mismatched policy never even reaches PolicyEngine.evaluate.
     expect(mockServer.refundsFor("pay_HTTP004")).toHaveLength(0);
   });
+
+  it("(TD-23) rejects by policy when a fabricated, low dailyCumulativeAfterThisRefundPaise disagrees with the real, ledger-derived total", async () => {
+    const { app, server: mockServer } = await buildApp();
+
+    // Four separate payments, each refunded once, each within the
+    // policy's own per-refund cap (500,000 paise) -- 4 * 480,000 =
+    // 1,920,000 real cumulative total, each honestly declaring the
+    // running total as of its own position in the sequence.
+    const setupPaymentIds = ["pay_HTTP005a", "pay_HTTP005b", "pay_HTTP005c", "pay_HTTP005d"];
+    const perRefundAmount = 480_000;
+
+    for (const [index, paymentId] of setupPaymentIds.entries()) {
+      mockServer.setPayment({
+        id: paymentId,
+        entity: "payment",
+        status: "captured",
+        amount: 1_000_000,
+        currency: "INR",
+        amount_refunded: 0,
+        captured: true,
+      });
+
+      const runningTotal = perRefundAmount * (index + 1);
+
+      const setupResponse = await request(app)
+        .post("/execute")
+        .send(
+          refundTransaction({
+            paymentId,
+            amountPaise: perRefundAmount,
+            signals: {
+              paymentStatus: "captured",
+              paymentCurrency: "INR",
+              refundableRemainingPaise: 1_000_000,
+              requestedRefundAmountPaise: perRefundAmount,
+              requestedExceedsRemainder: false,
+              dailyCumulativeAfterThisRefundPaise: runningTotal,
+            },
+          }),
+        );
+
+      expect(setupResponse.status).toBe(200);
+    }
+
+    // Real cumulative total after the four setup refunds: 1,920,000.
+    mockServer.setPayment({
+      id: "pay_HTTP005",
+      entity: "payment",
+      status: "captured",
+      amount: 1_000_000,
+      currency: "INR",
+      amount_refunded: 0,
+      captured: true,
+    });
+
+    // This refund declares a fabricated, low cumulative value
+    // (300,000, falsely implying this is the very first refund of the
+    // day) to make its own 300,000-paise request appear safely within
+    // cap on paper. The real, ledger-derived total after this
+    // reservation would be 1,920,000 + 300,000 = 2,220,000 -- over the
+    // 2,000,000 cap. The caller-declared value is never trusted.
+    const dishonest = refundTransaction({
+      paymentId: "pay_HTTP005",
+      amountPaise: 300_000,
+      signals: {
+        paymentStatus: "captured",
+        paymentCurrency: "INR",
+        refundableRemainingPaise: 1_000_000,
+        requestedRefundAmountPaise: 300_000,
+        requestedExceedsRemainder: false,
+        dailyCumulativeAfterThisRefundPaise: 300_000,
+      },
+    });
+
+    const dishonestResponse = await request(app).post("/execute").send(dishonest);
+
+    expect(dishonestResponse.status).toBe(403);
+    expect(dishonestResponse.body.code).toBe("POLICY_DENIED");
+
+    // No refund reached Razorpay for the dishonest request.
+    expect(mockServer.refundsFor("pay_HTTP005")).toHaveLength(0);
+
+    // Confirms the four legitimate setup refunds are unaffected and
+    // still landed for real.
+    for (const paymentId of setupPaymentIds) {
+      expect(mockServer.refundsFor(paymentId)).toHaveLength(1);
+    }
+  });
+
+  it("(TD-23, Task 3.5 adversarial) concurrent refund requests approaching the daily cap cannot combine to exceed it", async () => {
+    const { app, server: mockServer } = await buildApp();
+
+    const paymentIds = ["pay_C001", "pay_C002", "pay_C003", "pay_C004", "pay_C005"];
+
+    for (const paymentId of paymentIds) {
+      mockServer.setPayment({
+        id: paymentId,
+        entity: "payment",
+        status: "captured",
+        amount: 1_000_000,
+        currency: "INR",
+        amount_refunded: 0,
+        captured: true,
+      });
+    }
+
+    // Five concurrent refund requests of 500,000 paise each -- 2,500,000
+    // paise combined, 500,000 over the 2,000,000 default daily cap.
+    // Each request individually satisfies every other check (payment
+    // captured, INR, within its own refundable remainder, within the
+    // 500,000-paise per-refund cap) and each honestly declares its own
+    // dailyCumulativeAfterThisRefundPaise as if it were the only refund
+    // of the day -- a caller attempting to defeat the cap purely
+    // through concurrency, not through a fabricated declared value.
+    const amountPaise = 500_000;
+
+    const requests = paymentIds.map((paymentId) =>
+      request(app)
+        .post("/execute")
+        .send(
+          refundTransaction({
+            paymentId,
+            amountPaise,
+            signals: {
+              paymentStatus: "captured",
+              paymentCurrency: "INR",
+              refundableRemainingPaise: 1_000_000,
+              requestedRefundAmountPaise: amountPaise,
+              requestedExceedsRemainder: false,
+              dailyCumulativeAfterThisRefundPaise: amountPaise,
+            },
+          }),
+        ),
+    );
+
+    const responses = await Promise.all(requests);
+
+    const approved = responses.filter((response) => response.status === 200);
+    const rejected = responses.filter((response) => response.status === 403);
+
+    expect(approved.length + rejected.length).toBe(paymentIds.length);
+
+    // The core adversarial property: no matter how the race resolved,
+    // at least one request must have been rejected (5 * 500,000 =
+    // 2,500,000 cannot all fit under a 2,000,000 cap), and the sum of
+    // what actually landed on the mock Razorpay server -- not merely
+    // what was "approved" -- never exceeds the configured cap.
+    expect(rejected.length).toBeGreaterThanOrEqual(1);
+
+    const totalExecuted = paymentIds
+      .flatMap((paymentId) => mockServer.refundsFor(paymentId))
+      .reduce((sum, refund) => sum + refund.amount, 0);
+
+    expect(totalExecuted).toBeLessThanOrEqual(2_000_000);
+
+    // The approved count and the executed total agree exactly --
+    // confirming every approved request really did land on Razorpay
+    // (no silent drop) and nothing beyond what was approved executed.
+    expect(totalExecuted).toBe(approved.length * amountPaise);
+  });
 });

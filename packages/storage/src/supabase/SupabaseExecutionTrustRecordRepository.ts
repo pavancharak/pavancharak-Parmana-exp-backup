@@ -225,6 +225,27 @@ export class SupabaseExecutionTrustRecordRepository
       businessTransactionId,
     ]);
   }
+
+  /**
+   * Sums evidence.parameters[parameterKey] across every successfully
+   * executed (status COMPLETED, evidence.success true) execution whose
+   * evidence.action matches, within [since, until) -- reading only the
+   * existing executions table's JSONB column, no new table (TD-23
+   * closure, Phase 3B).
+   */
+  async sumSuccessfulExecutionAmounts(
+    action: string,
+    parameterKey: string,
+    since: Date,
+    until: Date,
+  ): Promise<number> {
+    const { rows } = await this.pool.query<{ total: string | null }>(
+      SUM_SUCCESSFUL_EXECUTION_AMOUNTS_SQL,
+      [action, parameterKey, since.toISOString(), until.toISOString()],
+    );
+
+    return Number(rows[0]?.total ?? 0);
+  }
 }
 
 const INSERT_TRUST_RECORD_SQL = `
@@ -300,6 +321,16 @@ const INSERT_SETTLEMENT_CONFIRMATION_SQL = `
 
 const TOUCH_TRUST_RECORD_SQL = `
   UPDATE execution_trust_records SET updated_at = $1 WHERE business_transaction_id = $2
+`;
+
+const SUM_SUCCESSFUL_EXECUTION_AMOUNTS_SQL = `
+  SELECT SUM((execution_json->'evidence'->'parameters'->>$2)::numeric) AS total
+  FROM executions
+  WHERE execution_json->>'status' = 'COMPLETED'
+    AND (execution_json->'evidence'->>'success')::boolean = true
+    AND execution_json->'evidence'->>'action' = $1
+    AND (execution_json->'evidence'->>'executedAt')::timestamptz >= $3::timestamptz
+    AND (execution_json->'evidence'->>'executedAt')::timestamptz < $4::timestamptz
 `;
 
 interface TrustRecordHeaderRow {

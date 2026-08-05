@@ -69,4 +69,33 @@ export interface ExecutionTrustRecordRepository {
     businessTransactionId: string,
     confirmation: SettlementConfirmation,
   ): Promise<void>;
+
+  /**
+   * Sums a numeric field of ExecutionEvidence.parameters across every
+   * successfully executed Execution (status COMPLETED, evidence.success
+   * true) whose evidence.action equals the given action and whose
+   * evidence.executedAt falls within [since, until).
+   *
+   * Reads only already-persisted, already-signed Execution Trust
+   * Record history -- no caller-supplied value influences the result.
+   * Added (TD-23 closure, Phase 3B) as the authoritative,
+   * reconciliation-grade source for cumulative authorization checks
+   * that previously trusted a caller-declared signal; the real-time
+   * gate itself is a separate, atomic counter (see
+   * RazorpayDailyRefundLedger) for reasons this method's own callers
+   * document, but this method remains the ground truth to reconcile
+   * against.
+   *
+   * Optional: every pre-existing implementation of this interface
+   * (including the several inline test fakes across packages/runtime's
+   * own unit tests) must keep compiling and behaving identically
+   * without adding it. Only MemoryExecutionTrustRecordRepository and
+   * SupabaseExecutionTrustRecordRepository implement it.
+   */
+  sumSuccessfulExecutionAmounts?(
+    action: string,
+    parameterKey: string,
+    since: Date,
+    until: Date,
+  ): Promise<number>;
 }

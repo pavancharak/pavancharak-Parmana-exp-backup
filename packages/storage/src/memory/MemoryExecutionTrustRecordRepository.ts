@@ -1,5 +1,6 @@
 import {
   Execution,
+  ExecutionStatus,
   ExecutionTrustRecord,
   ExecutionTrustRecordRepository,
   Override,
@@ -135,5 +136,43 @@ export class MemoryExecutionTrustRecordRepository implements ExecutionTrustRecor
     };
 
     this.records.set(businessTransactionId, updated);
+  }
+
+  async sumSuccessfulExecutionAmounts(
+    action: string,
+    parameterKey: string,
+    since: Date,
+    until: Date,
+  ): Promise<number> {
+    let total = 0;
+
+    for (const record of this.records.values()) {
+      for (const execution of record.executions) {
+        const evidence = execution.evidence;
+
+        if (
+          execution.status !== ExecutionStatus.COMPLETED ||
+          !evidence ||
+          evidence.action !== action ||
+          !evidence.success
+        ) {
+          continue;
+        }
+
+        const executedAt = evidence.executedAt.getTime();
+
+        if (executedAt < since.getTime() || executedAt >= until.getTime()) {
+          continue;
+        }
+
+        const value = evidence.parameters[parameterKey];
+
+        if (typeof value === "number") {
+          total += value;
+        }
+      }
+    }
+
+    return total;
   }
 }

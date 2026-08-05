@@ -24,6 +24,9 @@
     },
     {
       "path": "../envelope-verifier"
+    },
+    {
+      "path": "../connector-sdk"
     }
   ]
 }
