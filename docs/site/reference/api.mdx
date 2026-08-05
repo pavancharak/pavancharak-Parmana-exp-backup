@@ -32,13 +32,21 @@ patterns](/guides/deploy-patterns).
 | `src/bootstrap/*.ts` | The composition root: `createExecutionSystem`, `createExecutionGateway`, `createExecutionControl`, `createConnectorRegistry`, `createConnectorRoute`, `createConnectorAuthenticator`, `createCallerAuthenticator`, `createCredentialProvider`, `createVendorPaymentConnector`, `createGatewayKeyPair`, `createGatewayPublicKey`, `createGatewayIdentity`, `createNonceStore`, `createSessionStore`, `createExecutionAuditSink`. Every bootstrap decision described on [The gateway](/concepts/the-gateway) and [Credential isolation](/concepts/credential-isolation) lives here. |
 
 <Warning>
-**Two files in `src/bootstrap/` are dead code, not wired into anything**: `ConnectorCatalog.ts`
-and `ConnectorFactory.ts` list connectors (including disabled stubs like `stripe`/`sap`) but
-neither is imported anywhere in `packages/api/src`. The real, running connector registration
-path is `createConnectorRegistry.ts`, see [The gateway](/concepts/the-gateway). Two other
-files, `scripts/generate-keys.ts` (repo root) and
+**One file in `src/bootstrap/` is dead code, not wired into anything**: `ConnectorCatalog.ts`
+lists connectors (including disabled stubs like `stripe`/`sap`) but is not imported anywhere
+in `packages/api/src`. The real, running connector registration path is
+`createConnectorRegistry.ts`, see [The gateway](/concepts/the-gateway). Two other files,
+`scripts/generate-keys.ts` (repo root) and
 `packages/api/src/bootstrap/createVendorPaymentSecureConnector.ts`, are empty, 0-byte stub
 files, also unused.
+
+`ExecutionControlComposition.ts` and `ConnectorFactory.ts` (a *different*, class-based
+composition root for the same responsibility as `createExecutionControl.ts` —
+not the `ConnectorFactory` interface from `@parmana/connector-sdk` described on
+[this page](/reference/connector-sdk)) previously sat alongside the real path with zero
+callers anywhere in the repository. Removed in Phase 2I
+(`docs/architecture/phase2i-composition-root-cleanup.md`) after independent verification
+confirmed they were never wired into production, tests, or any published surface.
 </Warning>
 
 ## Minimal example
