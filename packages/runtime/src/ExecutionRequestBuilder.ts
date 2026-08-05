@@ -1,6 +1,7 @@
 import {
   BusinessTransaction,
   SignedExecutionAuthorization,
+  toExecutableContent,
 } from "@parmana/shared";
 
 import {
@@ -10,6 +11,14 @@ import {
 /**
  * Builds the canonical ExecutionRequest forwarded
  * to the configured Execution System.
+ *
+ * Delegates the businessTransactionId/action/target/parameters mapping
+ * to the shared toExecutableContent() helper (@parmana/shared) rather
+ * than re-listing those four fields here — the same helper
+ * RuntimeEngine.execute() already uses to build the ExecutableContent
+ * an authorization is signed over. One canonical derivation means this
+ * builder's output can never silently diverge from what was actually
+ * authorized (Phase 2F, TD-9).
  */
 export class ExecutionRequestBuilder {
   /**
@@ -22,17 +31,19 @@ export class ExecutionRequestBuilder {
     authorization: SignedExecutionAuthorization,
   ): ExecutionRequest {
     return {
-      businessTransactionId:
-        transaction.businessTransactionId,
+      ...toExecutableContent({
+        businessTransactionId:
+          transaction.businessTransactionId,
 
-      action:
-        transaction.intent.action,
+        action:
+          transaction.intent.action,
 
-      target:
-        transaction.intent.target,
+        target:
+          transaction.intent.target,
 
-      parameters:
-        transaction.intent.parameters,
+        parameters:
+          transaction.intent.parameters,
+      }),
 
       authorization,
     };
