@@ -1,3 +1,4 @@
+import { ApprovalVerifier, isSignedApprovalShape } from "@parmana/approval";
 import type { CryptoProvider, KeyProvider } from "@parmana/crypto";
 import type { ExecutionSystem } from "@parmana/execution-system";
 import type {
@@ -22,6 +23,24 @@ export interface HubSpotSignalStateVerifierOptions {
   readonly authorizationTtlSeconds?: number;
   readonly amountChangeThreshold?: number;
   readonly stageOrder?: readonly string[];
+
+  /**
+   * TD-23 closure (Phase 3C). Optional and additive for the same
+   * backward-compatibility reason every other optional field here is:
+   * every pre-existing call site that constructs this class directly
+   * must keep compiling and behaving identically. When omitted,
+   * preAuthorizedForAmountChange is not independently verified --
+   * prior behavior, unchanged (the caller's own declared value passes
+   * straight through, per HubSpotDealUpdateSignals.ts's own comment on
+   * that field). When supplied, an over-threshold amount change's
+   * preAuthorizedForAmountChange claim is verified against a real,
+   * independently-issued SignedApproval carried in
+   * signals.approvalArtifact (docs/architecture/phase3a-authorization-artifact-design.md),
+   * rather than trusted from the caller -- closing the gap where a
+   * caller could declare preAuthorizedForAmountChange: true with
+   * nothing behind it.
+   */
+  readonly approvalVerifier?: ApprovalVerifier;
 }
 
 /**
@@ -30,11 +49,14 @@ export interface HubSpotSignalStateVerifierOptions {
  * Deliberately excludes proposedDealStage/proposedAmount (already
  * proven, by SignalIntentBinder, to equal parameters.dealstage/
  * parameters.amount before this verifier ever runs) and
- * preAuthorizedForAmountChange (an out-of-band claim with no
- * HubSpot-side equivalent to fetch and compare against -- see
- * HubSpotDealUpdateSignals.ts's own comment on that field; this
- * mirrors razorpay-refund's exclusion of dailyCumulativeAfterThis
- * RefundPaise for the same reason).
+ * preAuthorizedForAmountChange, which is handled separately (see
+ * verifyPreAuthorization below), not by comparison against a
+ * HubSpot-reported fact -- HubSpot has no concept of Parmana's own
+ * pre-authorization claim; instead, when configured, it is
+ * independently derived from a real, externally-issued Approval
+ * Artifact (TD-23 closure, Phase 3C). This mirrors exactly how
+ * RazorpaySignalStateVerifier handles
+ * dailyCumulativeAfterThisRefundPaise via its own reservation ledger.
  */
 const VERIFIED_SIGNAL_KEYS = [
   "currentDealStage",
@@ -145,6 +167,76 @@ export class HubSpotSignalStateVerifier implements SignalStateVerifier {
       }
     }
 
+    //
+    // Pre-authorization verification (TD-23 closure, Phase 3C).
+    //
+    // Skipped entirely when a violation already exists above (mirrors
+    // RazorpaySignalStateVerifier's own reservation short-circuit: a
+    // request already going to be rejected on independently-verified
+    // grounds needs no approval verification, which would otherwise
+    // needlessly burn a single-use Approval Artifact's nonce for a
+    // request that will never execute), when approvalVerifier is not
+    // configured (prior behavior, unchanged), or when the amount
+    // change does not exceed the threshold at all -- in that case
+    // preAuthorizedForAmountChange has no bearing on the policy's
+    // outcome (see policies/hubspot-deal-update/1.0.0/policy.json),
+    // so no real approval could ever have been required for it, and
+    // none should be consumed.
+    //
+    if (violations.length === 0 && this.options.approvalVerifier !== undefined && verified.amountChangeExceedsThreshold) {
+      const preAuthorizationViolation = await this.verifyPreAuthorization(
+        signals,
+        dealId,
+        verified.amountDeltaAbs as number,
+      );
+
+      if (preAuthorizationViolation !== undefined) {
+        violations.push(preAuthorizationViolation);
+      }
+    }
+
     return violations;
+  }
+
+  /**
+   * Verifies the caller-declared preAuthorizedForAmountChange claim
+   * against a real, independently-issued Approval Artifact
+   * (signals.approvalArtifact), rather than trusting it verbatim.
+   *
+   * requestedValue is the independently re-derived amountDeltaAbs (the
+   * verified value, not the caller's own declared one), so a caller
+   * cannot present a genuine approval for a smaller amount and reuse
+   * it to authorize a larger one -- ApprovalVerifier's own
+   * scopeSatisfied check rejects that mismatch.
+   */
+  private async verifyPreAuthorization(
+    signals: PolicySignals,
+    dealId: string,
+    amountDeltaAbs: number,
+  ): Promise<SignalStateViolation | undefined> {
+    const verifier = this.options.approvalVerifier;
+
+    if (verifier === undefined) {
+      return undefined;
+    }
+
+    const declaredValue = signals.preAuthorizedForAmountChange;
+    const artifact = signals.approvalArtifact;
+
+    const actualValue = isSignedApprovalShape(artifact)
+      ? (
+          await verifier.verify(artifact, {
+            action: HUBSPOT_DEAL_UPDATE_CAPABILITY,
+            resourceId: dealId,
+            requestedValue: amountDeltaAbs,
+          })
+        ).valid
+      : false;
+
+    if (declaredValue !== actualValue) {
+      return { signalKey: "preAuthorizedForAmountChange", declaredValue, actualValue };
+    }
+
+    return undefined;
   }
 }

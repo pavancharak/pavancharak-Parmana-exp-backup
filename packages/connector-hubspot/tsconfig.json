@@ -16,6 +16,7 @@
     { "path": "../envelope-verifier" },
     { "path": "../execution-system" },
     { "path": "../policy" },
-    { "path": "../connector-sdk" }
+    { "path": "../connector-sdk" },
+    { "path": "../approval" }
   ]
 }

@@ -361,4 +361,82 @@ describe("HubSpot deal update (HTTP boundary)", () => {
 
     fetchSpy.mockRestore();
   });
+
+  it("(TD-23) rejects by policy through POST /execute when a declared pre-authorization is not backed by a trusted Approval Artifact", async () => {
+    const { app, server: mockServer } = await buildApp();
+
+    mockServer.setDeal({
+      id: "9006",
+      properties: { dealstage: "appointmentscheduled", amount: "5000", pipeline: "default" },
+    });
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    // Proves the real, production-wired default posture is fail-closed:
+    // createApprovalIssuerRegistry.ts starts with zero trusted issuers
+    // configured (see its own comment), so no Approval Artifact --
+    // however well-formed -- can ever verify through the real API
+    // until an operator provisions a real approver key. A caller
+    // declaring preAuthorizedForAmountChange: true and presenting a
+    // well-formed (but necessarily untrusted) artifact must still be
+    // rejected, exactly like declaring it with no artifact at all
+    // (see the "without pre-authorization" case above) -- the
+    // declared claim is no longer trusted verbatim.
+    const transaction = dealUpdateTransaction({
+      dealId: "9006",
+      amount: 50_000,
+      signals: {
+        currentDealStage: "appointmentscheduled",
+        proposedAmount: 50_000,
+        dealStageChangeRequested: false,
+        dealStageTransitionAllowed: true,
+        amountChangeRequested: true,
+        amountDeltaAbs: 45_000,
+        amountChangeExceedsThreshold: true,
+        preAuthorizedForAmountChange: true,
+        approvalArtifact: {
+          payload: {
+            version: 1,
+            approvalId: "approval-1",
+            issuer: { approverId: "manager-jane", keyId: "manager-jane-key-1" },
+            issuedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+            capability: "hubspot:deal-update",
+            resourceId: "9006",
+            scope: { field: "amountDeltaAbs", comparator: "lte", value: 50_000 },
+            nonce: "integration-test-nonce-1",
+          },
+          signature: {
+            algorithm: "ed25519",
+            keyId: "manager-jane-key-1",
+            value: "not-a-real-signature",
+            signedAt: new Date().toISOString(),
+          },
+        },
+      },
+    });
+
+    const response = await request(app).post("/execute").send(transaction);
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe("POLICY_DENIED");
+    expect(response.body.error).toContain("preAuthorizedForAmountChange");
+
+    // The deal is untouched -- the provisional decision was APPROVE
+    // (the caller's declared preAuthorizedForAmountChange: true
+    // satisfies the policy on its face), so HubSpotSignalStateVerifier
+    // does perform its usual real, read-only deal-fetch to
+    // independently verify state (one GET call below) -- but that
+    // verification is exactly what catches the untrusted artifact and
+    // overrides the decision to REJECT before any mutating PATCH call
+    // is ever made.
+    expect(mockServer.getDeal("9006")?.properties.amount).toBe("5000");
+
+    const hubspotPatchCalls = fetchSpy.mock.calls.filter(
+      (call) => String(call[0]).startsWith(mockServer.baseUrl) && (call[1] as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(hubspotPatchCalls).toHaveLength(0);
+
+    fetchSpy.mockRestore();
+  });
 });

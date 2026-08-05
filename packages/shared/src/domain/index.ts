@@ -16,6 +16,7 @@ export * from "./challenge-record.js";
 export * from "./authority.js";
 export * from "./authorization.js";
 export * from "./execution-authorization.js";
+export * from "./approval-artifact.js";
 export * from "./executable-content.js";
 export * from "./intent.js";
 export * from "./signature.js";

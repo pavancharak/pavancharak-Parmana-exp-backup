@@ -59,6 +59,7 @@ export * from "./supabase/SupabaseBusinessTransactionRepository.js";
 export * from "./supabase/SupabaseExecutionTrustRecordRepository.js";
 export * from "./supabase/SupabaseRefusalRecordRepository.js";
 export * from "./supabase/SupabaseNonceStore.js";
+export * from "./supabase/SupabaseApprovalNonceStore.js";
 export * from "./supabase/SupabaseRazorpayDailyRefundLedger.js";
 export * from "./supabase/SupabaseClientFactory.js";
 

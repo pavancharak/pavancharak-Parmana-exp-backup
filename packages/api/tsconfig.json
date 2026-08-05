@@ -38,6 +38,7 @@
   { "path": "../execution-control" },
   { "path": "../execution-gateway" },
   { "path": "../connector-sdk" },
-  { "path": "../connector-hubspot" }
+  { "path": "../connector-hubspot" },
+  { "path": "../approval" }
 ]
 }
