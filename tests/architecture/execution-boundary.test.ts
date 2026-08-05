@@ -84,8 +84,15 @@ describe("execution boundary — exactly one production execution pipeline", () 
       "packages/execution-gateway/src/connector-execution/GatewayRazorpayAdapter.ts",
       "packages/execution-gateway/src/connector-execution/GatewayHubSpotAdapter.ts",
       "packages/execution-gateway/src/connector-execution/GatewayHttpAdapter.ts",
-      // Explicit, intentional test double — never executes a real vendor call,
-      // never constructed by production bootstrap. See MockConnector.ts.
+      // Explicit, intentional test double — never executes a real vendor
+      // call. IS constructed by production bootstrap: it backs the
+      // "vendor-payment" connector (packages/api/src/bootstrap/
+      // createVendorPaymentConnector.ts, registered unconditionally in
+      // createConnectorRegistry.ts) as a deliberate stand-in pending a real
+      // enterprise connector — see docs/architecture/execution-pipeline-report.md
+      // §8 and docs/architecture/repository-certification.md. Still the one
+      // class outside execution-gateway allowed to `implement Connector`;
+      // it flows through the full ExecutionGateway pipeline like any other.
       "packages/connector-sdk/src/MockConnector.ts",
     ]);
 
