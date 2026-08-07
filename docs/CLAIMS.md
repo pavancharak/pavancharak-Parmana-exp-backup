@@ -840,7 +840,8 @@ Evidence
 
 * packages/connector-sdk/tests/unit/razorpay-connector.test.ts: regression coverage added alongside this: RazorpayConnector refuses to send the built-in test-mode placeholder credential to Razorpay's real API before any network call (fetch spy asserts zero calls), and confirms the same placeholder still works normally against a mock server (baseUrl override); the guard is real-endpoint-specific, not a behavior change for existing mock-based tests
 
-
+packages/execution-gateway/src/connector-execution/createGatewayRazorpayConnector.ts
+packages/execution-gateway/src/connector-execution/GatewayRazorpayAdapter.ts
 
 ---
 
