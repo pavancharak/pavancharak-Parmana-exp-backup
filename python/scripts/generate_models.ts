@@ -275,6 +275,7 @@ const DOMAIN_FILES = [
   "metadata.ts",
   "business-transaction.ts",
   "signature.ts",
+  "signature-entry.ts",
   "execution-evidence.ts",
   "decision.ts",
   "execution.ts",
@@ -343,8 +344,8 @@ const MODULES: ModuleSpec[] = [
   },
   {
     file: "signature",
-    types: ["SignatureAlgorithm", "Signature"],
-    docSource: "config/CryptoAlgorithms.ts, domain/signature.ts",
+    types: ["SignatureAlgorithm", "Signature", "SignatureEntry"],
+    docSource: "config/CryptoAlgorithms.ts, domain/signature.ts, domain/signature-entry.ts",
   },
   {
     file: "execution_evidence",

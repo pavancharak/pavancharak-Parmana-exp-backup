@@ -12,6 +12,17 @@ import type { SignatureAlgorithm } from "@parmana/shared";
 export const DEFAULT_KEY_ID = "default";
 
 /**
+ * Keyid for the secondary (hybrid-mode) signing key, living alongside
+ * DEFAULT_KEY_ID under the same PARMANA_KEY_DIR (Hybrid Signature
+ * Support milestone, Phase A). Only read when CRYPTO_MODE=hybrid;
+ * generate it with `npm run generate:hybrid-secondary-key`. Deliberately
+ * a distinct keyId rather than reusing DEFAULT_KEY_ID -- FileKeyProvider
+ * resolves keys purely by keyId (`<keyId>.private.pem`), and one keyId
+ * can only ever hold one algorithm's key material at a time.
+ */
+export const DEFAULT_SECONDARY_KEY_ID = "default-secondary";
+
+/**
  * Signing key metadata.
  */
 export interface KeyMetadata {

@@ -1,5 +1,20 @@
 # Phase 2L — Resolve Remaining Authorization Exceptions (TD-23)
 
+**Update, later session: both findings below are now closed.** This document's own
+"TD-23 NOT RESOLVED" verdict (§ Final Recommendation) was accurate as of the commit this
+phase was fixed against and is preserved below unedited as the historical record of that
+phase's findings — but it no longer describes the current repository. The Razorpay daily
+cumulative cap is now independently derived from `RazorpayDailyRefundLedger`
+(`packages/connector-sdk/src/connectors/razorpay/RazorpayDailyRefundLedger.ts`), supplied
+unconditionally to `RazorpaySignalStateVerifier` in production (TD-23 Phase 3B). HubSpot's
+`preAuthorizedForAmountChange` is now independently verified against a real, signed
+Approval Artifact via `ApprovalVerifier` (TD-23 Phase 3C). See `docs/CLAIMS.md` 3.4 and
+3.10's own "RFC-0022 + TD-23" update paragraphs and `docs/VERIFICATION-GAPS.md` G-24's
+matching update for the full mechanism and evidence — both independently re-verified
+against the actual repository, not transcribed from a prior report, in the same session
+that added this note. §10's flagged `RazorpayRefundService`/tutorial-61 citation staleness
+was also corrected in that same later pass.
+
 Independently re-verifies the two authorization limitations Phase 2K's marketing-claim re-verification identified as still open: the Razorpay daily cumulative refund cap, and HubSpot's `preAuthorizedForAmountChange`. This phase was explicitly instructed not to assume either was a genuine gap, or that the prior report was correct. Both were re-derived from current source, fresh. **No production code was changed in this phase** — both findings are confirmed genuine, but each independently triggers this phase's own STOP conditions (intentional, disclosed, deliberately-scoped-out design decisions that would require a materially larger project — not a minimum-necessary fix — to close).
 
 **Fixed against:** commit `76d6b35` (`fix(policy): establish canonical capability-to-policy binding and close TD-22`), the tip of `main`. Working tree was not clean at the start — Phase 2K's changes were still uncommitted; per user confirmation, committed first (`76d6b35`) before this phase's own gate check was re-run and passed.
@@ -217,6 +232,9 @@ Supported by: repository searches, source references, authorization traces, and 
 
 ## Final Recommendation
 
-**TD-23 NOT RESOLVED.**
+**Superseded — see the update note at the top of this document. TD-23 is now resolved,
+both halves, in later sessions this document predates.**
+
+**TD-23 NOT RESOLVED.** *(as of this phase; preserved as written for the historical record)*
 
 Both reported exceptions were independently confirmed genuine — not incorrect, not already fixed, not superseded by Phase 2K's work. Per this phase's own STOP conditions, no implementation change was made: both are intentional, self-documented design decisions with a stated safe default (not oversights), both are explicitly disclosed in `docs/CLAIMS.md`/`docs/VERIFICATION-GAPS.md` as accepted risk / future work, and closing either would require designing genuinely new authorization capability — a signed pre-authorization artifact; a real cumulative-refund ledger with a deliberate concurrency design — squarely outside "minimum necessary change" and this phase's explicit "do not redesign authorization" boundary. This is a deliberate, evidence-based STOP, not a failure to attempt a fix: the adversarial analysis (§5) confirms exactly these two paths succeed and no others, the static audit (§6) confirms no third instance of this pattern exists anywhere in the codebase, and a recommended, properly-scoped path is given for each (§7) rather than left implicit. The marketing claim's "No exceptions" wording remains unsupported for these two specific, named facts; every other property this phase checked — credential isolation, replay protection, audit generation, capability-to-policy binding, and every other authorization input across both capabilities' full traces — holds.

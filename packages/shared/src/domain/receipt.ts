@@ -1,3 +1,5 @@
+import type { SignatureEntry } from "./signature-entry.js";
+
 /**
  * Parmana Trust Core
  *
@@ -52,6 +54,24 @@ export interface Receipt {
    * Ed25519
    */
   readonly algorithm: string;
+
+  /**
+   * Envelope schema version (Hybrid Signature Support milestone,
+   * Phase A). Absent means schema v1: exactly today's shape,
+   * `signature`/`algorithm` above are the sole cryptographic
+   * attestation. Present and >= 2 means `signatures` (below) was
+   * populated at signing time and MUST be independently verified in
+   * full. See the identical field on ExecutionTrustRecord.
+   */
+  readonly schemaVersion?: number;
+
+  /**
+   * Additional signatures over this Receipt, one per algorithm,
+   * produced only when CRYPTO_MODE=hybrid was active at signing time.
+   * See the identical field on ExecutionTrustRecord for the fail-
+   * closed verification requirement.
+   */
+  readonly signatures?: readonly SignatureEntry[];
 
   /**
    * UTC timestamp when the Receipt

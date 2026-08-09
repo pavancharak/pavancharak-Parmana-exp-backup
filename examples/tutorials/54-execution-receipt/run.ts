@@ -1,199 +1,165 @@
-import {
-  CryptoBootstrap,
-  FileKeyProvider,
-} from "@parmana/crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import {
-  ExecutionDecision,
-  ExecutionPermitBuilder,
-} from "@parmana/execution-control";
+  FilePolicyRepository,
+} from "@parmana/policy";
 
 import {
-  ExecutionTrustAttestationBuilder,
+  RuntimeFactory,
+} from "@parmana/runtime";
+
+import {
+  DefaultExecutionSystem,
 } from "@parmana/execution-system";
 
 import {
-  ExecutionReceiptBuilder,
-} from "@parmana/receipt";
+  MemoryBusinessTransactionRepository,
+  MemoryExecutionTrustRecordRepository,
+} from "@parmana/storage";
 
-async function main(): Promise<void> {
-  console.log();
-  console.log(
-    "==================================================",
-  );
-  console.log(
-    "Tutorial 54 - Execution Receipt",
-  );
-  console.log(
-    "==================================================",
-  );
-  console.log();
+import type {
+  BusinessTransaction,
+} from "@parmana/shared";
 
-  //
-  // Business artifact.
-  //
-  const artifact = {
-    vendorId: "VENDOR-1001",
-    invoiceId: "INV-2026-001",
-    paymentAmount: 25000,
-    currency: "USD",
-  };
+//
+// Historical note: this tutorial previously combined the dead
+// ExecutionPermitBuilder/ExecutionTrustAttestationBuilder/
+// ExecutionReceiptBuilder scaffolding (Hybrid Signature Support
+// milestone, Phase A: confirmed zero live callers, zero test
+// coverage, deleted). It now demonstrates the real Receipt,
+// produced by the same production pipeline Tutorial 07 uses --
+// with CRYPTO_MODE=hybrid active, so ReceiptCrypto additionally
+// signs it with ML-DSA-65 alongside the default Ed25519 signature.
+//
 
-  //
-  // Hybrid crypto.
-  //
-  const crypto =
-    CryptoBootstrap.createHybrid();
+process.env.CRYPTO_MODE = "hybrid";
+process.env.SECONDARY_SIGNATURE_PROVIDER = "dilithium3";
 
-  //
-  // Keys.
-  //
-  const keyProvider =
-    new FileKeyProvider();
+const root = path.resolve(import.meta.dirname);
 
-  const edPrivateKey =
-    await keyProvider.getPrivateKey(
-      "default",
-    );
+const transaction = JSON.parse(
+  readFileSync(
+    path.join(
+      root,
+      "../../shared/vendor-payment-transaction.json",
+    ),
+    "utf8",
+  ),
+) as BusinessTransaction;
 
-  const pqPrivateKey =
-    await keyProvider.getPrivateKey(
-      "pq",
-    );
-
-  //
-  // Gateway timestamps.
-  //
-  const timestamp =
-    new Date().toISOString();
-
-  const expiresAt =
-    new Date(
-      Date.now() + 120_000,
-    ).toISOString();
-
-  //
-  // Build Execution Permit.
-  //
-  const permit =
-    await new ExecutionPermitBuilder(
-      crypto,
-    ).build(
-      artifact,
-      ExecutionDecision.ALLOW,
-      edPrivateKey,
-      pqPrivateKey,
-      "default",
-      "pq",
-      "PERMIT-000001",
-      "parmana-gateway",
-      "v1",
-      timestamp,
-      expiresAt,
-    );
-
-  //
-  // Build Execution Trust Record.
-  //
-  const trustRecord =
-    await new ExecutionTrustAttestationBuilder(
-      crypto,
-    ).build(
-      artifact,
-      edPrivateKey,
-      pqPrivateKey,
-      "default",
-      "pq",
-      "parmana-gateway",
-      "v1",
-      timestamp,
-    );
-
-  //
-  // Build Execution Receipt.
-  //
-  const receipt =
-    new ExecutionReceiptBuilder().build(
-      permit,
-      trustRecord,
-    );
-
-  console.log(
-    "Execution Receipt",
+const policyRepository =
+  new FilePolicyRepository(
+    path.resolve(
+      root,
+      "../../../policies",
+    ),
   );
 
-  console.log(
-    "--------------------------------------------------",
+const transactions =
+  new MemoryBusinessTransactionRepository();
+
+const trustRecords =
+  new MemoryExecutionTrustRecordRepository();
+
+const executionSystem =
+  new DefaultExecutionSystem();
+
+const application =
+  RuntimeFactory.create(
+    transactions,
+    trustRecords,
+    policyRepository,
+    executionSystem,
   );
 
-  console.log(
-    `Version        : ${receipt.version}`,
+// --------------------------------------------------
+// EXECUTION
+//
+// application.execute() runs the complete pipeline,
+// including Receipt generation (ReceiptService, via the
+// same ReceiptCrypto used in production) -- not a separate
+// call, exactly as Tutorial 07 already shows.
+// --------------------------------------------------
+
+const trustRecord =
+  await application.execute(
+    transaction,
   );
 
-  console.log(
-    `Permit ID      : ${receipt.permit.permitId}`,
-  );
+const receipt =
+  trustRecord.receipts.at(-1);
 
-  console.log(
-    `Decision       : ${receipt.permit.decision}`,
-  );
-
-  console.log(
-    `Gateway        : ${receipt.permit.gatewayId}`,
-  );
-
-  console.log(
-    `Policy Version : ${receipt.permit.policyVersion}`,
-  );
-
-  console.log(
-    `Artifact Hash  : ${receipt.trustRecord.artifactHash}`,
-  );
-
-  console.log(
-    `Timestamp      : ${receipt.trustRecord.timestamp}`,
-  );
-
-  console.log();
-
-  console.log(
-    "Receipt Signatures",
-  );
-
-  console.log(
-    "--------------------------------------------------",
-  );
-
-  for (const signature of receipt.trustRecord.signatures.signatures) {
-    console.log();
-
-    console.log(
-      `Algorithm : ${signature.algorithm}`,
-    );
-
-    console.log(
-      `Key ID    : ${signature.keyId}`,
-    );
-
-    console.log(
-      `Length    : ${signature.signature.length} characters`,
-    );
-  }
-
-  console.log();
-
-  console.log(
-    "✓ Execution Receipt created successfully.",
-  );
-
-  console.log();
-
-  console.log(
-    "Tutorial completed successfully.",
+if (!receipt) {
+  throw new Error(
+    "Expected a Receipt to be generated as part of execute().",
   );
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// --------------------------------------------------
+// OUTPUT
+// --------------------------------------------------
+
+console.log("========================================");
+console.log(" Parmana Tutorial 54 - Execution Receipt");
+console.log("========================================");
+
+console.log();
+
+console.log("Receipt");
+
+console.log(
+  JSON.stringify(
+    receipt,
+    null,
+    2,
+  ),
+);
+
+console.log();
+
+console.log("Legacy signature (unchanged shape, always present)");
+console.log(
+  `  algorithm : ${receipt.algorithm}`,
+);
+console.log(
+  `  length    : ${receipt.signature.length} characters`,
+);
+
+console.log();
+
+console.log(
+  `Schema version : ${receipt.schemaVersion ?? "(absent -- legacy single-signature receipt)"}`,
+);
+
+console.log();
+
+console.log("Additive hybrid signatures[] (present only under CRYPTO_MODE=hybrid)");
+
+for (const entry of receipt.signatures ?? []) {
+  console.log(
+    `  ${entry.algorithm.padEnd(10)} keyId=${entry.keyId}`,
+  );
+}
+
+console.log();
+
+if (
+  receipt.schemaVersion === 2 &&
+  receipt.signatures?.length === 2
+) {
+  console.log(
+    "✓ Receipt carries both the legacy signature and the additive hybrid signatures[].",
+  );
+} else {
+  console.log(
+    "✗ Expected a hybrid-shaped Receipt (schemaVersion 2, two signatures).",
+  );
+}
+
+console.log();
+
+console.log("Tutorial Complete");
+console.log(
+  "Next: Tutorial 55 - Execution Receipt Verification",
+);

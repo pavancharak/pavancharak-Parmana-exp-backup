@@ -102,12 +102,21 @@ class ExecutionRejectedError(ParmanaHttpError):
     """
     Raised when Policy evaluation rejects a Business Transaction.
 
-    Reached over HTTP 500, code RUNTIME_ERROR, with a message starting
-    "Execution rejected:" (packages/api/src/middleware/error-handler.ts;
-    see docs/site/api-reference/error-catalog.mdx). Not a dedicated
-    status code of its own -- a well-formed request whose business
-    decision was no, not a client error and not an uncategorized server
-    failure.
+    Reached over HTTP 403, code POLICY_DENIED, with a message starting
+    "Execution rejected:" (packages/runtime/src/ExecutionGate.ts,
+    packages/api/src/middleware/error-handler.ts; see
+    docs/site/api-reference/error-catalog.mdx). Distinct from the
+    *other* 403 this API returns (AuthorizationError, a caller-identity/
+    principal mismatch, which carries no `code` field at all) -- see
+    build_http_error's POLICY_DENIED check, which runs ahead of the
+    generic status-based mapping for exactly this reason.
+
+    Previously reached over HTTP 500, code RUNTIME_ERROR (no dedicated
+    status of its own). That gap was fixed at the source; this class and
+    build_http_error were updated to match the current shape, not kept
+    around to work around the old ambiguity -- mirroring
+    typescript/src/transport/mapHttpErrorResponse.ts's own documented
+    history of the identical change.
     """
 
     def __init__(
@@ -118,7 +127,7 @@ class ExecutionRejectedError(ParmanaHttpError):
     ) -> None:
         super().__init__(
             message,
-            status_code=500,
+            status_code=403,
             code="EXECUTION_REJECTED",
             request_id=request_id,
         )
@@ -204,22 +213,18 @@ def build_http_error(
     """
     Constructs the specific ParmanaHttpError subclass for a response.
 
-    Classification is primarily by HTTP status. The one exception:
-    Policy rejection has no dedicated status of its own -- it reaches
-    the caller as an uncategorized HTTP 500 with code RUNTIME_ERROR and
-    a message starting "Execution rejected:" (see
-    packages/api/src/middleware/error-handler.ts and
-    docs/site/api-reference/error-catalog.mdx). That specific
-    status+code+message combination raises ExecutionRejectedError;
-    every other 5xx falls back to ServerError, and any other unmapped
-    status code to the ParmanaHttpError base class.
+    Classification is primarily by HTTP status, with `code` used only to
+    distinguish the one case that needs it: a policy REJECTED decision
+    carries its own dedicated 403 with code POLICY_DENIED, checked ahead
+    of the generic status-based branches so it doesn't collide with the
+    *other* 403 this API returns (a caller-identity/principal mismatch,
+    which carries no `code` field at all and correctly stays an
+    AuthorizationError) -- mirroring
+    typescript/src/transport/mapHttpErrorResponse.ts's identical,
+    identically-ordered check exactly.
     """
 
-    if (
-        status_code == 500
-        and code == "RUNTIME_ERROR"
-        and message.startswith("Execution rejected")
-    ):
+    if code == "POLICY_DENIED":
         return ExecutionRejectedError(message, request_id=request_id)
 
     error_type = _STATUS_MAP.get(status_code)

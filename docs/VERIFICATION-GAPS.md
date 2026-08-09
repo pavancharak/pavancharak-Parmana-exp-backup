@@ -306,12 +306,19 @@ refund reaches the mock server) after it. Full repo `tsc -b`, `eslint . --ext .t
 run` (762 passed, 40 pre-existing skips, no new skips) all clean, no regressions.
 
 **Explicitly still open, not addressed by this update:**
-- `dailyCumulativeAfterThisRefundPaise` is *not* independently verified -- it depends on
-  Parmana's own cumulative-refund ledger (`RazorpayCumulativeRefundLedger`), and no ledger is
-  wired to the production `POST /execute` path at all (only `RazorpayRefundService`'s
-  test/tutorial-only flow has one). This is the same daily-cap TOCTOU/ledger race already
-  identified as unaddressed accepted risk in the state-freshness investigation that preceded
-  this fix -- untouched by this change.
+- ~~`dailyCumulativeAfterThisRefundPaise` is *not* independently verified~~ **-- CLOSED, TD-23
+  Phase 3B, see `docs/CLAIMS.md` 3.4's RFC-0022/TD-23 update.** `RazorpayDailyRefundLedger`
+  (`packages/connector-sdk/src/connectors/razorpay/RazorpayDailyRefundLedger.ts`, a new,
+  differently-shaped `reserve()`/`release()` atomicity primitive -- not the same interface
+  as the 2026-08-04 `RazorpayCumulativeRefundLedger.recordApprovedRefundIfWithinCap()` fix
+  below, which lived inside `RazorpayRefundService`, since deleted entirely in the
+  execution-ownership refactor that moved `RazorpayConnector` to `execution-gateway`; see
+  the connector-path corrections elsewhere in this document) is now unconditionally
+  supplied to `RazorpaySignalStateVerifier` in production
+  (`createRazorpaySignalStateVerifier.ts`), backed by `SupabaseRazorpayDailyRefundLedger`.
+  This residual note originally tracked whether *any* ledger was reachable from production
+  at all -- it is now, via this new primitive, superseding the deleted class's fix rather
+  than continuing it.
 - **`vendor-payment`** (`policies/vendor-payment/2.0.0/policy.json`) has the identical shape of
   gap and no verifier: `vendorVerified`, `invoiceVerified`, `paymentApproved`, `sufficientFunds`,
   and `riskScore` remain pure caller-declared attestations. There is no single external system in
@@ -339,10 +346,15 @@ caller-declared signals. A fetch failure is itself treated as a violation: fail-
 silent pass-through. `proposedDealStage`/`proposedAmount` are read from the caller's declared
 signals rather than re-derived, because `SignalIntentBinder` has already proven they equal
 `intent.parameters.dealstage`/`intent.parameters.amount` by the time this verifier runs.
-`preAuthorizedForAmountChange` is deliberately excluded from verification: it is an explicitly
-out-of-band claim with no HubSpot-side fact to fetch and compare against (see
-`HubSpotDealUpdateSignals.ts`'s own comment on that field), the same category of exclusion as
-`dailyCumulativeAfterThisRefundPaise` above.
+`preAuthorizedForAmountChange` is deliberately excluded from *this* verifier's fetch-based
+mechanism: it is an explicitly out-of-band claim with no HubSpot-side fact to fetch and compare
+against (see `HubSpotDealUpdateSignals.ts`'s own comment on that field), the same category of
+exclusion as `dailyCumulativeAfterThisRefundPaise` above was, at the time this paragraph was
+written. **Update (TD-23, Phase 3C, now closed):** exclusion from fetch-based verification did
+not mean unverified forever -- `preAuthorizedForAmountChange` now has its own, differently-shaped
+verification path (a real, independently-issued, signed Approval Artifact, not a HubSpot API
+fetch), added directly to `HubSpotSignalStateVerifier` itself. See `docs/CLAIMS.md` 3.10's
+TD-23 update for the full mechanism (`ApprovalVerifier`, `packages/approval/src/ApprovalVerifier.ts`).
 
 **Verified:** a new regression test,
 `packages/api/tests/integration/hubspot-deal-update.integration.test.ts` ("rejects by policy
@@ -355,7 +367,9 @@ policy-denial tests, each asserting *zero* HTTP calls reached the mock HubSpot s
 denial, kept passing with the verifier now in the request path, because it only ever runs when
 the provisional decision is `APPROVE`. `HubSpotDealUpdateService`'s own 42 pre-existing unit
 tests pass unmodified -- this was a pure additive change to production wiring, not a change to
-that service's behavior. Full repo `tsc -b`, `eslint . --ext .ts`, `tsc --noEmit`, and `vitest
+that service's behavior. (`HubSpotDealUpdateService` was itself later deleted in the Phase 1C
+execution-ownership refactor, replaced by `HubSpotCapabilityExecution.ts`; this was a true,
+accurate statement about the code as it stood at the time this paragraph was written.) Full repo `tsc -b`, `eslint . --ext .ts`, `tsc --noEmit`, and `vitest
 run` (763 passed, 40 pre-existing skips, no new skips) all clean, no regressions.
 
 **Explicitly still open, not addressed by this update:** `vendor-payment` (above) remains the
@@ -561,19 +575,58 @@ closes, and was out of this session's scope.
 
 ### pre-production
 
-**G-4. Hybrid/post-quantum signing is dead configuration in production.** `CRYPTO_MODE`,
-`PRIMARY_SIGNATURE_PROVIDER`, and `SECONDARY_SIGNATURE_PROVIDER` are all read into
-`config.crypto` (`packages/shared/src/config/Config.ts:263-291`), and `crypto.mode` is
-parsed but **never read anywhere else in the codebase** (confirmed by grep). Every
-production signing call site hardcodes `CryptoBootstrap.create()` (single-provider), never
-`createHybrid()`: `packages/runtime/src/RuntimeAuthorizationSigner.ts:25`,
-`packages/runtime/src/ExecutionTrustRecordBuilder.ts:81`,
-`packages/api/src/bootstrap/createConnectorRegistry.ts:43`. Both `.env` and
-`packages/api/.env` in this checkout set `CRYPTO_MODE=hybrid` and
-`SECONDARY_SIGNATURE_PROVIDER=dilithium3`. A deployer who sets these expecting
-defense-in-depth PQ signing gets silently ignored config; the server always signs Ed25519
-only. Confirmed empirically: `receipt-signature.integration.test.ts`'s captured receipt
-reports `algorithm: 'ed25519'` regardless. **Decision required, see below.**
+**G-4. Hybrid/post-quantum signing was dead configuration in production. PARTIALLY
+CLOSED, for two of the several signing surfaces, by the Hybrid Signature Support
+milestone (Phase A).** Originally: `CRYPTO_MODE`, `PRIMARY_SIGNATURE_PROVIDER`, and
+`SECONDARY_SIGNATURE_PROVIDER` were all read into `config.crypto`
+(`packages/shared/src/config/Config.ts`), and `crypto.mode` was parsed but never read
+anywhere else in the codebase; every production signing call site hardcoded
+`CryptoBootstrap.create()` (single-provider), never `createHybrid()`. A deployer who set
+`CRYPTO_MODE=hybrid` expecting defense-in-depth PQ signing got silently ignored config;
+the server signed Ed25519 only, regardless. That description is now accurate for most,
+but no longer all, of this codebase's signing surfaces.
+
+**What's actually wired now:** `packages/crypto/src/VerificationCrypto.ts` (Execution
+Trust Records) and `ReceiptCrypto.ts` (Receipts) both read `crypto.mode` (via
+`parseCryptoMode`, `packages/shared/src/config/ConfigValidation.ts` — the previously-unvalidated
+raw cast is also fixed) and, when it is `"hybrid"`, additionally sign with
+`HybridSignatureProvider` (`packages/crypto/src/HybridSignatureProvider.ts`) using both
+`PRIMARY_SIGNATURE_PROVIDER` and `SECONDARY_SIGNATURE_PROVIDER`, via
+`CryptoBootstrap.createHybrid()` — the same factory this entry originally found unused.
+The result is additive, not a schema replacement: the existing single `signature` field
+is signed exactly as before (so old records and `@parmana/sign`'s third-party verifier
+stay compatible), and a new `signatures` array plus `schemaVersion` are populated only
+when hybrid mode produced them. `VerificationCrypto.verify()`/`verifySignature()` require
+every entry in `signatures` to independently verify when present — a missing or malformed
+entry rejects the whole record, never a silent downgrade to the legacy field alone.
+Verified: `packages/crypto/tests/unit/hybrid-signature-provider.test.ts`,
+`packages/runtime/tests/unit/verification-service-hybrid.test.ts`,
+`packages/runtime/tests/integration/receipt-hybrid.integration.test.ts`.
+
+**What's still exactly as this entry originally found it:** `RuntimeAuthorizationSigner`
+(execution authorization signing), gateway attestation signing
+(`createGatewayKeyPair`/`GatewayAuthenticationSigner`), and every connector's own signing
+path (`createConnectorRegistry.ts` and its call sites) all still call
+`CryptoBootstrap.create()` only — single-provider, `PRIMARY_SIGNATURE_PROVIDER` alone,
+completely unaffected by `CRYPTO_MODE`. This was a deliberate scope decision (see the
+milestone's own "Explicitly out of scope" list: Refusal Records and audit-event signing
+are an explicit fast-follow, not this pass), not an oversight, but it means `CRYPTO_MODE=hybrid`
+still does **not** mean "everything this process signs is hybrid-signed" — only Trust
+Records and Receipts are. A deployer reading `CRYPTO_MODE=hybrid` as covering the whole
+process would still be wrong, just differently wrong than before.
+
+**Now promoted to `docs/CLAIMS.md` (3.13), scoped to exactly what's built.** Hybrid
+signing is real, tested, and wired for the two surfaces above; `CRYPTO_MODE=hybrid`
+remains opt-in, not the production default (`parmana-api-live.fly.dev` still runs
+`PRIMARY_SIGNATURE_PROVIDER=ed25519` alone — 3.13 states this explicitly), and
+`@parmana/sign`'s public verifier does not yet recognize the `signatures` envelope shape
+(3.13's own "Required caveat" paragraph). The claim is capability-only, not a deployment
+claim: it does not say hybrid signing runs in staging or production anywhere, because it
+doesn't yet.
+
+**Decision still required for the remaining surfaces, see below** (D-2's Option A/B choice
+was written before this partial closure and should be re-read as applying only to the
+signing paths listed as unwired above).
 
 **G-5. `OverrideService` has zero test coverage and no HTTP route.**
 `packages/runtime/src/services/override-service.ts` (business rules: transaction must
@@ -1014,36 +1067,37 @@ to avoid a circular package dependency; also documented in G-1's entry.
 
 ### D-2. Hybrid/PQ dead configuration (G-4)
 
-**Option A: wire `createHybrid()` behind the env vars.** In each of the three call sites
-(`RuntimeAuthorizationSigner`, `ExecutionTrustRecordBuilder`,
-`createConnectorRegistry.ts`), branch on `config.crypto.mode` (or simply on whether
-`SECONDARY_SIGNATURE_PROVIDER` is set) to call `CryptoBootstrap.createHybrid()` instead of
-`.create()`, and thread the resulting `SignatureBundle` through
-`SignedExecutionAuthorization`/`ExecutionTrustRecord`/`Receipt` shapes, which today assume
-one `Signature`, not a bundle; this is the real complexity, not the `CryptoBootstrap` call
-itself. **Tests that would prove it end to end**: an HTTP-level test asserting
-`POST /execute`'s response `signature` (or a new `signatures` field) contains both an
-Ed25519 and an ML-DSA-65 signature when `SECONDARY_SIGNATURE_PROVIDER=dilithium3` is set,
-and that a receipt/verification still round-trips. *Estimated size: medium-to-large, this
-touches the `ExecutionTrustRecord`/`Signature` domain shape (a breaking or additive schema
-change, needs its own design decision), the Supabase schema (`signature_json` column
-currently assumes one signature), and CLAIMS.md 2.14/2.8 (which would need updating to
-claim hybrid-in-production, not just hybrid-as-a-library-capability). Not a same-day change.*
+**Status: PARTIALLY RESOLVED, Option A implemented for two of the three originally-listed
+call sites.** See G-4's own entry above for what changed. `VerificationCrypto` (Trust
+Records) and `ReceiptCrypto` (Receipts) now branch on `config.crypto.mode` and call
+`CryptoBootstrap.createHybrid()`; the additive `signatures`/`schemaVersion` schema change
+D-2 originally flagged as "the real complexity, not the `CryptoBootstrap` call itself" is
+built (`SignatureEntry`, `packages/shared/src/domain/signature-entry.ts`), with the
+existing single `Signature` field left untouched rather than replaced, closing exactly the
+schema-design question this entry called out as unresolved. The Supabase schema question
+this entry raised does not apply to these two surfaces: neither `execution_trust_records`
+nor `receipts` needed a new column, since `signatures`/`schemaVersion` ride inside the
+existing JSON-shaped record/receipt columns.
 
-**Option B: remove the dead config, document as single-provider by design.** Delete
-`CRYPTO_MODE` from both `.env` files (and stop reading it in `Config.ts`, a one-line
-removal), keep `PRIMARY_SIGNATURE_PROVIDER`/`SECONDARY_SIGNATURE_PROVIDER` as they are today
-(real, and already correctly documented as driving `createHybrid()` at the *library* level
-for tutorials 50-52), and add one sentence to `cryptography/overview.mdx` and
-`guides/choose-a-signature-provider.mdx`: the running server signs with exactly one
-algorithm at a time; hybrid signing is available as a library capability, not wired into
-`packages/api` today. *Estimated size: trivial, one config line removed, two doc
-sentences added. Touches CLAIMS.md not at all (no existing claim says hybrid runs in the
-server) and `reference/execution-system.mdx`/`reference/api.mdx` get a one-line cross-link.*
+**What Option A has not touched, and D-1's original estimate did not have to consider
+piecemeal:** `RuntimeAuthorizationSigner`, gateway attestation signing, and
+`createConnectorRegistry.ts`'s connector-signing call sites remain exactly as this entry
+originally found them — single-provider, `CryptoBootstrap.create()` only. Extending Option
+A to these is a separate decision, deliberately deferred (see the Hybrid Signature Support
+milestone's own scope: "Refusal Records and audit-event signing get hybrid signing in a
+fast-follow milestone, not this one"), not a rejection of Option A for them. **Option B
+(remove `CRYPTO_MODE` entirely, document as single-provider by design) is no longer live**
+for the codebase as a whole — the config is not dead anymore, just narrower in scope than
+"everything this process signs" — though it would still be a coherent choice to describe
+the *remaining* unwired surfaces as single-provider-by-design rather than extend Option A
+to them.
 
-Option B is the lower-risk, immediately-actionable one; Option A is the right long-term
-answer if hybrid-in-production is actually on the roadmap, but it's a schema-design
-question, not a config-wiring one, and shouldn't be scoped as "just call createHybrid()."
+**CLAIMS.md status:** now updated (3.13), capability-scoped only — it does not claim
+hybrid-in-production, since it isn't (opt-in, not default; `@parmana/sign` doesn't cover
+the new envelope shape yet, both stated explicitly in 3.13's own text). D-2's original note
+that Option A "needs its own design decision" and touches CLAIMS.md is now fully resolved:
+the design decision was made and implemented, and the claim was written scoped to exactly
+that.
 
 ### D-3. `OverrideService` unreachable and untested (G-5)
 
@@ -1078,9 +1132,14 @@ but not yet exposed. *Estimated size: trivial either way.*
    configured in CI) and rely on local runs; the decision this note flagged as worth
    making explicitly was made explicitly: local-only for now, revisit if fleet-wide
    Supabase coverage in CI becomes a priority.
-4. **G-4, hybrid/PQ dead config** (Option B first, Option A if roadmapped): Option B alone
-   closes the "config that silently does nothing" trap same-day; Option A is a real project.
-   *Trivial for B, weeks for A.*
+4. **G-4, hybrid/PQ dead config: PARTIALLY RESOLVED.** Option A is now implemented for
+   Trust Records and Receipts (Hybrid Signature Support, Phase A) — the config is no
+   longer dead, just narrower in scope than every signing surface. Remaining: execution
+   authorization signing, gateway attestation, and connector signing are still
+   single-provider-only, unaffected by `CRYPTO_MODE`. *Extending Option A to those, if
+   wanted, is the remaining project; not urgent, since nothing currently misleads a
+   deployer into thinking they're covered by hybrid mode when they aren't (G-4's own
+   "still exactly as originally found" paragraph names them explicitly).*
 5. **G-5, OverrideService unreachable** (Option A or B, either closes the ambiguity): right
    now it's neither a documented `[FUTURE]` capability nor a tested, reachable one, which is
    the actual gap, not the specific choice between exposing or removing it. *A day for either

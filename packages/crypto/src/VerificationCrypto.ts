@@ -1,14 +1,26 @@
+import { loadConfig } from "@parmana/shared";
 import type {
   ExecutionTrustRecord,
   Signature,
+  SignatureEntry,
 } from "@parmana/shared";
 
 import { CryptoBootstrap } from "./CryptoBootstrap.js";
+import { HybridSignatureProvider } from "./HybridSignatureProvider.js";
 import { TrustRecordHasher } from "./TrustRecordHasher.js";
 import { ArtifactSigner } from "./ArtifactSigner.js";
 import { SignatureVerifier } from "./SignatureVerifier.js";
 import { FileKeyProvider } from "./providers/key/FileKeyProvider.js";
-import { DEFAULT_KEY_ID } from "./KeyProvider.js";
+import { DEFAULT_KEY_ID, DEFAULT_SECONDARY_KEY_ID } from "./KeyProvider.js";
+
+/**
+ * Schema version stamped on `signatures`-bearing records produced by
+ * this class. Bumped from the implicit v1 (no `schemaVersion` field
+ * at all -- today's shape) the moment a second, independent signature
+ * is added alongside the legacy one (Hybrid Signature Support
+ * milestone, Phase A).
+ */
+const HYBRID_SCHEMA_VERSION = 2;
 
 /**
  * Verification cryptographic operations.
@@ -19,6 +31,9 @@ import { DEFAULT_KEY_ID } from "./KeyProvider.js";
 export class VerificationCrypto {
   private readonly crypto =
     CryptoBootstrap.create();
+
+  private readonly config =
+    loadConfig();
 
   /**
    * File-based key provider.
@@ -68,6 +83,30 @@ export class VerificationCrypto {
   }
 
   /**
+   * Canonical view signed/verified by the hybrid `signatures` array:
+   * the same content as canonicalRecord(), plus schemaVersion. Kept
+   * separate from canonicalRecord() itself so the legacy `signature`
+   * field's signed content -- and therefore its verifiability by
+   * pre-milestone verifiers, including @parmana/sign -- never changes.
+   */
+  private hybridCanonicalRecord(
+    trustRecord: ExecutionTrustRecord,
+    schemaVersion: number,
+  ) {
+    return {
+      ...this.canonicalRecord(trustRecord),
+      schemaVersion,
+    };
+  }
+
+  private hybridSignatureProvider(): HybridSignatureProvider {
+    return new HybridSignatureProvider(
+      CryptoBootstrap.createHybrid(),
+      this.keys,
+    );
+  }
+
+  /**
    * Computes the canonical Trust Record hash.
    */
   async hash(
@@ -81,6 +120,10 @@ export class VerificationCrypto {
   /**
    * Creates a digital signature over the canonical
    * Trust Record.
+   *
+   * Unchanged by hybrid mode: always the single, legacy signature,
+   * over exactly the same content as before this milestone. See
+   * signHybrid() for the additive second signature.
    */
   async sign(
     trustRecord: ExecutionTrustRecord,
@@ -109,13 +152,50 @@ export class VerificationCrypto {
   }
 
   /**
-   * Verifies only the cryptographic signature of the
-   * Trust Record, independent of hash comparison.
+   * Signs the Trust Record with both configured algorithms
+   * (Hybrid Signature Support milestone, Phase A). Additive:
+   * callers combine this with the unchanged sign() above -- the
+   * legacy `signature` field is untouched, `signatures` is new.
    *
-   * Reuses the same canonical view and verifier as
-   * verify(), so callers that need to report integrity
-   * and signature failures independently don't have to
-   * reimplement canonicalization.
+   * Fails closed: throws if CRYPTO_MODE is not "hybrid", or if
+   * SECONDARY_SIGNATURE_PROVIDER isn't configured (via
+   * CryptoBootstrap.createHybrid()'s own guard), or if either key
+   * file is missing (via FileKeyProvider's own guard) -- never a
+   * silent partial signature.
+   */
+  async signHybrid(
+    trustRecord: ExecutionTrustRecord,
+  ): Promise<readonly SignatureEntry[]> {
+    if (this.config.crypto.mode !== "hybrid") {
+      throw new Error(
+        "VerificationCrypto.signHybrid() requires CRYPTO_MODE=hybrid.",
+      );
+    }
+
+    return this.hybridSignatureProvider().sign(
+      this.hybridCanonicalRecord(
+        trustRecord,
+        HYBRID_SCHEMA_VERSION,
+      ),
+      DEFAULT_KEY_ID,
+      DEFAULT_SECONDARY_KEY_ID,
+    );
+  }
+
+  /**
+   * Verifies only the cryptographic signature(s) of the Trust
+   * Record, independent of hash comparison.
+   *
+   * The legacy `signature` field is always checked (unchanged
+   * behavior). If `signatures` is also present and non-empty, it is
+   * independently and fully verified too -- both must pass. A
+   * `signatures`-bearing record with a missing or malformed entry
+   * fails here even if the legacy `signature` alone is valid: never a
+   * silent downgrade to single-signature verification.
+   *
+   * Reuses the same canonical view and verifier as verify(), so
+   * callers that need to report integrity and signature failures
+   * independently don't have to reimplement canonicalization.
    */
   async verifySignature(
     trustRecord: ExecutionTrustRecord,
@@ -125,11 +205,30 @@ export class VerificationCrypto {
         trustRecord.signature.keyId,
       );
 
-    return this.verifier.verify(
-      this.canonicalRecord(trustRecord),
-      trustRecord.signature.value,
-      publicKey,
-    );
+    const legacyVerified =
+      await this.verifier.verify(
+        this.canonicalRecord(trustRecord),
+        trustRecord.signature.value,
+        publicKey,
+      );
+
+    if (
+      trustRecord.signatures === undefined ||
+      trustRecord.signatures.length === 0
+    ) {
+      return legacyVerified;
+    }
+
+    const hybridVerified =
+      await this.hybridSignatureProvider().verify(
+        this.hybridCanonicalRecord(
+          trustRecord,
+          trustRecord.schemaVersion ?? HYBRID_SCHEMA_VERSION,
+        ),
+        trustRecord.signatures,
+      );
+
+    return legacyVerified && hybridVerified;
   }
 
   /**
@@ -153,25 +252,9 @@ export class VerificationCrypto {
     }
 
     //
-    // Load public key.
+    // Verify signature(s) -- legacy always, hybrid additionally
+    // when the record declares itself hybrid-signed.
     //
-    const publicKey =
-      await this.keys.getPublicKey(
-        trustRecord.signature.keyId,
-      );
-
-    //
-    // Verify signature.
-    //
-    const verified =
-      await this.verifier.verify(
-        this.canonicalRecord(
-          trustRecord,
-        ),
-        trustRecord.signature.value,
-        publicKey,
-      );
-
-    return verified;
+    return this.verifySignature(trustRecord);
   }
 }

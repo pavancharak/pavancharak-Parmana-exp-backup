@@ -1,8 +1,7 @@
 import {
   CryptoBootstrap,
   FileKeyProvider,
-  HybridSigner,
-  HybridVerifier,
+  HybridSignatureProvider,
 } from "@parmana/crypto";
 
 async function main(): Promise<void> {
@@ -31,77 +30,66 @@ async function main(): Promise<void> {
   //
   // Hybrid crypto configuration.
   //
+  // CryptoBootstrap.createHybrid() builds both a primary
+  // (PRIMARY_SIGNATURE_PROVIDER, defaults to ed25519) and a
+  // secondary (SECONDARY_SIGNATURE_PROVIDER) provider together.
+  // Overridden here so this tutorial is self-contained.
+  //
+  process.env.SECONDARY_SIGNATURE_PROVIDER = "dilithium3";
+
   const crypto =
     CryptoBootstrap.createHybrid();
 
   //
-  // Load signing keys.
+  // Load signing keys. "default-secondary" is the real,
+  // current convention for the secondary key -- see
+  // `npm run generate:hybrid-secondary-key` -- living alongside
+  // the "default" Ed25519 key under the same PARMANA_KEY_DIR.
   //
   const keyProvider =
     new FileKeyProvider();
 
-  const edPrivateKey =
-    await keyProvider.getPrivateKey(
-      "default",
-    );
-
-  const edPublicKey =
-    await keyProvider.getPublicKey(
-      "default",
-    );
-
-  const pqPrivateKey =
-    await keyProvider.getPrivateKey(
-      "pq",
-    );
-
-  const pqPublicKey =
-    await keyProvider.getPublicKey(
-      "pq",
-    );
-
   //
-  // Sign.
+  // Sign with both algorithms, fail-closed.
   //
-  const signer =
-    new HybridSigner(
+  // HybridSignatureProvider is the real class CRYPTO_MODE=hybrid
+  // uses internally (VerificationCrypto.signHybrid(),
+  // ReceiptCrypto.createReceipt()) to dual-sign Execution Trust
+  // Records and Receipts -- see Tutorial 53.
+  //
+  const hybridSigner =
+    new HybridSignatureProvider(
       crypto,
+      keyProvider,
     );
 
-  const bundle =
-    await signer.sign(
+  const signatures =
+    await hybridSigner.sign(
       artifact,
-      edPrivateKey,
-      pqPrivateKey,
       "default",
-      "pq",
+      "default-secondary",
     );
 
   //
-  // Verify.
+  // Verify. Requires exactly one entry per algorithm --
+  // a missing, extra, or wrong-algorithm entry rejects,
+  // never a partial pass.
   //
-  const verifier =
-    new HybridVerifier(
-      crypto,
-    );
-
   const verified =
-    await verifier.verify(
+    await hybridSigner.verify(
       artifact,
-      bundle,
-      edPublicKey,
-      pqPublicKey,
+      signatures,
     );
 
   console.log(
-    "Hybrid Signature Bundle",
+    "Hybrid Signatures",
   );
 
   console.log(
     "--------------------------------------------------",
   );
 
-  for (const signature of bundle.signatures) {
+  for (const signature of signatures) {
     console.log();
 
     console.log(
@@ -131,11 +119,46 @@ async function main(): Promise<void> {
 
   if (verified) {
     console.log(
-      "✓ Hybrid signature verified.",
+      "✓ Hybrid signatures verified.",
     );
   } else {
     console.log(
       "✗ Verification failed.",
+    );
+  }
+
+  console.log();
+
+  //
+  // Fail-closed demonstration: tamper with the second
+  // signature and confirm verification rejects the whole
+  // artifact, not just a partial pass.
+  //
+  const tampered = signatures.map((entry, index) =>
+    index === 1
+      ? { ...entry, signature: `${entry.signature.slice(0, -4)}AAAA` }
+      : entry,
+  );
+
+  const tamperedVerified =
+    await hybridSigner.verify(
+      artifact,
+      tampered,
+    );
+
+  console.log(
+    `Tampered second signature verified : ${tamperedVerified}`,
+  );
+
+  console.log();
+
+  if (!tamperedVerified) {
+    console.log(
+      "✓ Tampered signature correctly rejected.",
+    );
+  } else {
+    console.log(
+      "✗ Tampered signature was not rejected.",
     );
   }
 

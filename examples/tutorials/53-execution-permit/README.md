@@ -1,252 +1,32 @@
-\# Tutorial 53 — Execution Permit™
+# Tutorial 53 — Hybrid-Signed Execution Trust Record
 
+## Historical note
 
+This tutorial was originally "Execution Permit™": it built a hand-rolled `ExecutionPermit`/`ExecutionPermitBuilder` object that never had a live caller anywhere in `packages/api` and no test coverage. It was confirmed dead and deleted by the Hybrid Signature Support milestone (Phase A). The directory name and tutorial number are unchanged; the content now demonstrates that same milestone's real, tested replacement.
 
-\## Objective
+## Objective
 
+Build a real **Execution Trust Record** — the actual artifact `POST /execute` produces — with `CRYPTO_MODE=hybrid` active, so it carries both the existing single Ed25519 `signature` (unchanged, byte-for-byte identical to a non-hybrid record) and an additive `signatures[]` array containing independent Ed25519 and ML-DSA-65 signatures.
 
+## What You'll Learn
 
-In this tutorial, you'll create an \*\*Execution Permit™\*\*, the cryptographically signed authorization that allows an enterprise action to proceed.
+* How `CRYPTO_MODE=hybrid` is enabled (a single environment variable, read once, before the runtime is constructed)
+* That the legacy `signature` field is computed exactly as it always was — hybrid mode is purely additive
+* The additive `schemaVersion`/`signatures[]` shape, and which two algorithms appear
+* That this runs through the real production pipeline (`RuntimeFactory.create()` → `application.execute()`), the same code path `POST /execute` uses — not a hand-rolled stand-in for it
 
-
-
-Unlike the previous tutorials, which focused on cryptographic primitives, this tutorial introduces the first core artifact of Parmana's \*\*execution trust\*\* model.
-
-
-
-An Execution Permit binds a business action, the governing policy, and the authorization decision into an immutable, signed object.
-
-
-
-\---
-
-
-
-\## What You'll Learn
-
-
-
-\* Build an Execution Permit
-
-\* Generate a deterministic artifact hash
-
-\* Create a hybrid signature (Ed25519 + ML-DSA-65)
-
-\* Bind policy metadata to an authorization
-
-\* Produce a portable authorization artifact
-
-
-
-\---
-
-
-
-\## Architecture
-
-
-
-```text
-
-Business Artifact
-
-&#x20;       │
-
-&#x20;       ▼
-
-Deterministic Hash
-
-&#x20;       │
-
-&#x20;       ▼
-
-Execution Decision
-
-&#x20;       │
-
-&#x20;       ▼
-
-Hybrid Signature
-
-&#x20;       │
-
-&#x20;       ▼
-
-Execution Permit™
-
-```
-
-
-
-\---
-
-
-
-\## Execution Permit
-
-
-
-An Execution Permit records:
-
-
-
-\* Permit identifier
-
-\* Authorization decision
-
-\* Artifact hash
-
-\* Gateway identity
-
-\* Policy version
-
-\* Issue time
-
-\* Expiration time
-
-\* Hybrid cryptographic signatures
-
-
-
-The permit becomes the cryptographic proof that Parmana authorized a specific action under a specific policy.
-
-
-
-\---
-
-
-
-\## Running the Tutorial
-
-
+## Running the Tutorial
 
 ```bash
-
 npx tsx examples/tutorials/53-execution-permit/run.ts
-
 ```
 
+## Why This Matters
 
+A signature alone proves data wasn't modified — for as long as the algorithm that produced it stays unbroken. Hybrid signing is a defense against exactly the scenario where it doesn't: if Ed25519 is ever broken by a future quantum computer, the ML-DSA-65 signature in `signatures[]` still holds; if a weakness is ever found in ML-DSA-65 instead, Ed25519 still holds. This tutorial shows the real record shape that guarantee produces, not a diagram of it.
 
-\---
+**Not yet true, stated plainly:** `CRYPTO_MODE=hybrid` is opt-in config, not the default — every deployed Parmana environment today signs Ed25519 alone. This tutorial sets the environment variable itself so it's self-contained; nothing here implies hybrid signing is running anywhere in production.
 
+## Next Tutorial
 
-
-\## Expected Output
-
-
-
-```text
-
-==================================================
-
-Tutorial 53 - Execution Permit
-
-==================================================
-
-
-
-Execution Permit
-
-\--------------------------------------------------
-
-
-
-Permit ID      : PERMIT-000001
-
-
-
-Decision       : ALLOW
-
-
-
-Gateway        : parmana-gateway
-
-
-
-Policy Version : v1
-
-
-
-Issued At      : 2026-07-11T09:30:00.000Z
-
-
-
-Expires At     : 2026-07-11T09:32:00.000Z
-
-
-
-Signatures
-
-\--------------------------------------------------
-
-
-
-Algorithm : ed25519
-
-Key ID    : default
-
-
-
-Algorithm : dilithium3
-
-Key ID    : pq
-
-
-
-✓ Execution Permit created successfully.
-
-
-
-Tutorial completed successfully.
-
-```
-
-
-
-\---
-
-
-
-\## Why This Matters
-
-
-
-Cryptographic signatures alone prove that data has not been modified.
-
-
-
-An Execution Permit goes further by proving:
-
-
-
-\* what action was authorized,
-
-\* who authorized it,
-
-\* which policy was evaluated,
-
-\* when the authorization was issued,
-
-\* when it expires, and
-
-\* which cryptographic identities approved the execution.
-
-
-
-This transforms cryptographic signatures into enterprise authorization evidence.
-
-
-
-\---
-
-
-
-\## Next Tutorial
-
-
-
-Continue with \*\*Tutorial 54 – Execution Receipt™\*\*, where the Execution Permit is combined with execution evidence to produce a complete, portable proof of enterprise execution.
-
-
-
+Continue with **Tutorial 54 – Execution Receipt**, where the same hybrid-signed Trust Record is used to generate a Receipt.

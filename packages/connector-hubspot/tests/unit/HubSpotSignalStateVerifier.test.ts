@@ -92,7 +92,10 @@ async function signApproval(
 }
 
 function approvalPayload(overrides: Partial<ApprovalPayload> = {}): ApprovalPayload {
-  const now = new Date("2026-08-05T12:00:00.000Z");
+  // Anchored to real wall-clock time, not a fixed past date: ApprovalVerifier.verify
+  // defaults `now` to `new Date()`, so a hardcoded issuedAt/expiresAt eventually
+  // becomes "expired" simply because real time caught up to it.
+  const now = new Date();
   return {
     version: 1,
     approvalId: "approval-1",

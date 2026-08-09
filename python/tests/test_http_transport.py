@@ -115,12 +115,15 @@ def test_403_raises_authorization_error():
 
 
 @responses.activate
-def test_500_runtime_error_execution_rejected_raises_execution_rejected_error():
+def test_403_policy_denied_raises_execution_rejected_error():
     """
     Real, live-verified response shape: Policy evaluation returning
-    REJECTED reaches the caller as an uncategorized HTTP 500, code
-    RUNTIME_ERROR, message starting "Execution rejected:" -- there is no
-    dedicated status code for this. Confirmed live against a real
+    REJECTED now carries its own dedicated HTTP 403, code POLICY_DENIED,
+    message starting "Execution rejected:" -- replacing the old,
+    ambiguous 500 + code RUNTIME_ERROR shape this mapping used to
+    special-case via a message-prefix sniff (see build_http_error's own
+    docstring, and typescript/src/transport/mapHttpErrorResponse.ts's
+    identical, identically-ordered check). Confirmed live against a real
     risk-rejected vendor-payment transaction.
     """
     responses.add(
@@ -131,34 +134,35 @@ def test_500_runtime_error_execution_rejected_raises_execution_rejected_error():
                 "Execution rejected: Vendor payment rejected because the "
                 "assessed payment risk exceeds the maximum permitted threshold."
             ),
-            "code": "RUNTIME_ERROR",
+            "code": "POLICY_DENIED",
         },
-        status=500,
+        status=403,
     )
 
     with pytest.raises(ExecutionRejectedError) as excinfo:
         _transport().send(method="POST", path="/execute", body={})
 
-    assert excinfo.value.status_code == 500
+    assert excinfo.value.status_code == 403
     assert "Vendor payment rejected" in str(excinfo.value)
 
 
 @responses.activate
-def test_500_runtime_error_not_execution_rejected_stays_server_error():
+def test_403_without_code_stays_authorization_error():
     """
-    Defensive: RUNTIME_ERROR is the generic uncategorized-RuntimeError
-    code, not exclusively used for policy rejections. Only the
-    "Execution rejected" message prefix, specific to that one condition,
-    should route to ExecutionRejectedError.
+    Defensive: the *other* 403 this API returns -- a caller asserting an
+    authority.principalId it isn't permitted to assert
+    (packages/api/src/routes/execute.ts, isPrincipalAllowed) -- carries
+    no `code` field at all and must still map to the generic
+    AuthorizationError, not be swept up by the POLICY_DENIED check.
     """
     responses.add(
         responses.POST,
         f"{ENDPOINT}/execute",
-        json={"error": "Some other RuntimeError condition.", "code": "RUNTIME_ERROR"},
-        status=500,
+        json={"error": "Caller is not permitted to assert this authority.principalId."},
+        status=403,
     )
 
-    with pytest.raises(ServerError) as excinfo:
+    with pytest.raises(AuthorizationError) as excinfo:
         _transport().send(method="POST", path="/execute", body={})
 
     assert not isinstance(excinfo.value, ExecutionRejectedError)

@@ -18,7 +18,7 @@ from .business_transaction import (
     BusinessTransactionStatus,
     BusinessTransaction,
 )
-from .signature import SignatureAlgorithm, Signature
+from .signature import SignatureAlgorithm, Signature, SignatureEntry
 from .execution_evidence import ExecutionEvidence
 from .execution import (
     DecisionOutcome,
@@ -62,6 +62,7 @@ __all__ = [
     "SettlementStatus",
     "Signature",
     "SignatureAlgorithm",
+    "SignatureEntry",
     "SignedExecutionAuthorization",
     "Verification",
     "VerificationStatus",

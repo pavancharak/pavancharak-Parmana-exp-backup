@@ -1,7 +1,7 @@
 """
 GENERATED FILE -- DO NOT EDIT BY HAND.
 
-Generated from packages/shared/src/config/CryptoAlgorithms.ts, domain/signature.ts by
+Generated from packages/shared/src/config/CryptoAlgorithms.ts, domain/signature.ts, domain/signature-entry.ts by
 python/scripts/generate_models.ts. Run "npm run
 generate:python-models" to regenerate.
 """
@@ -30,3 +30,12 @@ class Signature:
     value: str
 
     signed_at: datetime
+
+
+@dataclass(frozen=True)
+class SignatureEntry:
+    algorithm: SignatureAlgorithm
+
+    key_id: str
+
+    signature: str

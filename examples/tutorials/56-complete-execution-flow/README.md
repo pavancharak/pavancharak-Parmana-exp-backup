@@ -1,284 +1,31 @@
-\# Tutorial 56 — Complete Execution Flow™
+# Tutorial 56 — Complete Execution Flow
 
+## Historical note
 
+This tutorial previously chained the dead `ExecutionPermit` → `ExecutionTrustAttestation` → `ExecutionReceipt` → `ExecutionReceiptVerifier` pipeline (Hybrid Signature Support milestone, Phase A: confirmed zero live callers, zero test coverage, deleted) into one script. It now chains Tutorials 53–55's real content — build, receipt, verify (genuine and tampered) — through the same production pipeline, with `CRYPTO_MODE=hybrid` active throughout.
 
-\## Objective
+## Objective
 
+Run the complete hybrid-signing flow against a real business transaction: execute it through `application.execute()` (producing a hybrid-signed Execution Trust Record and Receipt), then verify it twice through `application.verify()` — once genuine, once with the second signature tampered — and arrive at a final trust decision based on both real results.
 
+## What You'll Learn
 
-In this tutorial, you'll execute the complete \*\*pre-execution authorization\*\* lifecycle in Parmana.
+* How the pieces from Tutorials 53–55 compose into one flow, using nothing but the real `RuntimeFactory`/`ExecutionTrustApplication` classes `POST /execute` and `POST /verify` are themselves built on
+* That hybrid signing is applied consistently across both artifacts (Trust Record and Receipt) produced by a single execution
+* That the tamper-rejection property from Tutorial 55 holds in the context of a full flow, not just in isolation
 
-
-
-Starting with a business request, you'll authorize the action, generate cryptographic execution evidence, produce an Execution Receipt™, verify that receipt, and arrive at a final trust decision.
-
-
-
-This tutorial brings together everything introduced in Tutorials 53–55 into a single end-to-end workflow.
-
-
-
-\---
-
-
-
-\## What You'll Learn
-
-
-
-\* Evaluate a business action
-
-\* Create an Execution Permit™
-
-\* Create an Execution Trust Record™
-
-\* Create an Execution Receipt™
-
-\* Verify the Execution Receipt™
-
-\* Produce a final Execution Trust™ decision
-
-
-
-\---
-
-
-
-\## Architecture
-
-
-
-```text
-
-Business Artifact
-
-&#x20;       │
-
-&#x20;       ▼
-
-Policy Evaluation
-
-&#x20;       │
-
-&#x20;       ▼
-
-Execution Permit™
-
-&#x20;       │
-
-&#x20;       ▼
-
-Execution Trust Record™
-
-&#x20;       │
-
-&#x20;       ▼
-
-Execution Receipt™
-
-&#x20;       │
-
-&#x20;       ▼
-
-Execution Receipt Verifier™
-
-&#x20;       │
-
-&#x20;       ▼
-
-Execution Trust™
-
-```
-
-
-
-\---
-
-
-
-\## Execution Flow
-
-
-
-The tutorial executes the complete Parmana pipeline:
-
-
-
-1\. A business artifact is created.
-
-2\. The policy engine authorizes the request.
-
-3\. An Execution Permit™ is issued.
-
-4\. An Execution Trust Record™ is generated.
-
-5\. Both artifacts are combined into an Execution Receipt™.
-
-6\. The receipt is independently verified.
-
-7\. Parmana produces the final trust decision.
-
-
-
-Each stage contributes deterministic, cryptographically verifiable evidence that can be audited independently of the original execution runtime.
-
-
-
-\---
-
-
-
-\## Running the Tutorial
-
-
+## Running the Tutorial
 
 ```bash
-
 npx tsx examples/tutorials/56-complete-execution-flow/run.ts
-
 ```
 
+## Why This Matters
 
+Each of Tutorials 52–55 demonstrates one piece of hybrid signing in isolation. This tutorial exists to prove those pieces actually compose: the same Trust Record produced by execution is the one verification checks, the same Receipt is hybrid-signed alongside it, and tampering with either is caught, not just described.
 
-\---
+**Not yet true, stated plainly:** `CRYPTO_MODE=hybrid` is opt-in config, not the default — every deployed Parmana environment today, including `parmana-api-live.fly.dev`, signs Ed25519 alone. This tutorial sets the environment variable itself so it's self-contained.
 
+## Next Tutorial
 
-
-\## Expected Output
-
-
-
-```text
-
-==================================================
-
-Tutorial 56 - Complete Execution Flow
-
-==================================================
-
-
-
-Business Artifact
-
-\--------------------------------------------------
-
-Vendor      : VENDOR-1001
-
-Invoice     : INV-2026-001
-
-Amount      : 25000 USD
-
-
-
-Policy Evaluation
-
-\--------------------------------------------------
-
-Decision : ALLOW
-
-
-
-Execution Permit
-
-\--------------------------------------------------
-
-Created
-
-
-
-Execution Trust Record
-
-\--------------------------------------------------
-
-Created
-
-
-
-Execution Receipt
-
-\--------------------------------------------------
-
-Created
-
-
-
-Receipt Verification
-
-\--------------------------------------------------
-
-Result : VERIFIED
-
-
-
-Execution Trust
-
-\--------------------------------------------------
-
-✓ Enterprise action is authorized.
-
-
-
-Tutorial completed successfully.
-
-```
-
-
-
-\---
-
-
-
-\## Why This Matters
-
-
-
-Traditional enterprise systems typically record whether an action succeeded.
-
-
-
-Parmana records \*\*why\*\* the action was allowed and produces cryptographic evidence proving that the authorized action, the policy decision, and the execution context remained consistent throughout the execution lifecycle.
-
-
-
-By combining authorization, trust evidence, portable receipts, and independent verification, Parmana enables organizations to move from simple execution to \*\*Execution Trust™\*\*.
-
-
-
-\---
-
-
-
-\## Next Steps
-
-
-
-Congratulations! You have completed the foundational Parmana tutorial series.
-
-
-
-You have now built and explored:
-
-
-
-\* Deterministic execution evidence
-
-\* Classical and post-quantum signatures
-
-\* Hybrid cryptography
-
-\* Execution Permit™
-
-\* Execution Trust Record™
-
-\* Execution Receipt™
-
-\* Execution Receipt Verification™
-
-\* Complete execution authorization workflow
-
-
-
-These concepts form the foundation for more advanced enterprise scenarios, including multi-agent execution, connector governance, execution boundaries, and large-scale enterprise deployments.
-
-
-
+Continue with **Tutorial 57 – Credential Isolation**.

@@ -1,13 +1,21 @@
+import { loadConfig } from "@parmana/shared";
 import type { Receipt } from "@parmana/shared";
 
 import { CryptoBootstrap } from "./CryptoBootstrap.js";
+import { HybridSignatureProvider } from "./HybridSignatureProvider.js";
 
 import { ReceiptHasher } from "./ReceiptHasher.js";
 import { ArtifactSigner } from "./ArtifactSigner.js";
 import { TrustRecordHasher } from "./TrustRecordHasher.js";
 
 import { FileKeyProvider } from "./providers/key/FileKeyProvider.js";
-import { DEFAULT_KEY_ID } from "./KeyProvider.js";
+import { DEFAULT_KEY_ID, DEFAULT_SECONDARY_KEY_ID } from "./KeyProvider.js";
+
+/**
+ * Schema version stamped on `signatures`-bearing Receipts. See the
+ * identical constant/rationale in VerificationCrypto.
+ */
+const HYBRID_SCHEMA_VERSION = 2;
 
 /**
  * Receipt cryptographic operations.
@@ -17,6 +25,8 @@ import { DEFAULT_KEY_ID } from "./KeyProvider.js";
  */
 export class ReceiptCrypto {
   private readonly crypto = CryptoBootstrap.create();
+
+  private readonly config = loadConfig();
 
   /**
    * Temporary filesystem key provider.
@@ -67,13 +77,17 @@ export class ReceiptCrypto {
   /**
    * Creates a signed Receipt.
    *
-   * The signing algorithm is determined by
-   * the configured SignatureProvider.
+   * The legacy `signature`/`algorithm` are unchanged by hybrid mode:
+   * always signed by the configured primary provider alone, over
+   * exactly the same content as before this milestone (Hybrid
+   * Signature Support, Phase A). When CRYPTO_MODE=hybrid, an
+   * additional `signatures` array and `schemaVersion` are populated
+   * alongside them -- additive, never replacing the legacy fields.
    */
   async createReceipt(
     payload: Omit<
       Receipt,
-      "signature" | "algorithm"
+      "signature" | "algorithm" | "schemaVersion" | "signatures"
     >,
   ): Promise<Receipt> {
     const unsignedReceipt = {
@@ -86,10 +100,36 @@ export class ReceiptCrypto {
     const signature =
       await this.sign(unsignedReceipt);
 
+    if (this.config.crypto.mode !== "hybrid") {
+      return {
+        ...unsignedReceipt,
+
+        signature,
+      };
+    }
+
+    const signatures =
+      await new HybridSignatureProvider(
+        CryptoBootstrap.createHybrid(),
+        this.keys,
+      ).sign(
+        {
+          ...unsignedReceipt,
+
+          schemaVersion: HYBRID_SCHEMA_VERSION,
+        },
+        DEFAULT_KEY_ID,
+        DEFAULT_SECONDARY_KEY_ID,
+      );
+
     return {
       ...unsignedReceipt,
 
       signature,
+
+      schemaVersion: HYBRID_SCHEMA_VERSION,
+
+      signatures,
     };
   }
 }

@@ -21,6 +21,7 @@
     "rebuild": "npm run clean && npm run build:force",
     "dev": "tsx packages/api/src/server.ts",
     "generate:gateway-keys": "tsx scripts/generate-keypair.ts --algorithm ed25519 --key-id gateway",
+    "generate:hybrid-secondary-key": "tsx scripts/generate-keypair.ts --algorithm dilithium3 --key-id default-secondary",
     "generate:api-key": "tsx scripts/generate-api-key.ts",
     "process:razorpay-settlements": "tsx scripts/process-razorpay-settlements.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -34,7 +35,8 @@
     "coverage": "vitest run --coverage",
     "examples": "tsx scripts/run-examples.ts",
     "generate:python-models": "tsx python/scripts/generate_models.ts",
-    "check:python-models": "tsx python/scripts/generate_models.ts --check"
+    "check:python-models": "tsx python/scripts/generate_models.ts --check",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run check:python-models && npm run test && npm run build"
   },
   "engines": {
     "node": ">=24"

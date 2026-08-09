@@ -1,180 +1,166 @@
-import {
-  CryptoBootstrap,
-  FileKeyProvider,
-} from "@parmana/crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import {
-  ExecutionDecision,
-  ExecutionPermitBuilder,
-} from "@parmana/execution-control";
+  FilePolicyRepository,
+} from "@parmana/policy";
 
 import {
-  ExecutionTrustAttestationBuilder,
+  RuntimeFactory,
+} from "@parmana/runtime";
+
+import {
+  DefaultExecutionSystem,
 } from "@parmana/execution-system";
 
 import {
-  ExecutionReceiptBuilder,
-  ExecutionReceiptVerifier,
-} from "@parmana/receipt";
+  MemoryBusinessTransactionRepository,
+  MemoryExecutionTrustRecordRepository,
+} from "@parmana/storage";
 
-async function main(): Promise<void> {
-  console.log();
-  console.log(
-    "==================================================",
-  );
-  console.log(
-    "Tutorial 55 - Execution Receipt Verification",
-  );
-  console.log(
-    "==================================================",
-  );
-  console.log();
+import type {
+  BusinessTransaction,
+  ExecutionTrustRecord,
+} from "@parmana/shared";
 
-  //
-  // Business artifact.
-  //
-  const artifact = {
-    vendorId: "VENDOR-1001",
-    invoiceId: "INV-2026-001",
-    paymentAmount: 25000,
-    currency: "USD",
-  };
+//
+// Historical note: this tutorial previously verified the dead
+// ExecutionPermit/ExecutionTrustAttestation/ExecutionReceipt cluster
+// via ExecutionReceiptVerifier -- a structural-only check (version
+// === 1, permit/trustRecord defined), no cryptographic verification
+// at all. That whole cluster was confirmed to have zero live callers
+// and deleted by the Hybrid Signature Support milestone (Phase A). It
+// now demonstrates the real thing: application.verify(), the same
+// code path VerificationService exposes to POST /verify, requiring
+// every entry in a hybrid-shaped record's signatures[] to
+// independently verify -- and rejecting, fail-closed, the moment one
+// doesn't.
+//
 
-  //
-  // Hybrid crypto.
-  //
-  const crypto =
-    CryptoBootstrap.createHybrid();
+process.env.CRYPTO_MODE = "hybrid";
+process.env.SECONDARY_SIGNATURE_PROVIDER = "dilithium3";
 
-  //
-  // Keys.
-  //
-  const keyProvider =
-    new FileKeyProvider();
+const root = path.resolve(import.meta.dirname);
 
-  const edPrivateKey =
-    await keyProvider.getPrivateKey(
-      "default",
-    );
+const transaction = JSON.parse(
+  readFileSync(
+    path.join(
+      root,
+      "../../shared/vendor-payment-transaction.json",
+    ),
+    "utf8",
+  ),
+) as BusinessTransaction;
 
-  const pqPrivateKey =
-    await keyProvider.getPrivateKey(
-      "pq",
-    );
-
-  //
-  // Gateway timestamps.
-  //
-  const timestamp =
-    new Date().toISOString();
-
-  const expiresAt =
-    new Date(
-      Date.now() + 120_000,
-    ).toISOString();
-
-  //
-  // Build Execution Permit.
-  //
-  const permit =
-    await new ExecutionPermitBuilder(
-      crypto,
-    ).build(
-      artifact,
-      ExecutionDecision.ALLOW,
-      edPrivateKey,
-      pqPrivateKey,
-      "default",
-      "pq",
-      "PERMIT-000001",
-      "parmana-gateway",
-      "v1",
-      timestamp,
-      expiresAt,
-    );
-
-  //
-  // Build Execution Trust Record.
-  //
-  const trustRecord =
-    await new ExecutionTrustAttestationBuilder(
-      crypto,
-    ).build(
-      artifact,
-      edPrivateKey,
-      pqPrivateKey,
-      "default",
-      "pq",
-      "parmana-gateway",
-      "v1",
-      timestamp,
-    );
-
-  //
-  // Build Execution Receipt.
-  //
-  const receipt =
-    new ExecutionReceiptBuilder().build(
-      permit,
-      trustRecord,
-    );
-
-  //
-  // Verify Receipt.
-  //
-  const verified =
-    new ExecutionReceiptVerifier().verify(
-      receipt,
-    );
-
-  console.log(
-    "Execution Receipt Verification",
+const policyRepository =
+  new FilePolicyRepository(
+    path.resolve(
+      root,
+      "../../../policies",
+    ),
   );
 
-  console.log(
-    "--------------------------------------------------",
+const transactions =
+  new MemoryBusinessTransactionRepository();
+
+const trustRecords =
+  new MemoryExecutionTrustRecordRepository();
+
+const executionSystem =
+  new DefaultExecutionSystem();
+
+const application =
+  RuntimeFactory.create(
+    transactions,
+    trustRecords,
+    policyRepository,
+    executionSystem,
   );
 
-  console.log(
-    `Receipt Version : ${receipt.version}`,
+console.log("========================================");
+console.log(" Parmana Tutorial 55 - Execution Receipt Verification");
+console.log("========================================");
+
+console.log();
+
+// --------------------------------------------------
+// GENUINE VERIFICATION
+// --------------------------------------------------
+
+const trustRecord =
+  await application.execute(
+    transaction,
   );
 
-  console.log(
-    `Permit          : VALID`,
+const genuineVerification =
+  await application.verify(
+    transaction.businessTransactionId,
   );
 
-  console.log(
-    `Trust Record    : VALID`,
-  );
+console.log("Genuine hybrid-signed record");
+console.log("--------------------------------------------------");
+console.log(`Status  : ${genuineVerification.status}`);
+console.log(`Message : ${genuineVerification.message}`);
 
-  console.log(
-    `Overall Result  : ${
-      verified
-        ? "VERIFIED"
-        : "FAILED"
-    }`,
-  );
+console.log();
 
-  console.log();
+// --------------------------------------------------
+// FAIL-CLOSED: TAMPER WITH THE SECOND SIGNATURE
+//
+// Corrupts one entry in the stored record's signatures[] and
+// re-verifies through the exact same application.verify() path --
+// not a hand-rolled check -- to prove the real, wired verification
+// service rejects a hybrid-shaped record when any one signature
+// entry is invalid, never a silent downgrade to checking the legacy
+// signature alone.
+// --------------------------------------------------
 
-  if (verified) {
-    console.log(
-      "✓ Execution Receipt verified successfully.",
-    );
-  } else {
-    console.log(
-      "✗ Receipt verification failed.",
-    );
-  }
-
-  console.log();
-
-  console.log(
-    "Tutorial completed successfully.",
+if (!trustRecord.signatures || trustRecord.signatures.length !== 2) {
+  throw new Error(
+    "Expected a hybrid-shaped Trust Record (schemaVersion 2, two signatures).",
   );
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+const tampered: ExecutionTrustRecord = {
+  ...trustRecord,
+  signatures: trustRecord.signatures.map((entry) =>
+    entry.algorithm === "dilithium3"
+      ? { ...entry, signature: `${entry.signature.slice(0, -4)}AAAA` }
+      : entry,
+  ),
+};
+
+await trustRecords.create(tampered);
+
+const tamperedVerification =
+  await application.verify(
+    transaction.businessTransactionId,
+  );
+
+console.log("Tampered second signature");
+console.log("--------------------------------------------------");
+console.log(`Status  : ${tamperedVerification.status}`);
+console.log(`Message : ${tamperedVerification.message}`);
+
+console.log();
+
+if (
+  genuineVerification.status === "VERIFIED" &&
+  tamperedVerification.status === "FAILED" &&
+  tamperedVerification.message.includes("Signature check failed")
+) {
+  console.log(
+    "✓ Genuine record verified; tampered record correctly rejected -- not a silent downgrade to the legacy signature alone.",
+  );
+} else {
+  console.log(
+    "✗ Expected genuine=VERIFIED and tampered=FAILED (Signature check failed).",
+  );
+}
+
+console.log();
+
+console.log("Tutorial Complete");
+console.log(
+  "Next: Tutorial 56 - Complete Execution Flow",
+);

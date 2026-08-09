@@ -1,4 +1,6 @@
 import {
+  CryptoModes,
+  type CryptoMode,
   HashAlgorithms,
   type HashAlgorithm,
   SignatureAlgorithms,
@@ -37,6 +39,9 @@ export const parseStorageProvider = (value?: string): StorageProvider => {
 
   return parse(value, StorageProviders, "PARMANA_STORAGE", StorageProviders.MEMORY);
 };
+
+export const parseCryptoMode = (value?: string): CryptoMode =>
+  parse(value, CryptoModes, "CRYPTO_MODE", CryptoModes.SINGLE);
 
 export const parseHashAlgorithm = (value?: string): HashAlgorithm =>
   parse(value, HashAlgorithms, "HASH_PROVIDER", HashAlgorithms.SHA256);

@@ -30,6 +30,9 @@ const algorithm =
 const keyId =
   argument("--key-id");
 
+const force =
+  args.includes("--force");
+
 const keyDirectory =
   process.env.PARMANA_KEY_DIR ??
   "./keys";
@@ -83,6 +86,18 @@ const publicPath =
     keyDirectory,
     `${keyId}.public.pem`,
   );
+
+if (
+  !force &&
+  (existsSync(privatePath) ||
+    existsSync(publicPath))
+) {
+  throw new Error(
+    `Key material already exists at "${keyDirectory}" ` +
+      `(${keyId}.private.pem / ${keyId}.public.pem). Refusing to ` +
+      "overwrite existing keys -- pass --force to regenerate.",
+  );
+}
 
 writeFileSync(
   privatePath,

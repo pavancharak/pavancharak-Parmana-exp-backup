@@ -3,11 +3,8 @@
  *
  * Canonical public API.
  */
-export * from "./models/SignatureBundle.js";
 export * from "./models/HybridCryptoProvider.js";
-export * from "./HybridSigner.js";
-export * from "./HybridVerifier.js";
-export * from "./SignatureBundleBuilder.js";
+export * from "./HybridSignatureProvider.js";
 
 
 // -----------------------------------------------------------------------------

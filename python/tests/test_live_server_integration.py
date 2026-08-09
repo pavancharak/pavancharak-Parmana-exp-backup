@@ -12,9 +12,10 @@ Covers, against real responses:
 - Bearer-key auth: an authenticated request succeeds, an unauthenticated
   one gets a genuine 401.
 - Error taxonomy: a real 400, a real 403 (principal-scoping, not policy
-  rejection), a real 404, a real 409, and a real policy rejection (500,
-  code RUNTIME_ERROR) each raise the correct typed exception, built from
-  what the server actually returned.
+  rejection), a real 404, a real 409, and a real policy rejection (403,
+  code POLICY_DENIED -- distinct from the principal-scoping 403 above by
+  that code, see build_http_error) each raise the correct typed
+  exception, built from what the server actually returned.
 """
 
 from __future__ import annotations
@@ -82,6 +83,14 @@ def live_server() -> str:
         "PARMANA_POLICY_DIR": str(REPO_ROOT / "policies"),
         "VENDOR_PAYMENT_TOKEN": "python-sdk-integration-test-token",
         "PARMANA_API_KEYS": api_keys,
+        # Explicit, not inherited: this test exercises real caller-auth
+        # enforcement (unauthenticated -> 401, principal scoping -> 403),
+        # which a developer's own .env may have set PARMANA_AUTH_DISABLED=true
+        # for locally. dotenv's override:false means Config.ts only fills in
+        # what's *not already set* in the subprocess's env, so leaving this
+        # unset here would silently let an ambient .env's convenience default
+        # defeat exactly what this test suite is checking.
+        "PARMANA_AUTH_DISABLED": "false",
         "PORT": str(port),
     }
 
@@ -241,7 +250,7 @@ class TestErrorTaxonomyAgainstRealResponses:
         with pytest.raises(ExecutionRejectedError) as excinfo:
             _authenticated_client(live_server).execution.execute(transaction)
 
-        assert excinfo.value.status_code == 500
+        assert excinfo.value.status_code == 403
         assert str(excinfo.value) == (
             "Execution rejected: Vendor payment rejected because the assessed "
             "payment risk exceeds the maximum permitted threshold."

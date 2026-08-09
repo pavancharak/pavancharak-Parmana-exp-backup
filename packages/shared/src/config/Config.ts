@@ -12,6 +12,7 @@ import {
 import { fileURLToPath } from "node:url";
 
 import type {
+  CryptoMode,
   HashAlgorithm,
   SignatureAlgorithm,
 } from "./CryptoAlgorithms.js";
@@ -28,6 +29,7 @@ import type { ApiKeyEntry } from "./ApiKeyEntry.js";
 
 import {
   parseStorageProvider,
+  parseCryptoMode,
   parseHashAlgorithm,
   parseSignatureAlgorithm,
   parseKeyProvider,
@@ -179,9 +181,7 @@ export interface CryptoConfig {
    * Crypto operating mode.
    */
   readonly mode:
-    | "single"
-    | "hybrid"
-    | "pq";
+    CryptoMode;
 
   /**
    * Hash algorithm.
@@ -306,11 +306,9 @@ export function loadConfig():
 
     crypto: Object.freeze({
   mode:
-    (process.env.CRYPTO_MODE as
-      | "single"
-      | "hybrid"
-      | "pq") ??
-    "single",
+    parseCryptoMode(
+      process.env.CRYPTO_MODE,
+    ),
 
   hashProvider:
     parseHashAlgorithm(

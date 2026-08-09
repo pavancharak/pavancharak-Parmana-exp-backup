@@ -29,3 +29,25 @@ export const SignatureAlgorithms = {
 
 export type SignatureAlgorithm =
   (typeof SignatureAlgorithms)[keyof typeof SignatureAlgorithms];
+
+/**
+ * Crypto signing modes.
+ *
+ * single: exactly one SignatureProvider (PRIMARY_SIGNATURE_PROVIDER)
+ * signs and verifies everything -- today's behavior, unchanged.
+ *
+ * hybrid: PRIMARY_SIGNATURE_PROVIDER and SECONDARY_SIGNATURE_PROVIDER
+ * both sign Execution Trust Records and Receipts; verification
+ * requires both to pass. See HybridSignatureProvider (@parmana/crypto).
+ *
+ * pq: reserved for a future post-quantum-only mode. Not read by any
+ * production call site today.
+ */
+export const CryptoModes = {
+  SINGLE: "single",
+  HYBRID: "hybrid",
+  PQ: "pq",
+} as const;
+
+export type CryptoMode =
+  (typeof CryptoModes)[keyof typeof CryptoModes];

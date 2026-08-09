@@ -20,4 +20,5 @@ export * from "./approval-artifact.js";
 export * from "./executable-content.js";
 export * from "./intent.js";
 export * from "./signature.js";
+export * from "./signature-entry.js";
 export * from "./unsigned-execution-trust-record.js";

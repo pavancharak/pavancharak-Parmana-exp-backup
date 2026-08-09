@@ -287,15 +287,7 @@ describe("execution boundary — exactly one production execution pipeline", () 
     const controlAllowed = (path: string): boolean =>
       path.startsWith("packages/execution-control/") ||
       path.startsWith("packages/execution-gateway/") ||
-      path.startsWith("packages/api/") ||
-      // Type-only consumer: ExecutionReceiptBuilder/ExecutionReceipt import
-      // only the ExecutionPermit *type* to shape the receipt model — no
-      // executable class, no adapter, no .execute() call. Pre-existing,
-      // not an execution-ownership violation. (Separately: receipt/package.json
-      // does not declare @parmana/execution-control as a dependency despite
-      // importing from it — a pre-existing package.json hygiene gap, out of
-      // Phase 1F's execution-ownership scope; noted in the invariants doc.)
-      path.startsWith("packages/receipt/");
+      path.startsWith("packages/api/");
 
     const gatewayAllowed = (path: string): boolean =>
       path.startsWith("packages/execution-gateway/") || path.startsWith("packages/api/");

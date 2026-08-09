@@ -4,6 +4,7 @@ import { CryptoBootstrap, DEFAULT_KEY_ID, VerificationCrypto } from "@parmana/cr
 
 import {
   ExecutionTrustRecord,
+  loadConfig,
 } from "@parmana/shared";
 
 import { RuntimeContext } from "./context/RuntimeContext.js";
@@ -22,6 +23,9 @@ type TrustRecordDraft = Omit<
 export class BusinessTrustRecordBuilder {
   private readonly crypto =
     new VerificationCrypto();
+
+  private readonly config =
+    loadConfig();
 
   /**
    * Builds an immutable Execution Trust Record
@@ -104,10 +108,32 @@ const signature =
     recordWithHash,
   );
 
+//
+// Hybrid Signature Support milestone, Phase A: additive second
+// signature pass, only when CRYPTO_MODE=hybrid. The legacy
+// `signature` above is unaffected either way.
+//
+if (this.config.crypto.mode !== "hybrid") {
+  return {
+    ...recordWithHash,
+
+    signature,
+  };
+}
+
+const signatures =
+  await this.crypto.signHybrid(
+    recordWithHash,
+  );
+
 return {
   ...recordWithHash,
 
   signature,
+
+  schemaVersion: 2,
+
+  signatures,
 };
   }
 }

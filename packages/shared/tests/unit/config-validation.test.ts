@@ -1,6 +1,24 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { parseApiKeys, parseStorageProvider } from "../../src/config/ConfigValidation.js";
+import { parseApiKeys, parseCryptoMode, parseStorageProvider } from "../../src/config/ConfigValidation.js";
+
+describe("parseCryptoMode", () => {
+  it("selects the mode named by CRYPTO_MODE", () => {
+    expect(parseCryptoMode("single")).toBe("single");
+    expect(parseCryptoMode("hybrid")).toBe("hybrid");
+    expect(parseCryptoMode("pq")).toBe("pq");
+  });
+
+  it("defaults to single when CRYPTO_MODE is unset", () => {
+    expect(parseCryptoMode(undefined)).toBe("single");
+  });
+
+  it("throws naming the invalid value for an unrecognized CRYPTO_MODE", () => {
+    expect(() => parseCryptoMode("quantum")).toThrow(
+      "Invalid CRYPTO_MODE: quantum",
+    );
+  });
+});
 
 describe("parseStorageProvider", () => {
   afterEach(() => {

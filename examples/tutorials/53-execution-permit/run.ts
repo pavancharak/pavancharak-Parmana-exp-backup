@@ -1,161 +1,162 @@
-import {
-  CryptoBootstrap,
-  FileKeyProvider,
-} from "@parmana/crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import {
-  ExecutionDecision,
-  ExecutionPermitBuilder,
-} from "@parmana/execution-control";
+  FilePolicyRepository,
+} from "@parmana/policy";
 
-async function main(): Promise<void> {
-  console.log();
-  console.log(
-    "==================================================",
-  );
-  console.log(
-    "Tutorial 53 - Execution Permit",
-  );
-  console.log(
-    "==================================================",
-  );
-  console.log();
+import {
+  RuntimeFactory,
+} from "@parmana/runtime";
 
-  //
-  // Business artifact.
-  //
-  const artifact = {
-    vendorId: "VENDOR-1001",
-    invoiceId: "INV-2026-001",
-    paymentAmount: 25000,
-    currency: "USD",
-  };
+import {
+  DefaultExecutionSystem,
+} from "@parmana/execution-system";
 
-  //
-  // Hybrid crypto configuration.
-  //
-  const crypto =
-    CryptoBootstrap.createHybrid();
+import {
+  MemoryBusinessTransactionRepository,
+  MemoryExecutionTrustRecordRepository,
+} from "@parmana/storage";
 
-  //
-  // Load signing keys.
-  //
-  const keyProvider =
-    new FileKeyProvider();
+import type {
+  BusinessTransaction,
+} from "@parmana/shared";
 
-  const edPrivateKey =
-    await keyProvider.getPrivateKey(
-      "default",
-    );
+//
+// Historical note: this tutorial was originally "Execution Permit",
+// demonstrating an ExecutionPermit/ExecutionPermitBuilder pair that
+// never had any live caller in packages/api and no test coverage --
+// confirmed and deleted as dead scaffolding by the Hybrid Signature
+// Support milestone (Phase A). The directory/number is unchanged;
+// the content now demonstrates that same milestone's real, tested
+// replacement: a hybrid-signed Execution Trust Record, produced by
+// the actual production pipeline, not a hand-rolled stand-in for it.
+//
 
-  const pqPrivateKey =
-    await keyProvider.getPrivateKey(
-      "pq",
-    );
+//
+// CRYPTO_MODE=hybrid, set before RuntimeFactory.create() constructs
+// the runtime's signing components -- Trust Records are additionally
+// signed with SECONDARY_SIGNATURE_PROVIDER (ML-DSA-65) alongside the
+// default Ed25519 signature, requiring both to verify.
+//
+process.env.CRYPTO_MODE = "hybrid";
+process.env.SECONDARY_SIGNATURE_PROVIDER = "dilithium3";
 
-  //
-  // Gateway issues timestamps.
-  //
-  const issuedAt =
-    new Date().toISOString();
+const root = path.resolve(import.meta.dirname);
 
-  const expiresAt =
-    new Date(
-      Date.now() + 120_000,
-    ).toISOString();
+const transaction = JSON.parse(
+  readFileSync(
+    path.join(
+      root,
+      "../../shared/vendor-payment-transaction.json",
+    ),
+    "utf8",
+  ),
+) as BusinessTransaction;
 
-  //
-  // Build Execution Permit.
-  //
-  const permit =
-    await new ExecutionPermitBuilder(
-      crypto,
-    ).build(
-      artifact,
-      ExecutionDecision.ALLOW,
-      edPrivateKey,
-      pqPrivateKey,
-      "default",
-      "pq",
-      "PERMIT-000001",
-      "parmana-gateway",
-      "v1",
-      issuedAt,
-      expiresAt,
-    );
-
-  console.log(
-    "Execution Permit",
+const policyRepository =
+  new FilePolicyRepository(
+    path.resolve(
+      root,
+      "../../../policies",
+    ),
   );
 
-  console.log(
-    "--------------------------------------------------",
+const transactions =
+  new MemoryBusinessTransactionRepository();
+
+const trustRecords =
+  new MemoryExecutionTrustRecordRepository();
+
+const executionSystem =
+  new DefaultExecutionSystem();
+
+const application =
+  RuntimeFactory.create(
+    transactions,
+    trustRecords,
+    policyRepository,
+    executionSystem,
   );
 
-  console.log(
-    `Permit ID      : ${permit.permitId}`,
+// --------------------------------------------------
+// EXECUTION
+//
+// application.execute() runs the live Execution Trust
+// pipeline -- the same code path used by POST /execute --
+// with CRYPTO_MODE=hybrid active, so BusinessTrustRecordBuilder
+// additionally calls VerificationCrypto.signHybrid().
+// --------------------------------------------------
+
+const trustRecord =
+  await application.execute(
+    transaction,
   );
 
+// --------------------------------------------------
+// OUTPUT
+// --------------------------------------------------
+
+console.log("========================================");
+console.log(" Parmana Tutorial 53 - Hybrid-Signed Execution Trust Record");
+console.log("========================================");
+
+console.log();
+
+console.log("Execution Trust Record");
+
+console.log(
+  JSON.stringify(
+    trustRecord,
+    null,
+    2,
+  ),
+);
+
+console.log();
+
+console.log("Legacy signature (unchanged shape, always present)");
+console.log(
+  `  algorithm : ${trustRecord.signature.algorithm}`,
+);
+console.log(
+  `  keyId     : ${trustRecord.signature.keyId}`,
+);
+
+console.log();
+
+console.log(
+  `Schema version : ${trustRecord.schemaVersion ?? "(absent -- legacy single-signature record)"}`,
+);
+
+console.log();
+
+console.log("Additive hybrid signatures[] (present only under CRYPTO_MODE=hybrid)");
+
+for (const entry of trustRecord.signatures ?? []) {
   console.log(
-    `Decision       : ${permit.decision}`,
-  );
-
-  console.log(
-    `Gateway        : ${permit.gatewayId}`,
-  );
-
-  console.log(
-    `Policy Version : ${permit.policyVersion}`,
-  );
-
-  console.log(
-    `Issued At      : ${permit.issuedAt}`,
-  );
-
-  console.log(
-    `Expires At     : ${permit.expiresAt}`,
-  );
-
-  console.log();
-
-  console.log(
-    "Signatures",
-  );
-
-  console.log(
-    "--------------------------------------------------",
-  );
-
-  for (const signature of permit.signatures.signatures) {
-    console.log();
-
-    console.log(
-      `Algorithm : ${signature.algorithm}`,
-    );
-
-    console.log(
-      `Key ID    : ${signature.keyId}`,
-    );
-
-    console.log(
-      `Length    : ${signature.signature.length} characters`,
-    );
-  }
-
-  console.log();
-
-  console.log(
-    "✓ Execution Permit created successfully.",
-  );
-
-  console.log();
-
-  console.log(
-    "Tutorial completed successfully.",
+    `  ${entry.algorithm.padEnd(10)} keyId=${entry.keyId}`,
   );
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+console.log();
+
+if (
+  trustRecord.schemaVersion === 2 &&
+  trustRecord.signatures?.length === 2
+) {
+  console.log(
+    "✓ Trust Record carries both the legacy signature and the additive hybrid signatures[].",
+  );
+} else {
+  console.log(
+    "✗ Expected a hybrid-shaped Trust Record (schemaVersion 2, two signatures).",
+  );
+}
+
+console.log();
+
+console.log("Tutorial Complete");
+console.log(
+  "Next: Tutorial 54 - Execution Receipt",
+);

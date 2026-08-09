@@ -1,263 +1,213 @@
-import {
-  CryptoBootstrap,
-  FileKeyProvider,
-} from "@parmana/crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import {
-  ExecutionDecision,
-  ExecutionPermitBuilder,
-} from "@parmana/execution-control";
+  FilePolicyRepository,
+} from "@parmana/policy";
 
 import {
-  ExecutionTrustAttestationBuilder,
+  RuntimeFactory,
+} from "@parmana/runtime";
+
+import {
+  DefaultExecutionSystem,
 } from "@parmana/execution-system";
 
 import {
-  ExecutionReceiptBuilder,
-  ExecutionReceiptVerifier,
-} from "@parmana/receipt";
+  MemoryBusinessTransactionRepository,
+  MemoryExecutionTrustRecordRepository,
+} from "@parmana/storage";
 
-async function main(): Promise<void> {
-  console.log();
-  console.log(
-    "==================================================",
-  );
-  console.log(
-    "Tutorial 56 - Complete Execution Flow",
-  );
-  console.log(
-    "==================================================",
-  );
-  console.log();
+import type {
+  BusinessTransaction,
+  ExecutionTrustRecord,
+} from "@parmana/shared";
 
-  //
-  // Business Artifact
-  //
-  const artifact = {
-    vendorId: "VENDOR-1001",
-    invoiceId: "INV-2026-001",
-    paymentAmount: 25000,
-    currency: "USD",
-  };
+//
+// Historical note: this tutorial previously chained the dead
+// ExecutionPermit -> ExecutionTrustAttestation -> ExecutionReceipt ->
+// ExecutionReceiptVerifier pipeline (Hybrid Signature Support
+// milestone, Phase A: confirmed zero live callers, zero test
+// coverage, deleted) into one script. It now chains Tutorials 53-55's
+// real content -- build, receipt, verify (genuine and tampered) --
+// through the same production pipeline `POST /execute`/`POST /verify`
+// use, with CRYPTO_MODE=hybrid active throughout.
+//
 
-  console.log(
-    "Business Artifact",
-  );
+process.env.CRYPTO_MODE = "hybrid";
+process.env.SECONDARY_SIGNATURE_PROVIDER = "dilithium3";
 
-  console.log(
-    "--------------------------------------------------",
-  );
+const root = path.resolve(import.meta.dirname);
 
-  console.log(
-    `Vendor      : ${artifact.vendorId}`,
-  );
+const transaction = JSON.parse(
+  readFileSync(
+    path.join(
+      root,
+      "../../shared/vendor-payment-transaction.json",
+    ),
+    "utf8",
+  ),
+) as BusinessTransaction;
 
-  console.log(
-    `Invoice     : ${artifact.invoiceId}`,
-  );
-
-  console.log(
-    `Amount      : ${artifact.paymentAmount} ${artifact.currency}`,
+const policyRepository =
+  new FilePolicyRepository(
+    path.resolve(
+      root,
+      "../../../policies",
+    ),
   );
 
-  console.log();
+const transactions =
+  new MemoryBusinessTransactionRepository();
 
-  //
-  // Policy Evaluation
-  //
-  const decision =
-    ExecutionDecision.ALLOW;
+const trustRecords =
+  new MemoryExecutionTrustRecordRepository();
 
-  console.log(
-    "Policy Evaluation",
+const executionSystem =
+  new DefaultExecutionSystem();
+
+const application =
+  RuntimeFactory.create(
+    transactions,
+    trustRecords,
+    policyRepository,
+    executionSystem,
   );
 
-  console.log(
-    "--------------------------------------------------",
+console.log("========================================");
+console.log(" Parmana Tutorial 56 - Complete Execution Flow");
+console.log("========================================");
+
+console.log();
+
+console.log("Business Artifact");
+console.log("--------------------------------------------------");
+console.log(`Vendor  : ${transaction.intent.parameters.vendorId}`);
+console.log(`Invoice : ${transaction.intent.parameters.invoiceId}`);
+console.log(
+  `Amount  : ${transaction.intent.parameters.amount} ${transaction.intent.parameters.currency}`,
+);
+
+console.log();
+
+// --------------------------------------------------
+// 1. Execute -- policy evaluation, decision, execution,
+//    and a hybrid-signed Execution Trust Record.
+// --------------------------------------------------
+
+const trustRecord =
+  await application.execute(
+    transaction,
   );
 
-  console.log(
-    `Decision : ${decision}`,
-  );
+console.log("1. Execution Trust Record");
+console.log("--------------------------------------------------");
+console.log(
+  `Decision       : ${trustRecord.executions.at(-1)?.decision.outcome}`,
+);
+console.log(
+  `Schema version : ${trustRecord.schemaVersion}`,
+);
+console.log(
+  `Signatures     : ${trustRecord.signatures?.map((s) => s.algorithm).join(", ")}`,
+);
 
-  console.log();
+console.log();
 
-  //
-  // Crypto
-  //
-  const crypto =
-    CryptoBootstrap.createHybrid();
+// --------------------------------------------------
+// 2. Receipt -- generated as part of execute(), also
+//    hybrid-signed.
+// --------------------------------------------------
 
-  //
-  // Keys
-  //
-  const keyProvider =
-    new FileKeyProvider();
+const receipt =
+  trustRecord.receipts.at(-1);
 
-  const edPrivateKey =
-    await keyProvider.getPrivateKey(
-      "default",
-    );
-
-  const pqPrivateKey =
-    await keyProvider.getPrivateKey(
-      "pq",
-    );
-
-  //
-  // Gateway timestamps
-  //
-  const issuedAt =
-    new Date().toISOString();
-
-  const expiresAt =
-    new Date(
-      Date.now() + 120_000,
-    ).toISOString();
-
-  //
-  // Execution Permit
-  //
-  const permit =
-    await new ExecutionPermitBuilder(
-      crypto,
-    ).build(
-      artifact,
-      decision,
-      edPrivateKey,
-      pqPrivateKey,
-      "default",
-      "pq",
-      "PERMIT-000001",
-      "parmana-gateway",
-      "v1",
-      issuedAt,
-      expiresAt,
-    );
-
-  console.log(
-    "Execution Permit",
-  );
-
-  console.log(
-    "--------------------------------------------------",
-  );
-
-  console.log(
-    "Created",
-  );
-
-  console.log();
-
-  //
-  // Execution Trust Record
-  //
-  const trustRecord =
-    await new ExecutionTrustAttestationBuilder(
-      crypto,
-    ).build(
-      artifact,
-      edPrivateKey,
-      pqPrivateKey,
-      "default",
-      "pq",
-      "parmana-gateway",
-      "v1",
-      issuedAt,
-    );
-
-  console.log(
-    "Execution Trust Record",
-  );
-
-  console.log(
-    "--------------------------------------------------",
-  );
-
-  console.log(
-    "Created",
-  );
-
-  console.log();
-
-  //
-  // Execution Receipt
-  //
-  const receipt =
-    new ExecutionReceiptBuilder().build(
-      permit,
-      trustRecord,
-    );
-
-  console.log(
-    "Execution Receipt",
-  );
-
-  console.log(
-    "--------------------------------------------------",
-  );
-
-  console.log(
-    "Created",
-  );
-
-  console.log();
-
-  //
-  // Receipt Verification
-  //
-  const verified =
-    new ExecutionReceiptVerifier().verify(
-      receipt,
-    );
-
-  console.log(
-    "Receipt Verification",
-  );
-
-  console.log(
-    "--------------------------------------------------",
-  );
-
-  console.log(
-    `Result : ${
-      verified
-        ? "VERIFIED"
-        : "FAILED"
-    }`,
-  );
-
-  console.log();
-
-  //
-  // Final Trust Decision
-  //
-  console.log(
-    "Execution Trust",
-  );
-
-  console.log(
-    "--------------------------------------------------",
-  );
-
-  if (verified) {
-    console.log(
-      "✓ Enterprise action is authorized.",
-    );
-  } else {
-    console.log(
-      "✗ Enterprise action cannot be trusted.",
-    );
-  }
-
-  console.log();
-
-  console.log(
-    "Tutorial completed successfully.",
+if (!receipt) {
+  throw new Error(
+    "Expected a Receipt to be generated as part of execute().",
   );
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+console.log("2. Receipt");
+console.log("--------------------------------------------------");
+console.log(`Receipt ID     : ${receipt.receiptId}`);
+console.log(`Schema version : ${receipt.schemaVersion}`);
+console.log(
+  `Signatures     : ${receipt.signatures?.map((s) => s.algorithm).join(", ")}`,
+);
+
+console.log();
+
+// --------------------------------------------------
+// 3. Verify -- genuine record.
+// --------------------------------------------------
+
+const genuineVerification =
+  await application.verify(
+    transaction.businessTransactionId,
+  );
+
+console.log("3. Verification (genuine)");
+console.log("--------------------------------------------------");
+console.log(`Status : ${genuineVerification.status}`);
+
+console.log();
+
+// --------------------------------------------------
+// 4. Verify -- tampered second signature, fail-closed.
+// --------------------------------------------------
+
+if (!trustRecord.signatures || trustRecord.signatures.length !== 2) {
+  throw new Error(
+    "Expected a hybrid-shaped Trust Record (schemaVersion 2, two signatures).",
+  );
+}
+
+const tampered: ExecutionTrustRecord = {
+  ...trustRecord,
+  signatures: trustRecord.signatures.map((entry) =>
+    entry.algorithm === "dilithium3"
+      ? { ...entry, signature: `${entry.signature.slice(0, -4)}AAAA` }
+      : entry,
+  ),
+};
+
+await trustRecords.create(tampered);
+
+const tamperedVerification =
+  await application.verify(
+    transaction.businessTransactionId,
+  );
+
+console.log("4. Verification (tampered second signature)");
+console.log("--------------------------------------------------");
+console.log(`Status : ${tamperedVerification.status}`);
+
+console.log();
+
+// --------------------------------------------------
+// Final trust decision
+// --------------------------------------------------
+
+console.log("Execution Trust");
+console.log("--------------------------------------------------");
+
+const flowCorrect =
+  trustRecord.schemaVersion === 2 &&
+  receipt.schemaVersion === 2 &&
+  genuineVerification.status === "VERIFIED" &&
+  tamperedVerification.status === "FAILED";
+
+if (flowCorrect) {
+  console.log(
+    "✓ Enterprise action authorized, hybrid-signed end to end, and tamper-evident.",
+  );
+} else {
+  console.log(
+    "✗ Enterprise action cannot be trusted -- one or more steps did not behave as expected.",
+  );
+}
+
+console.log();
+
+console.log("Tutorial completed successfully.");

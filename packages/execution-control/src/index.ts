@@ -18,12 +18,3 @@ export * from "./SessionCredentialExecutionControl.js";
 
 export * from "./MemoryExecutionAuditSink.js";
 export * from "./ExecutionControlService.js";
-
-// -----------------------------------------------------------------------------
-// Execution Permit
-// -----------------------------------------------------------------------------
-
-export * from "./ExecutionPermitBuilder.js";
-
-export * from "./models/ExecutionDecision.js";
-export * from "./models/ExecutionPermit.js";

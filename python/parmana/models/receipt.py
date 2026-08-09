@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from .signature import SignatureEntry
+
 
 @dataclass(frozen=True)
 class Receipt:
@@ -29,3 +31,7 @@ class Receipt:
     issued_at: datetime
 
     execution_id: str | None = None
+
+    schema_version: float | None = None
+
+    signatures: list[SignatureEntry] | None = None

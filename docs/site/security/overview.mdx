@@ -22,6 +22,27 @@ using their own store can each accept the same authorization once. `MemoryNonceS
 loses all state on restart. Every envelope's bounded TTL limits, but does not eliminate,
 the exposure window from either gap.
 
+**Durable, third-party-verifiable refusal and audit records (RFC-0021, 3.11).** Every
+policy rejection produces a signed Refusal Record, independently verifiable at `POST
+/refusal/verify` with no API key or database lookup required — just the artifact and
+Parmana's public key. Production caller-authentication and Razorpay-webhook audit events
+are signed the same way, verifiable at `POST /audit/verify`. Two scope caveats: Refusal
+Record writing is evidentiary and fails open by design (a rejection is never blocked or
+delayed by it; only the durable record can go silently missing, never the correctness of
+the rejection itself), and only production (Supabase) audit sinks sign — the in-memory
+test sinks don't.
+
+**Hybrid (Ed25519 + ML-DSA-65) signing capability, not yet deployed (3.13).** Trust
+Records and Receipts can be dual-signed with both a classical and a post-quantum
+algorithm at once, with verification requiring both signatures independently, fail-closed.
+This is a built, tested capability — `CRYPTO_MODE=hybrid` is real, validated
+configuration — but it is opt-in and not running anywhere today: every deployed
+environment, including `parmana-api-live.fly.dev`, signs Ed25519 alone.
+**Caveat:** `@parmana/sign`, the public verification SDK, does not yet recognize the
+hybrid envelope shape; a third party verifying a hybrid-signed record through it today
+checks the legacy Ed25519 signature only — a genuine but partial verification, not the
+full hybrid guarantee.
+
 ## Claims Parmana intentionally does not make
 
 Directly from CLAIMS.md §5:
@@ -76,6 +97,14 @@ G-24, the authoritative source for this incident.
 exposed in the public GitHub repository and must be treated as permanently compromised,
 all signatures produced by that key are void for authenticity purposes regardless of when
 signed. The key pair was rotated on 2026-07-05. Source: CLAIMS.md, "Key Compromise Notice."
+
+**Four ML-DSA-65 (Dilithium3) private signing keys committed to a feature branch during the
+post-quantum signature provider work** were confirmed, by raw key-byte comparison, to be
+distinct from any key ever trusted by production or local configuration — unlike the
+incident above, no signature produced by this key pair was ever accepted as authentic by
+this codebase. A fresh keypair was generated regardless, the feature branch's history
+purged, and the exposure independently re-verified across every remote hosting this
+repository's history. Source: `04-INCIDENTS-LOG.md`, INC-8.
 
 ## Caller authentication, principal binding, and ownership scoping — three separate layers
 
