@@ -8,6 +8,7 @@ import {
   RAZORPAY_TEST_MODE_PLACEHOLDER_KEY_SECRET,
   brandCredentialHandle,
   connectorCapabilities,
+  redactRazorpayKeyId,
   type ConnectorExecutionContext,
   type RazorpayPayment,
 } from "@parmana/connector-sdk";
@@ -213,7 +214,7 @@ describe("GatewayRazorpayAdapter", () => {
     expect((caught as Error).message).not.toContain("wrong-secret");
   });
 
-  it("never places key_secret in connector response metadata, only a redacted key_id", async () => {
+  it("never places key_secret or any key_id substring in connector response metadata, only a one-way fingerprint (Phase 3D certification, Property A)", async () => {
     server.setPayment(capturedPayment());
 
     const result = await connector().execute(
@@ -227,8 +228,15 @@ describe("GatewayRazorpayAdapter", () => {
       context(),
     );
 
-    expect(JSON.stringify(result)).not.toContain(KEY_SECRET);
-    expect(result.metadata?.keyIdRedacted).toBe("rzp_test...");
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain(KEY_SECRET);
+    // Not merely "no full key_id": no substring of it of meaningful length
+    // either, ruling out the truncated-literal-prefix leak this test used
+    // to accept (e.g. the old `"rzp_test..."` format was a literal
+    // 8-character prefix of KEY_ID).
+    expect(serialized).not.toContain(KEY_ID.slice(0, 8));
+    expect(result.metadata?.keyIdRedacted).toBe(redactRazorpayKeyId(KEY_ID));
+    expect(result.metadata?.keyIdRedacted).toMatch(/^fp_[0-9a-f]{12}$/);
   });
 
   it("refuses to send the built-in test-mode placeholder credential to Razorpay's real API, before any network call", async () => {

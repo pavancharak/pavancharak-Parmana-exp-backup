@@ -39,14 +39,6 @@ describe("createConnectorRegistry — razorpay capability availability", () => {
     expect(registry.resolveCapability("razorpay:payment-fetch").connectorId).toBe("razorpay");
   });
 
-  it("still registers vendor-payment unchanged alongside razorpay", () => {
-    process.env.NODE_ENV = "test";
-
-    const registry = buildRegistry();
-
-    expect(registry.resolveCapability("payments:execute").connectorId).toBe("vendor-payment");
-  });
-
   it("(fail-closed) does not register razorpay, and resolveCapability throws, when credentials are unconfigured outside test mode", () => {
     process.env.NODE_ENV = "production";
     delete process.env.RAZORPAY_KEY_ID;
@@ -59,34 +51,16 @@ describe("createConnectorRegistry — razorpay capability availability", () => {
     );
   });
 
-  it("does not fail startup of the whole registry when razorpay credentials are missing — vendor-payment resolution still fails closed, independently", () => {
-    process.env.NODE_ENV = "production";
-    delete process.env.RAZORPAY_KEY_ID;
-    delete process.env.RAZORPAY_KEY_SECRET;
+  it("payments:execute has no connector to resolve to in any environment — vendor-payment was removed, not merely gated", () => {
+    for (const nodeEnv of ["test", "production", "development"] as const) {
+      process.env.NODE_ENV = nodeEnv;
 
-    const registry = buildRegistry();
+      const registry = buildRegistry();
 
-    expect(() => registry.resolveCapability("payments:execute")).toThrow(
-      /No connector registered for capability 'payments:execute'/,
-    );
-  });
-
-  it("(Phase 2A, fail-closed) does not register vendor-payment, and resolveCapability throws, outside test mode — MockConnector never backs production execution", () => {
-    process.env.NODE_ENV = "production";
-
-    const registry = buildRegistry();
-
-    expect(() => registry.resolveCapability("payments:execute")).toThrow(
-      /No connector registered for capability 'payments:execute'/,
-    );
-  });
-
-  it("(Phase 2A) registers vendor-payment (MockConnector) when NODE_ENV=test — tests and explicit demo/local runs are unaffected", () => {
-    process.env.NODE_ENV = "test";
-
-    const registry = buildRegistry();
-
-    expect(registry.resolveCapability("payments:execute").connectorId).toBe("vendor-payment");
+      expect(() => registry.resolveCapability("payments:execute")).toThrow(
+        /No connector registered for capability 'payments:execute'/,
+      );
+    }
   });
 
   it("registers razorpay when credentials are fully configured outside test mode", () => {

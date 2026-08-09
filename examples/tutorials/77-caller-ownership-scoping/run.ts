@@ -59,7 +59,11 @@ function vendorPaymentTransaction(submittedBy: string): BusinessTransaction {
     intent: {
       intentId,
       authorizationId,
-      action: "payments:execute",
+      // test:fixture-execute (not payments:execute/vendor-payment, removed
+      // per docs/VERIFICATION-GAPS.md G-27) -- see
+      // packages/api/tests/fixtures/business-transaction.ts for the same
+      // pattern.
+      action: "test:fixture-execute",
       target: "vendor://payments",
       parameters: Object.freeze({ paymentId: "payment-001", amount: 1000 }),
       createdAt: now,

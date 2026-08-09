@@ -164,7 +164,9 @@ error-mapping case (`test/HttpTransport.test.ts`, `test/Errors.test.ts`), unit t
 newly-added methods (`test/NewApiMethods.test.ts`), and an integration suite
 (`test/integration/parmana-client.integration.test.ts`) that boots the actual `@parmana/api`
 Express application — real `StaticKeyAuthenticator`, real `PolicyEngine`, real Ed25519 signing,
-real `vendor-payment` connector — on a real OS-assigned TCP port and drives it with the real
+the real, `NODE_ENV=test`-only generic test-fixture connector (`createTestFixtureConnector.ts`,
+successor to the now-removed `vendor-payment`, see `docs/VERIFICATION-GAPS.md` G-27) — on a
+real OS-assigned TCP port and drives it with the real
 `ParmanaClient` over real HTTP: a real `401`, a real `403`, a real `400`, a real policy rejection,
 a real `404`, a real `409` duplicate, plus `version()`, `verify()`, and `createTransaction()`
 exercised against real responses, each asserted against the exact typed result and exact message

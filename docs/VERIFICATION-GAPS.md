@@ -114,6 +114,103 @@ accurate record of what this specific session did and did not do.)*
 
 ---
 
+## Gaps closed in the Phase 3D certification session
+
+An independent, from-scratch re-certification of the public claim *"Even if AI has valid
+credentials, it still cannot execute anything your business hasn't authorized. No
+exceptions"* was performed against current repository state (treating every prior phase's
+conclusion, including this document's own, as a claim to re-verify, not inherit) and is
+recorded in full in `docs/architecture/phase3d-independent-authorization-certification.md`.
+**Result: CLAIM FULLY CERTIFIED** for `razorpay:refund-create` and `hubspot:deal-update`,
+the two capabilities actually reachable in production.
+
+That certification disclosed eight limitations. Two were genuine, safely closable gaps and
+were fixed in the same follow-up session, recorded here as new closed entries:
+
+**G-25. Truncated credential fragments reached the caller-visible `POST /execute` response.**
+`GatewayRazorpayAdapter`/`GatewayHubSpotAdapter` returned `keyIdRedacted`/`bearerRedacted`
+metadata built by truncating the literal credential to its first 8 (Razorpay `key_id`) or 12
+(HubSpot bearer token — the entire credential) characters. `ConnectorEvidence.ts`'s generic
+metadata redaction filter (`SENSITIVE_KEY_PATTERN`, matched against key *names*) did not
+match either key name, so this literal fragment passed unfiltered through
+`ExecutionEvidence.attributes` into the signed Trust Record and the HTTP response body an
+AI-facing caller receives. Not a bypass of any authorization decision (the fragment cannot
+be used to reconstruct the full secret or skip any check on a subsequent request), but a
+genuine exception to a "zero credential bytes ever reach the caller" reading of credential
+isolation. **RESOLVED.** `redactRazorpayKeyId`/`redactHubSpotToken`
+(`packages/connector-sdk/src/connectors/razorpay/RazorpayTypes.ts`,
+`packages/connector-hubspot/src/HubSpotTypes.ts`) now return a one-way, truncated SHA-256
+fingerprint (`fp_` + 12 hex chars of the digest) instead of a literal substring — the
+operational "which credential executed this" signal an operator needs (same credential ⇒
+same fingerprint; a rotated credential ⇒ a different one) is preserved, with zero bytes of
+the actual secret reaching any caller-visible surface. `razorpay-connector.test.ts` and
+`hubspot-connector.test.ts` were strengthened from asserting a specific redacted string to
+asserting the full serialized response contains no substring of the real credential at all —
+closing the regression-coverage gap, not merely the immediate instance. Verified:
+`npx tsc -b` clean; both suites re-run, 22/22 passing; full monorepo suite re-run,
+1039 passed (unchanged count), 43 skipped (+4, the next entry's new file), 0 failed.
+
+**Extends G-24's residual closure (TD-23/Phase 3B): Razorpay daily-cumulative-cap ledger
+atomicity was proven live only for the in-memory test implementation.**
+`InMemoryRazorpayDailyRefundLedger.test.ts`'s 50-way concurrent-`reserve()` proof exercises
+the implementation `NODE_ENV=test` wiring actually uses; the production
+`SupabaseRazorpayDailyRefundLedger`'s `INSERT ... ON CONFLICT ... DO UPDATE ... RETURNING`
+atomicity — sound by construction, the same idiom already proven live for `consumed_nonces`
+(G-13) — had no dedicated integration test issuing genuinely concurrent connections against
+a real Postgres database. **RESOLVED.**
+`packages/storage/tests/integration/supabase-razorpay-daily-refund-ledger.integration.test.ts`
+(new), gated the same way every other live-database suite in this repository is
+(`resolveDatabaseGate`, requiring `ALLOW_LIVE_SUPABASE=1` to run against a real project — not
+opted into during this session, so not executed live; confirmed to compile and to skip
+cleanly, `1 file skipped, 4 tests skipped`, exactly like its siblings), adds: a two-way race
+asserting exact, non-lost-update totals; a 20-way concurrent-reservation proof matching the
+in-memory implementation's own proof in kind; and a `release()`-floors-at-zero case (the
+schema's `chk_reserved_paise_non_negative` constraint).
+
+**Explicitly not closed by this session, carried forward with reasons (full detail in
+`phase3d-independent-authorization-certification.md` §12, items numbered to match that
+section exactly):**
+- **(§12.1) `payments:execute`/vendor-payment would not satisfy this claim if it were ever
+  enabled in production.** Already tracked in this document's own "Investigation
+  (2026-08-04): `vendor-payment` remains genuinely blocked" entry above (`vendorVerified`,
+  `invoiceVerified`, `paymentApproved`, `sufficientFunds`, `riskScore` remain pure
+  caller-declared attestations with no independent verifier and no real system to fetch them
+  from) — the certification independently re-confirmed that finding from current source
+  rather than merely citing it, and it remains out of scope for this session for the same
+  reason: it is not currently a production capability (§2 of the certification), so it
+  cannot presently violate the claim, but enabling it as currently written would.
+- **(§12.3) HubSpot's `TRUSTED_APPROVAL_ISSUERS`** (`createApprovalIssuerRegistry.ts`)
+  remains empty by design; the Signed Approval Artifact mechanism has never been exercised
+  against a real, operator-provisioned issuer key in production. Fail-closed, not a
+  weakness — and provisioning a real approver key is inherently an operational action, not
+  something a code change can substitute for.
+- **(§12.5) `GatewayAttestation`** still has no independent expiry/TTL of its own, relying
+  on the durable execution-authorization nonce upstream (§6.4 of the certification).
+  Deliberately not touched — a shared, foundational crypto primitive; adding a new
+  replay-defense mechanism to it is exactly the kind of change this codebase's own
+  established practice (Phase 2L's STOP conditions) treats as needing its own chartered
+  phase, not a same-session edit, especially with no currently exploitable path found
+  through it.
+- **(§12.6) The internal gateway-session/session-credential-vault layers** remain
+  in-memory, single-process only. Deliberately not touched — persistent/shared storage for
+  this layer is infrastructure work of the same shape `02-REMAINING.md` already tracks as a
+  dedicated "big rock" (nonce-store persistence), and this layer is downstream of the
+  already-durable, load-bearing nonce check.
+- **(§12.7) `OverrideService`/`OverrideVerifier`** (G-5, below) remain unreachable dead
+  code. **Deliberately, explicitly not wired up** — `02-REMAINING.md`'s own Tier 0 entry
+  for this component is a standing security guard reading "do NOT wire overrides" until its
+  documented deficiencies are fixed with a design partner's input. Wiring it to "close" G-5
+  would directly contradict that guard.
+- **(§12.8) Hybrid/PQ signing's scope** (G-4) still stops short of
+  execution-authorization/Gateway/connector signing — already tracked there as a
+  separately-chartered expansion project, unrelated in kind to this session's scope.
+
+None of these six carried-forward items provide a currently exploitable path for an AI
+holding valid credentials to execute an action the business has not authorized, per the
+certification's adversarial review (§10 of that document).
+
+---
+
 ## Gaps checked and found not applicable
 
 - **Gateway session store concurrency**: `InMemoryGatewaySessionStore.consume()` is fully
@@ -121,6 +218,23 @@ accurate record of what this specific session did and did not do.)*
   Node calls them one after another, unconditionally. The existing sequential
   "rejects a reused session" test already covers everything the synchronous case can prove;
   a `Promise.all` wrapper around a synchronous method would not test anything additional.
+
+- **Direct database-write bypass of `RuntimeEngine`.** Raised as `NOT VALIDATED (to full
+  exhaustiveness)` by the Strategic Positioning source-code validation audit (2026-08-09),
+  which had traced every HTTP route and both SDKs but not every method of every repository
+  implementation. Closed by tracing every write method on `ExecutionTrustRecordRepository`
+  (`create`, `appendExecution`, `replaceExecution`, `appendOverride`, `appendVerification`,
+  `appendReceipt`, `appendSettlementConfirmation`) and `BusinessTransactionRepository`
+  (`accept`/`create`) to its callers, repo-wide: every one has exactly one caller, always
+  inside `packages/runtime/src/services/*` or `ExecutionTrustApplication`
+  (`appendSettlementConfirmation`'s sole caller, `RazorpaySettlementProcessor.ts:203`, is
+  itself gated by an independent re-fetch of real Razorpay state before writing, not
+  caller-triggered directly). Zero routes in `packages/api/src/routes`, zero SDK methods in
+  `typescript/src`/`python/parmana`, write to either repository directly. **Now DIRECTLY
+  VALIDATED**, not merely unvalidated-but-presumed-clean: `docs/CLAIMS.md` 2.22's "no code
+  path that does not pass through `RuntimeEngine`" scope is confirmed to extend to the
+  storage layer as well, not only the HTTP/connector-dispatch layer that document's own
+  bypass search (Phase 3D §5.2) already covered.
 
 ---
 
@@ -470,6 +584,20 @@ assertion) before restoring the fix. Re-ran the now-passing test five consecutiv
 flake. Full repo `tsc -b`, `eslint . --ext .ts`, `tsc --noEmit`, and `vitest run` (764 passed, 40
 pre-existing skips, no new skips) all clean, no regressions.
 
+**Independently re-confirmed, Phase 3D (fresh re-verification, not a citation of this entry's
+own history).** Every update above documents this codebase's own account of closing G-24 and
+its TD-23 residuals across several sessions. The Phase 3D certification
+(`docs/architecture/phase3d-independent-authorization-certification.md`) treated all of it as a
+claim to re-verify, not inherit: it re-traced `SignalIntentBinder`, `CapabilityPolicyBinder`,
+`RazorpaySignalStateVerifier`, `HubSpotSignalStateVerifier`, and `RazorpayDailyRefundLedger`
+directly from current source (not from this document's narrative) and confirmed, as of commit
+`cb467fc`, that all five are still unconditionally wired into production bootstrap (§4, §5 of
+that document) and that no alternate execution path bypasses them (§5.2 — the two open
+questions an evidence pass raised there, the exact Razorpay dispatch site and
+`SdkConnectorExecutor`'s internals, were independently closed by direct reading, not left as
+citations). This re-confirmation is current as of that commit, not merely a restatement of the
+closures already documented above.
+
 **G-1. Duplicate Business Transaction ID: real, deterministic data-loss race in
 `MemoryBusinessTransactionRepository`. RESOLVED (Option A, as written in D-1 below,
 implemented as written) in the audit-sink/G-1 hardening session that followed the G-13
@@ -639,15 +767,242 @@ repository and manually pre-computing the hash/signature to match: a storage-lay
 not a proof that the actual application-layer service (with its business rules) works, or
 is even reachable by anything. **Decision required, see below.**
 
-**G-6. `packages/receipt` has zero test files.** `"test": "vitest run --passWithNoTests"`
-means this silently succeeds with nothing asserted. Its `ExecutionReceiptBuilder`,
-`ExecutionReceiptVerifier`, and the separate `ExecutionPermit` model it depends on
-(`packages/execution-control`) are exercised only by `examples/tutorials/53` through `56`,
-which are not part of `npm test`. Lower severity than it might look: this whole path is
-already documented (`reference/receipt.mdx`) as disconnected from `packages/runtime` and
-`packages/api`, so its untested state doesn't put anything on the live request path at risk.
-It is, however, real, shipped code with a public export surface and zero automated proof of
-correctness.
+**G-6. `packages/receipt` has zero test files. STALE CLASS NAMES CORRECTED (Phase 3D
+follow-up, in response to an external audit report of `docs/CLAIMS.md` 2.5/2.6 that this
+entry's own inaccuracy helped mislead — see G-26 for the full account).** `"test": "vitest
+run --passWithNoTests"` still means this silently succeeds with nothing asserted — that
+part of this entry remains true. But the class names this entry previously cited,
+`ExecutionReceiptBuilder`, `ExecutionReceiptVerifier`, and the `ExecutionPermit` model in
+`packages/execution-control`, **no longer exist anywhere in this repository** — confirmed
+by repo-wide search, zero hits. They were confirmed to have zero live callers and zero test
+coverage, and were deliberately deleted during the Hybrid Signature Support milestone
+(Phase A); `examples/tutorials/54-execution-receipt/run.ts` and
+`55-execution-receipt-verification/run.ts` each carry their own "historical note" explaining
+the deletion and what each tutorial demonstrates instead today (the real, live
+`ReceiptService`/`application.verify()` path, not the deleted cluster).
+
+**What `packages/receipt` actually contains today:** `ReceiptEngine`
+(`packages/receipt/src/ReceiptEngine.ts`) and `ReceiptBuilder`
+(`ReceiptBuilder.ts`, a thin factory for it) — a *different, smaller* pair of classes than
+this entry originally named, not a renaming of them. `ReceiptEngine.generate()` hashes its
+payload with `crypto.createHash("sha256").update(JSON.stringify(payload))` — a
+stringified-JSON hash, not this codebase's `CanonicalSerializer` discipline every other
+signed artifact uses (Trust Records, Receipts on the live path, Approval Artifacts,
+execution authorizations) — and there is no verifier class in this package at all. Still
+confirmed disconnected: zero references to `ReceiptEngine`/`@parmana/receipt` anywhere
+outside `packages/receipt/src` itself, matching this entry's original "disconnected from
+`packages/runtime` and `packages/api`" finding, still accurate. It remains real, shipped
+code with a public export surface and zero automated proof of correctness — that
+conclusion holds, just for the correct class names.
+
+**Not to be confused with the real, live receipt mechanism**, which is fully implemented,
+wired, and tested: `ReceiptService.generate()` (`packages/runtime/src/services/
+receipt-service.ts`) — called directly by `ExecutionTrustApplication.execute()` on every
+successful execution, after verification — loads the Trust Record, requires the latest
+Verification to have actually succeeded (fail-closed otherwise, `ReceiptGenerationError`),
+computes a hash and signature via `ReceiptCrypto` (`@parmana/crypto`, canonical
+serialization, real Ed25519/hybrid signing), and persists the result via
+`appendReceipt`. Tested by `packages/runtime/tests/integration/receipt.integration.test.ts`
+and `receipt-hybrid.integration.test.ts`. This is what `docs/CLAIMS.md` 2.5's "Signed
+Receipts"/`ReceiptCrypto` citation refers to.
+
+**G-26. External audit of `docs/CLAIMS.md` 2.5/2.6 ("Execution Evidence / Receipt") reported
+"Execution Evidence: Not yet implemented," citing a `TODO` stub. Independently investigated
+and found to be a false positive caused by two genuine, since-fixed sources of confusion in
+this repository itself, not by the underlying claim being false. RESOLVED.**
+
+**What the audit found, verified accurate:** `ExecutionEvidenceComponent`
+(`packages/runtime/src/components/ExecutionEvidenceComponent.ts`, as it existed before this
+entry) contained exactly the `// TODO: Build ExecutionEvidence from enterprise execution
+result.` stub the audit quoted, followed by `return context;` with no evidence built,
+attached, signed, or verified. That description of that specific file was correct.
+
+**What the audit got wrong, and why:** `ExecutionEvidenceComponent` was never wired into
+the runtime pipeline at all — confirmed by repo-wide search: zero references anywhere
+outside its own file, not even in `packages/runtime/src/components/index.ts`'s barrel
+export. `RuntimeFactory.create()` (`packages/runtime/src/RuntimeFactory.ts`) only ever adds
+`TrustChainValidationComponent` and `ExecutionComponent`
+(`packages/runtime/src/components/ExecutionComponent.ts`) as pipeline stages. The real,
+live execution-evidence path is `ExecutionComponent.execute()`, which builds the approved
+request, forwards it to the `ExecutionSystem`, and then calls
+`ExecutionEvidenceBuilder.build(response)` (`packages/runtime/src/
+ExecutionEvidenceBuilder.ts`) — a complete, non-stub implementation that maps a real
+`ExecutionResult` into a real `ExecutionEvidence` (`action`, `target`, `parameters`,
+`success`, `executedAt`, `attributes`) — then persists it via
+`ExecutionService.attachEvidence()` (`packages/runtime/src/services/
+execution-service.ts:86-100`, a real `trustRecords.replaceExecution(...)` write, not a
+no-op). This is the same evidence the Phase 3D certification independently confirmed is
+embedded, hashed, and signed inside the Execution Trust Record
+(`docs/architecture/phase3d-independent-authorization-certification.md` §8), and is
+exercised by `razorpay-live.integration.test.ts`, `hubspot-live.integration.test.ts`, and
+`hubspot-deal-update.integration.test.ts`. A separate, similarly-named class,
+`ReceiptComponent`, has the identical "correctly implemented but not actually wired as a
+pipeline stage" shape (live receipt generation happens via
+`ExecutionTrustApplication.execute()`'s own direct `this.receipts.generate(...)` call, not
+via this component) — not a stub like `ExecutionEvidenceComponent` was, so it did not
+itself mislead this particular audit, but the same class of confusion.
+
+Separately, the same audit's receipt-package findings ("no `ExecutionReceiptBuilder`
+implementation, no `ReceiptEngine` implementation, no verifier implementation, no tests")
+were traced to this document's own **G-6** entry, whose cited class names had gone stale
+after those exact classes were deleted in an earlier session (see G-6's corrected text,
+above) — an external reader citing this document in good faith would reach the same
+mistaken conclusion the audit did.
+
+**Fix, three parts:**
+1. `ExecutionEvidenceComponent.ts` — confirmed dead, not exported from the package's public
+   surface, zero references anywhere — **deleted outright**, removing the exact stub an
+   auditor or a future contributor could otherwise find and mistake for the live path.
+2. `ReceiptComponent.ts` — kept (it remains part of `@parmana/runtime`'s public export
+   surface, `packages/runtime/src/index.ts`, so removing it is a larger compatibility
+   decision than this fix's scope), but given an explicit doc comment stating it is not
+   currently wired as a pipeline stage and naming the actual live invocation path.
+3. G-6 (above) corrected to name this package's actual current classes
+   (`ReceiptEngine`/`ReceiptBuilder`) instead of the deleted ones, and to explicitly
+   distinguish it from the real, tested, live receipt mechanism.
+
+**Verified:** `npx tsc -b` clean after the deletion (confirming no hidden caller existed);
+full regression suite re-run, unchanged pass/fail/skip counts aside from the removed file
+itself.
+
+**G-27. `payments:execute` (vendor-payment) was a gap-in-waiting against the public
+positioning claim "only what you authorize should become real" — real, committed code that
+would have violated that claim had it ever been made a production capability as it then
+existed. RESOLVED by outright removal (below), and the positioning claim itself
+subsequently upgraded to YES by an independent fourth validation pass — see this entry's
+own "Positioning-claim status" paragraph, below, for the full account. Originally
+documented here per the Strategic Positioning source-code validation audit (2026-08-09,
+read-only by its own rules, so this entry was originally that audit's required
+documentation follow-up, not a restatement of new findings).**
+
+**Not a live defect.** `createVendorPaymentConnector.ts:30-32` gates registration to
+`process.env.NODE_ENV === "test"` only; `createConnectorRegistry.ts` skips registering it
+otherwise. This is a real, structural exclusion (independently confirmed by reading the
+gating condition directly, both in the Phase 3D certification and again in the Strategic
+Positioning audit) — `payments:execute` cannot currently be reached through any production
+`POST /execute` or `POST /transactions` request. The reason this still belongs in this
+document: the mechanism excluding it is an environment variable, not a proof that its
+authorization-relevant facts are true — a different, weaker kind of guarantee than every
+other in-scope capability has.
+
+**What exists, and why it's blocked, in full**: already investigated exhaustively in this
+document's own "Investigation (2026-08-04): `vendor-payment` remains genuinely blocked, not
+merely unattempted" entry (above, this same G-24 block) — re-read directly, not
+transcribed, for this entry. Summary: `policies/vendor-payment/2.0.0/policy.json`'s
+`signalsSchema` has five signals (`vendorVerified`, `invoiceVerified`, `paymentApproved`,
+`sufficientFunds`, `riskScore`); only two (`paymentAmount`, `vendorId`) are bound to Intent
+via `boundSignals`. The other five remain pure caller-declared attestations, with **no
+independent verifier anywhere in this codebase** — confirmed again, fresh, by the Strategic
+Positioning audit's own grep sweep. The plausible real-world sources for these facts
+(`SapConnector`, `WorkdayConnector`, `OracleConnector`) are each a bare, write-only
+`MockConnector` with no fetch capability to verify against; `riskScore` has no candidate
+connector at all.
+
+**What would need to be true before this capability could be enabled without contradicting
+the positioning claim**: the same closure work Razorpay (TD-23, Phase 3B) and HubSpot
+(TD-23, Phase 3C) already received — a `SignalStateVerifier` implementation that
+independently re-derives each of the five facts from a real external system and rejects on
+any disagreement with the caller's declared value, wired unconditionally into production
+the way `RazorpaySignalStateVerifier`/`HubSpotSignalStateVerifier` are. This is **not**
+attempted here — it requires building genuine external integrations (a KYB/vendor-
+verification service, an AP/invoice-matching system, an approval-workflow system, a
+treasury/balance API, a risk-scoring service) that do not exist in this repository in any
+form today, a real feature-scoping decision for a future phase, not a documentation task.
+**No code was changed for vendor-payment by this entry or the audit that prompted it.**
+
+**Cross-reference audit, confirmed clean:** checked `docs/CLAIMS.md` for any claim that
+`payments:execute`/vendor-payment would contradict. None found — 2.23's own text already
+scopes the "CLAIM FULLY CERTIFIED" result to `razorpay:refund-create`/`hubspot:deal-update`
+explicitly and names vendor-payment as out of scope "for that reason, not because it was
+overlooked"; 3.3's scope clause already disclaims "any enterprise-specific connector"; no
+claim anywhere states or implies repository-wide signal-verification coverage. No narrowing
+edit to `CLAIMS.md` was needed as a result of this entry.
+
+**RESOLVED by removal, not by independent verification.** Decision: `payments:execute`/
+vendor-payment was never on the roadmap as a real capability, so building the independent
+`SignalStateVerifier` work described above (a real feature-scoping project) was rejected in
+favor of removing the capability outright — the gap can't exist if the capability doesn't.
+Removed: `packages/connector-sdk/src/connectors/vendor-payment/` (the `VendorPaymentConnector`
+class and its metadata — confirmed orphaned, zero live callers, predating even this fix),
+`packages/api/src/bootstrap/createVendorPaymentConnector.ts` (the `NODE_ENV === "test"`-gated
+factory this entry's own opening paragraph cited), `packages/api/src/bootstrap/
+createCredentialProvider.ts` (its dedicated, single-purpose credential provider — confirmed
+to have had exactly one caller, the registration block below), the vendor-payment
+registration block inside `createConnectorRegistry.ts`, and the now-meaningless
+`"vendor-payment"` entry from `createConnectorAuthenticator.ts`'s trusted Gateway-attestation
+identity list. `payments:execute` now has no connector to resolve to **in any environment**,
+not only outside `NODE_ENV=test` — confirmed by a new regression test asserting exactly
+this (`create-connector-registry.test.ts`, "payments:execute has no connector to resolve to
+in any environment").
+
+**Deliberately not removed**: `policies/vendor-payment/2.0.0/policy.json` and the shared
+test fixtures (`packages/api/tests/fixtures/{business-transaction,policies}.ts`) that use it
+as their generic default example — investigation found these are load-bearing shared
+infrastructure for 19+ unrelated test files (caller-auth, credential-isolation, receipts,
+replay, trust records, verification, and others that have nothing to do with vendor-payment
+as a business capability), not vendor-payment-specific testing. The policy file's continued
+existence carries no execution risk with zero connector able to back it — a caller
+presenting `intent.action: "payments:execute"` still cannot cause any real-world effect,
+regardless of policy outcome, because `ConnectorSdkRegistry.resolveCapability` fails closed
+with "No connector registered for capability" before any connector dispatch is possible.
+Migrating the shared fixtures away from the vendor-payment name entirely was considered and
+explicitly declined as disproportionate to the actual risk (none) for this pass — flagged
+here, not silently decided.
+
+**Positioning-claim status, confirmed by the fourth validation pass.** "Only authorized
+actions become execution" no longer has a capability-shaped exception. This entry
+documented the removal but deliberately did not itself re-certify the positioning claim —
+that re-certification has since happened: a fourth, independent Strategic Positioning
+validation pass, run fresh with no reliance on this entry's own conclusions, re-traced the
+production connector registry from source, re-confirmed `payments:execute` has no connector
+to resolve to in any environment, independently scrutinized the replacement test-only
+connector for new bypass risk (found none), and upgraded the executive verdict from
+PARTIALLY SUPPORTED to **SUPPORTED BY IMPLEMENTATION — YES**. Full record, including the
+precise honesty constraint on what was and wasn't re-verified in that pass (2 of 10 negative
+tests re-run fresh; multi-tenant isolation and the direct-database-write bypass finding left
+as "unchanged, not re-traced"): `docs/architecture/strategic-positioning-validation.md` §6
+("Final Answer") and "Verdict History"; also cited in `docs/CLAIMS.md` §2.25.
+
+**Verified**: `npx tsc -b --force` clean; full regression suite re-run (see this session's
+own record for exact pass/skip counts, unchanged aside from the tests removed/updated for
+this capability specifically).
+
+**G-28. `PARMANA_AUTH_DISABLED=true`'s exact scope, precisely documented (previously
+undocumented in either `CLAIMS.md` or this file, despite `CLAIMS.md` 2.16/2.17 already
+citing the flag by name).** Flagged by the Strategic Positioning source-code validation
+audit (2026-08-09) as a real, disclosed bypass path that needed its precise scope stated
+somewhere, rather than left implicit — "don't let this get flattened into either
+overstating or understating the risk" was that audit's own framing, and it is the right bar
+to document against.
+
+**What the flag does, confirmed directly:** `createCallerAuthenticator.ts:31-39`
+(`packages/api/src/bootstrap/`) returns `{ disabled: true }` when `config.auth.disabled` is
+set, after printing a loud, unmissable startup warning ("WARNING: PARMANA_AUTH_DISABLED=true.
+The API is accepting requests with no caller authentication. This must never be set in a
+real deployment."). Default behavior remains fail-closed: with no keys configured and this
+flag unset, the process refuses to start at all (same file, lines 41-48) — the flag is the
+only way around that refusal, and it is opt-in, never a silent fallback.
+
+**What the flag does NOT do, confirmed directly:** `RuntimeEngine`, `PolicyEngine`,
+`CapabilityPolicyBinder`, `SignalIntentBinder`, and every `SignalStateVerifier` operate on
+the constructed `BusinessTransaction` object only — none of them ever reads the Express
+`Request` object, `req.callerId`, or anything caller-auth-middleware-derived (confirmed by
+direct grep of `RuntimeEngine.ts`/`PolicyEngine.ts`/`SignalIntentBinder.ts`/
+`CapabilityPolicyBinding.ts` for any reference to caller identity: zero hits). The
+caller-auth middleware and the action-level authorization pipeline are two structurally
+separate mechanisms with no dependency between them. Setting `PARMANA_AUTH_DISABLED=true`
+therefore removes **caller identity and accountability** (who submitted this request,
+whether they're allowed to assert the `authority.principalId` they declared, per
+`isPrincipalAllowed.ts`) — it does **not** remove **action-level authorization**
+(`CapabilityPolicyBinder`, `SignalIntentBinder`, `PolicyEngine.evaluate`,
+`SignalStateVerifier`, `ExecutionGate.enforce`), which remain fully active and would still
+reject an unauthorized `razorpay:refund-create`/`hubspot:deal-update` request exactly as
+they do with caller-auth enabled.
+
+**Precise statement for any future doc referencing this flag:** "`PARMANA_AUTH_DISABLED`
+disables caller identity/accountability only; it does not disable action-level
+authorization." Neither "auth can be fully disabled" nor silent omission of the flag
+correctly describes current behavior — both were considered and rejected for this entry.
 
 **G-7. `execution-failure.integration.test.ts` is permanently `describe.skip`ped**, not
 env-gated. `RuntimeFactory` always constructs its own `DefaultExecutionSystem` internally,

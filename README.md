@@ -55,6 +55,7 @@ What's actually been demonstrated, not just built:
 - **Deployed on public infrastructure**, reachable, with caller authentication enforced at every route except health checks ([CLAIMS.md 3.8](docs/CLAIMS.md)).
 - **A live-mode, real-money refund**, created, delivered by Razorpay's own webhook infrastructure, fetch-verified, and settled into a signed confirmation in about 43 seconds end to end ([CLAIMS.md 3.9](docs/CLAIMS.md)).
 - Assessed at **Technology Readiness Level 7**, system prototype demonstration in an operational environment, on the strength of the two points above ([CLAIMS.md, Maturity Assessment](docs/CLAIMS.md)).
+- **Independently source-code-validated**, not merely documented: a from-scratch audit checked whether an action can become real-world execution without satisfying institutional authorization, for every capability this system exposes and regardless of what kind of system requests it (AI agent, human, or otherwise) — tracing the actual execution path rather than trusting function names or comments. Verdict: **directly validated**, for the capabilities currently registered in production, with precisely scoped caveats stated alongside the result, not smoothed over ([docs/architecture/strategic-positioning-validation.md](docs/architecture/strategic-positioning-validation.md)).
 
 ## Architecture
 

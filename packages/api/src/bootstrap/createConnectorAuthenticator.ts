@@ -28,9 +28,9 @@ export function createConnectorAuthenticator(): RequestBoundConnectorAuthenticat
     publicKey,
     [
       {
-        connectorId: "vendor-payment",
+        connectorId: "test-fixture",
         publicIdentity:
-          "spiffe://parmana/connectors/vendor-payment",
+          "spiffe://parmana/connectors/test-fixture",
         authenticationMetadata: {},
       },
       {

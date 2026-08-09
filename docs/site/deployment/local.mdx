@@ -27,7 +27,9 @@ PARMANA_GATEWAY_KEY_ID=gateway       # optional, defaults to "gateway"
 TRUST_PROFILE=v1
 LOG_LEVEL=...                # read into config; no logger currently consumes it, see Roadmap
 PARMANA_POLICY_DIR=...
-VENDOR_PAYMENT_TOKEN=...     # credential for the one wired connector, see below
+RAZORPAY_KEY_ID=...          # credential for the razorpay connector, omit to leave it unregistered
+RAZORPAY_KEY_SECRET=...
+HUBSPOT_PRIVATE_APP_TOKEN=...  # credential for the hubspot connector, omit to leave it unregistered
 PARMANA_API_KEYS=...         # required, fails closed if unset, see Authentication
 ```
 
@@ -45,7 +47,6 @@ env var) without touching `default.*.pem` at all.
 NODE_ENV=test \
   PARMANA_STORAGE=memory \
   PARMANA_POLICY_DIR=/absolute/path/to/policies \
-  VENDOR_PAYMENT_TOKEN=quickstart-demo-token \
   PARMANA_API_KEYS='[{"callerId":"demo","keyHash":"325ededd6c3b9988f623c7f964abb9b016b76b0f8b3474df0f7d7c23b941381f"}]' \
   npm run dev
 ```
@@ -76,7 +77,9 @@ skips needing this key.
   fleet-wide (CLAIMS.md 3.2). Outside `NODE_ENV=test`, `SupabaseNonceStore` is durable and
   shared across replicas pointed at the same Supabase project, but this deployment shape is
   still one process behind no load balancer.
-- **Only one connector registered.** `vendor-payment`, a reference mock. See [The
+- **Zero connectors registered by default.** `razorpay` and `hubspot` each register only
+  when their respective credentials are configured
+  (`RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET`, `HUBSPOT_PRIVATE_APP_TOKEN`). See [The
   gateway](/concepts/the-gateway) for what adding another requires today.
 
 ## Node version

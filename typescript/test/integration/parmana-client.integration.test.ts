@@ -4,9 +4,10 @@
  * Real-server integration test.
  *
  * Boots the actual @parmana/api Express application (real
- * StaticKeyAuthenticator, real PolicyEngine, real vendor-payment
- * connector, real Ed25519 signing via the hermetic keys vitest.setup.ts
- * generates), binds it to a real OS-assigned TCP port, and drives it
+ * StaticKeyAuthenticator, real PolicyEngine, the real, NODE_ENV=test-only
+ * generic test-fixture connector (createTestFixtureConnector.ts), real
+ * Ed25519 signing via the hermetic keys vitest.setup.ts generates), binds
+ * it to a real OS-assigned TCP port, and drives it
  * with the real ParmanaClient/HttpTransport over real HTTP — not
  * supertest, not a mock. This is what "verified against a real local
  * parmana-exp instance" means for this SDK.
@@ -104,7 +105,11 @@ function buildTransaction(
     intent: {
       intentId,
       authorizationId,
-      action: "payments:execute",
+      // test:fixture-execute (not payments:execute/vendor-payment, removed
+      // per docs/VERIFICATION-GAPS.md G-27) -- registered only when
+      // NODE_ENV=test (createTestFixtureConnector.ts). Still governed by
+      // the unchanged vendor-payment/2.0.0 policy below.
+      action: "test:fixture-execute",
       target,
       parameters: { amount: paymentAmount, currency: "USD" },
       createdAt: now,
@@ -136,8 +141,6 @@ beforeAll(async () => {
   process.env.PARMANA_POLICY_DIR = fileURLToPath(
     new URL("../../../policies", import.meta.url),
   );
-
-  process.env.VENDOR_PAYMENT_TOKEN = "ts-sdk-integration-test-token";
 
   const executionSystem = createExecutionSystem();
   const application = createApplication(executionSystem);

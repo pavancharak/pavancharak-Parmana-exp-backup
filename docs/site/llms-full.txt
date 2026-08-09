@@ -582,7 +582,7 @@ Source: `/glossary`. Every term used across the docs site, mapped to its real so
 | **`businessTransactionHash`** | The canonical content hash bound into a Signed Execution Authorization's payload; the mechanism that closes the check-vs-use (TOCTOU) gap | `/concepts/content-binding-toctou` |
 | **Execution Gateway** | The sole boundary that recomputes `businessTransactionHash` and releases verified content to a Connector | `/concepts/the-gateway` |
 | **Gateway Attestation** | A request-bound signature proving the gateway itself, not just the policy engine, released one specific request | `/concepts/gateway-attestation` |
-| **Connector** | An interface for an enterprise execution system integrated behind the Gateway. `vendor-payment` (a `MockConnector`) registers unconditionally in the default server; `razorpay` registers alongside it whenever `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are configured | `packages/api/src/bootstrap/createConnectorRegistry.ts` |
+| **Connector** | An interface for an enterprise execution system integrated behind the Gateway. `razorpay` registers whenever `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are configured; `hubspot` registers alongside it whenever `HUBSPOT_PRIVATE_APP_TOKEN` is configured. A third connector, `vendor-payment`, was previously registered unconditionally in the default server; it has since been removed from the repository entirely | `packages/api/src/bootstrap/createConnectorRegistry.ts` |
 | **Nonce** | A single-use value inside an authorization payload; a receiving system must reject a repeat | `/concepts/execution-authorization` |
 | **Verification** | The 3-check process (integrity, signature, authorization binding) confirming an Execution Trust Record's validity | `/verification/overview` |
 | **Receipt** | A signed, independently-verifiable attestation of an Execution Trust Record's state | `packages/shared/src/domain/receipt.ts` |
@@ -812,7 +812,8 @@ Previously 9 files, 0 bytes each. Now 103 tests: unit tests for every error-mapp
 unit tests for the three newly-added methods (`test/NewApiMethods.test.ts`), and an integration
 suite (`test/integration/parmana-client.integration.test.ts`) that boots the actual `@parmana/api`
 Express application — real `StaticKeyAuthenticator`, real `PolicyEngine`, real Ed25519 signing,
-real `vendor-payment` connector — on a real OS-assigned TCP port and drives it with the real
+the real, `NODE_ENV=test`-only generic test-fixture connector (`createTestFixtureConnector.ts`,
+successor to the now-removed `vendor-payment`) — on a real OS-assigned TCP port and drives it with the real
 `ParmanaClient` over real HTTP: a real `401`, a real `403`, a real `400`, a real policy rejection,
 a real `404`, a real `409` duplicate, plus `version()`, `verify()`, and `createTransaction()`
 exercised against real responses.
@@ -844,13 +845,16 @@ Not "not yet" items — no implementation could honestly back these, unscoped:
 ### Scoped claims, not absent ones
 
 - **Envelope verification is non-bypassable only for a system that runs it.** The default server
-  does, for the one connector it registers. A system built independently that doesn't call
+  does, for whichever connectors it registers (`razorpay`, `hubspot`, each conditional on its
+  credentials being configured). A system built independently that doesn't call
   `@parmana/envelope-verifier` gets none of this.
 - **Single-use is scoped to whichever `NonceStore` instance checks it.** Independent gateway
   instances, each with their own `MemoryNonceStore`, can each accept the same authorization once,
   not once fleet-wide.
-- **Credential isolation is proven for one connector, `vendor-payment`.** The mechanism is generic
-  and tested, but reaching a second connector today is a bootstrap code change, not something the
+- **Credential isolation is proven for the two connectors registered in production today,
+  `razorpay` and `hubspot`.** (Previously proven only for `vendor-payment`, a reference connector
+  since removed from the repository entirely, not merely superseded.) The mechanism is generic
+  and tested, but reaching a *third* connector today is a bootstrap code change, not something the
   architecture does automatically.
 
 ### Mocks are labeled as mocks

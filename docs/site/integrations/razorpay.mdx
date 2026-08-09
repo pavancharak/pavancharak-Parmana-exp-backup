@@ -6,9 +6,10 @@ description: "The one real, money-moving connector in this codebase. Policy-gate
 <Info>
 **[AVAILABLE]**, test mode and live mode both proven end to end against a real, deployed
 Razorpay account. `packages/connector-sdk/src/connectors/razorpay/`,
-`packages/api/src/webhooks/`, `docs/CLAIMS.md` §3.4 through §3.9. This is the only connector
-in this codebase that talks to a real external system, everything else registered by default
-(`vendor-payment`) or offered as a reference (SAP, Salesforce, Workday, Oracle) is a mock, see
+`packages/api/src/webhooks/`, `docs/CLAIMS.md` §3.4 through §3.9. This is one of the two
+connectors in this codebase that talk to a real external system (the other is
+[HubSpot](/integrations/hubspot)); everything else offered as a reference (SAP, Salesforce,
+Workday, Oracle) is a mock, and no other capability registers by default at all, see
 [The gateway](/concepts/the-gateway).
 </Info>
 

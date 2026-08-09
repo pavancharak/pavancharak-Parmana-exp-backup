@@ -110,7 +110,12 @@ trust_record = client.execution.execute(transaction)     # POST /execute
 trust_record = client.trust_records.get(transaction_id)  # GET /trust-records/:id
 ```
 
-Real example, captured from a live local run (2026-07-12), trimmed:
+Captured from a live local run (2026-07-12), trimmed, against the transaction as it existed
+then. **The `action`/`connectorId`/`capability` fields below reflect `payments:execute`
+(vendor-payment), which has since been removed from the repository entirely — see
+`docs/VERIFICATION-GAPS.md` G-27 in the source repository — not re-captured against a live
+run for this update; illustrative of the shape, not a value you'll reproduce running
+`test:fixture-execute` or a real connector today:**
 
 ```json
 {

@@ -59,7 +59,14 @@ def main() -> None:
         intent=Intent(
             intent_id="intent-001",
             authorization_id="authorization-001",
-            action="payments:execute",
+            # test:fixture-execute, not payments:execute: payments:execute
+            # (vendor-payment) was removed from the repository entirely, not
+            # renamed (docs/VERIFICATION-GAPS.md G-27). test:fixture-execute
+            # is a generic, test-only connector (NODE_ENV=test only,
+            # createTestFixtureConnector.ts) that plays the same
+            # zero-external-dependency role vendor-payment used to for this
+            # example.
+            action="test:fixture-execute",
             target="vendor://payments",
             parameters={
                 "amount": 1000,
@@ -67,6 +74,9 @@ def main() -> None:
             },
             created_at=now,
         ),
+        # Still governed by the vendor-payment/2.0.0 policy, kept unchanged
+        # as generic example content -- policy content and capability
+        # identity are independent concepts in this architecture.
         policy=PolicyReference(
             name="vendor-payment",
             version="2.0.0",

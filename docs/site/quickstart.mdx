@@ -4,19 +4,26 @@ description: "Install to your first authorized execution in under 10 minutes, us
 ---
 
 <Info>
-**[AVAILABLE]**, every command below was re-run against a live local server on 2026-07-29
-(commit `0e69ed4`), including `python/examples/quickstart/run.py` itself.
+**[AVAILABLE]**, commands re-run against a live local server on 2026-07-29 (commit
+`0e69ed4`), including `python/examples/quickstart/run.py` itself. **Updated (2026-08-09,
+not re-run live as part of this specific update):** the example capability below was
+changed from `payments:execute` to `test:fixture-execute` because `payments:execute`
+(vendor-payment) was removed from the repository entirely, not merely renamed — see the
+note in step 6. The code below was checked against current source for accuracy, but this
+specific pass did not itself start a live server and re-capture output; treat step 7's
+captured hash as illustrative of the shape of a real response, not a value you'll
+reproduce.
 </Info>
 
 <Warning>
-**Step 6's transaction now declares a `vendorId` signal it didn't need before.**
-`vendor-payment@2.0.0` declares `boundSignals: { "vendorId": "target" }`
+**Step 6's transaction declares a `vendorId` signal.**
+`vendor-payment@2.0.0` (the policy still governing this example, see the note in step 6)
+declares `boundSignals: { "vendorId": "target" }`
 (see [Policies and the decision](/concepts/policies-and-the-decision)):
 `SignalIntentBinder` rejects any transaction where a declared signal doesn't
 exactly match its bound `intent` field, checked before policy evaluation
 ever runs. This closed a real, previously live bypass — see [Security](/security/overview)
-for what it was. Before this fix, this same request executed successfully
-without `vendorId`; it no longer does.
+for what it was.
 </Warning>
 
 ## 1. Install dependencies
@@ -50,15 +57,17 @@ required: `PARMANA_STORAGE=memory` alone only affects where Business Transaction
 Records are stored, two other components, the Execution Gateway's replay-nonce store
 (`createNonceStore.ts`) and the caller-authentication audit trail
 (`createCallerAuditSink.ts`), independently default to Supabase outside `NODE_ENV=test` and
-will fail closed against this repo's demo Supabase credentials otherwise. The one connector
-wired into the default server, `vendor-payment`, is a reference mock that reads its
-credential from an environment variable, set a placeholder value for it:
+will fail closed against this repo's demo Supabase credentials otherwise. With
+`NODE_ENV=test`, a generic, test-only connector (`test-fixture`,
+`packages/api/src/bootstrap/createTestFixtureConnector.ts`) registers automatically, no
+credential environment variable required — unlike the two real connectors this server can
+also register (`razorpay`, `hubspot`), which need real API credentials and are not this
+walkthrough's subject:
 
 ```bash
 NODE_ENV=test \
   PARMANA_STORAGE=memory \
   PARMANA_POLICY_DIR=/absolute/path/to/policies \
-  VENDOR_PAYMENT_TOKEN=quickstart-demo-token \
   npm run dev
 ```
 
@@ -121,7 +130,6 @@ only, never in a real deployment, see [Authentication](/api-reference/authentica
 NODE_ENV=test \
   PARMANA_STORAGE=memory \
   PARMANA_POLICY_DIR=/absolute/path/to/policies \
-  VENDOR_PAYMENT_TOKEN=quickstart-demo-token \
   PARMANA_AUTH_DISABLED=true \
   npm run dev
 ```
@@ -166,9 +174,19 @@ transaction = BusinessTransaction(
     ),
     intent=Intent(
         intent_id="intent-001", authorization_id="authorization-001",
-        action="payments:execute", target="vendor://payments",
+        # test:fixture-execute, not payments:execute: payments:execute
+        # (vendor-payment) was removed from the repository entirely, not
+        # renamed. This capability is a generic, test-only connector
+        # (createTestFixtureConnector.ts) that plays the same "zero
+        # external dependency" role vendor-payment used to for this
+        # walkthrough — it is not a product feature to build against.
+        action="test:fixture-execute", target="vendor://payments",
         parameters={"amount": 1000, "currency": "USD"}, created_at=now,
     ),
+    # Still governed by the vendor-payment/2.0.0 policy, kept unchanged as
+    # generic example content even though the capability name above
+    # changed — policy content and capability identity are independent
+    # concepts in this architecture (see [Policies and the decision](/concepts/policies-and-the-decision)).
     policy=PolicyReference(name="vendor-payment", version="2.0.0", schema_version="1.0.0"),
     signals={
         "vendorVerified": True, "invoiceVerified": True, "paymentApproved": True,
@@ -187,18 +205,21 @@ print(trust_record.trust_record_hash)
 ```
 
 Full runnable version: `python/examples/quickstart/run.py`, this is the same transaction it
-sends.
+sends (updated to match this page; syntax-checked, not re-run against a live server as part
+of this pass).
 
 ## 7. Real output
 
-Captured from an actual run, 2026-07-29 (IDs and hashes differ on every run):
+Captured from an actual run, 2026-07-29, **against the transaction as it existed then**
+(`action: "payments:execute"`, before that capability was removed — see step 6's note; IDs
+and hashes differ on every run regardless):
 
 ```
 Trust Record Hash: 1a3130a6874c81cb9c178c2d14a96aa8c4104c19f71f63ca9d272196c819eb5a
 ```
 
 The full `ExecutionTrustRecord` includes the `signature` block, `executions[0].decision`
-(`outcome: APPROVED`, evaluated by the `vendor-payment` policy), `executions[0].evidence`
+(`outcome: APPROVED`, evaluated by the `vendor-payment` policy, unchanged), `executions[0].evidence`
 (what the connector actually did, including a `connectorEvidenceHash`), and an initial
 `verifications` / `receipts` history. See [Trust Record](/concepts/execution-trust-records) for the
 complete shape.

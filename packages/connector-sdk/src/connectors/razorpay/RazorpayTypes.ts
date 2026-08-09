@@ -7,6 +7,8 @@
  * verified-against-mock-only in the connector itself, not here.
  */
 
+import { createHash } from "node:crypto";
+
 export type RazorpayPaymentStatus =
   | "created"
   | "authorized"
@@ -70,7 +72,14 @@ export function isRazorpayCredentialValue(value: unknown): value is RazorpayCred
   return typeof candidate.keyId === "string" && typeof candidate.keySecret === "string";
 }
 
-/** Redacted form of a Razorpay key_id safe to place in receipts: first 8 chars plus ellipsis. */
+/**
+ * One-way fingerprint of a Razorpay key_id, safe to place in receipts and
+ * caller-visible execution evidence: a truncated SHA-256 digest, never a
+ * literal substring of the credential. Lets an operator confirm "the same
+ * key_id was used across these executions" (e.g. to spot a mid-day
+ * credential rotation) without any credential byte ever reaching a
+ * caller-facing surface (Phase 3D certification, Property A finding).
+ */
 export function redactRazorpayKeyId(keyId: string): string {
-  return `${keyId.slice(0, 8)}...`;
+  return `fp_${createHash("sha256").update(keyId).digest("hex").slice(0, 12)}`;
 }

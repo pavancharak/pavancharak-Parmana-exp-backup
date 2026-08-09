@@ -6,8 +6,9 @@ import type { HubSpotDeal } from "./HubSpotTypes.js";
 
 /**
  * Receipt for one HubSpot deal-update request, approved or denied. Never
- * contains privateAppToken. bearerRedacted, if present, is redacted to
- * its first 12 characters plus an ellipsis.
+ * contains privateAppToken. bearerRedacted, if present, is a one-way
+ * SHA-256 fingerprint (see redactHubSpotToken), never a literal
+ * substring of the token.
  */
 export interface HubSpotDealUpdateReceipt {
   readonly version: 1;

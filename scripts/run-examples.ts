@@ -115,7 +115,6 @@ const examples = [
   "examples/tutorials/93-trust-record-ordering/run.ts",
   "examples/tutorials/94-sdk-http-transport/run.ts",
   "examples/tutorials/95-approval-verifier-generic/run.ts",
-  "examples/scenarios/vendor-payment/run.ts",
   "examples/scenarios/expense-approval/run.ts",
   "examples/scenarios/purchase-order/run.ts",
 ];

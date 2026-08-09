@@ -46,9 +46,28 @@ const HYPOTHETICAL_EXAMPLE_PATHS = new Set([
   "packages/api/src/routes/admin-replay.ts",
 ]);
 
+/**
+ * Paths that were real when cited, describing a genuine historical fact
+ * (unlike HYPOTHETICAL_EXAMPLE_PATHS above, which were never real), but
+ * whose subject was later deliberately removed rather than renamed or
+ * fixed. The doc's own narrative is the historical record of what was
+ * true at the time and why it changed — rewriting the citation itself
+ * would falsify that record. `payments:execute`/vendor-payment was
+ * removed outright, not independently verified (docs/VERIFICATION-GAPS.md
+ * G-27) — `createVendorPaymentConnector.ts` and its dedicated credential
+ * provider no longer exist anywhere in this repository.
+ */
+const HISTORICALLY_REAL_NOW_REMOVED_PATHS = new Set([
+  "packages/api/src/bootstrap/createVendorPaymentConnector.ts",
+]);
+
 function extractReferencedPaths(content: string): string[] {
   const matches = [...content.matchAll(PATH_PATTERN)].map((m) => m[1]!);
-  return [...new Set(matches)].filter((path) => !HYPOTHETICAL_EXAMPLE_PATHS.has(path));
+  return [...new Set(matches)].filter(
+    (path) =>
+      !HYPOTHETICAL_EXAMPLE_PATHS.has(path) &&
+      !HISTORICALLY_REAL_NOW_REMOVED_PATHS.has(path),
+  );
 }
 
 describe("documentation file references resolve to real files", () => {

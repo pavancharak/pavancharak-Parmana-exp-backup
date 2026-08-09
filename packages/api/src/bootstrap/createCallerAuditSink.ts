@@ -9,10 +9,8 @@ import { assertDatabaseUrlConfigured } from "./assertDatabaseUrlConfigured.js";
 /**
  * Creates the CallerAuditSink used by the caller-auth middleware.
  *
- * Test wiring (NODE_ENV=test): InMemoryCallerAuditSink — mirrors the
- * production/test split createCredentialProvider.ts already
- * established for the vendor-payment connector credential, and now
- * createNonceStore.ts's own split for the same reason.
+ * Test wiring (NODE_ENV=test): InMemoryCallerAuditSink — mirrors
+ * createNonceStore.ts's own production/test split for the same reason.
  *
  * Production: SupabaseCallerAuditSink, a durable audit trail. Closes
  * G-13 (docs/VERIFICATION-GAPS.md): caller-authentication events no

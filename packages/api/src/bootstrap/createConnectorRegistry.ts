@@ -2,8 +2,6 @@ import {
   CryptoBootstrap,
 } from "@parmana/crypto";
 
-import { createCredentialProvider } from "./createCredentialProvider.js";
-
 import {
   createGatewayConnectorRegistry,
   type GatewayConnectorRegistration,
@@ -11,6 +9,7 @@ import {
 
 import {
   RazorpayMetadata,
+  StaticCredentialProvider,
 } from "@parmana/connector-sdk";
 
 import type {
@@ -24,12 +23,12 @@ import {
   InMemoryGatewaySessionStore,
 } from "@parmana/execution-control";
 
-import { createVendorPaymentConnector } from "./createVendorPaymentConnector.js";
 import { createRazorpayConnector } from "./createRazorpayConnector.js";
 import { createRazorpayCredentialProvider } from "./createRazorpayCredentialProvider.js";
 import { HubSpotMetadata } from "@parmana/connector-hubspot";
 import { createHubSpotConnector } from "./createHubSpotConnector.js";
 import { createHubSpotCredentialProvider } from "./createHubSpotCredentialProvider.js";
+import { createTestFixtureConnector } from "./createTestFixtureConnector.js";
 
 /**
  * Creates the production connector registry.
@@ -50,24 +49,15 @@ export function createConnectorRegistry(
 
   const crypto = CryptoBootstrap.create();
 
-  const connector = createVendorPaymentConnector();
+  const testFixtureConnector = createTestFixtureConnector();
 
-  if (connector === undefined) {
-    console.warn({
-      event: "vendor_payment_connector_unavailable",
-      reason:
-        "No real vendor-payment implementation exists outside NODE_ENV=test; " +
-        "payments:execute is not registered in production rather than being " +
-        "served by MockConnector (Phase 2A — see " +
-        "docs/architecture/phase2a-production-connectors.md).",
-    });
-  } else {
+  if (testFixtureConnector !== undefined) {
     registrations.push({
-      connector,
+      connector: testFixtureConnector,
 
       metadata: {
-        connectorId: "vendor-payment",
-        displayName: "Vendor Payment",
+        connectorId: "test-fixture",
+        displayName: "Test Fixture",
         version: {
           major: 1,
           minor: 0,
@@ -80,20 +70,16 @@ export function createConnectorRegistry(
       },
 
       connectorIdentity: {
-        connectorId: "vendor-payment",
-        publicIdentity:
-          "spiffe://parmana/connectors/vendor-payment",
+        connectorId: "test-fixture",
+        publicIdentity: "spiffe://parmana/connectors/test-fixture",
         authenticationMetadata: {},
       },
 
-      credentialProvider:
-        createCredentialProvider(),
+      credentialProvider: new StaticCredentialProvider({
+        "test-fixture": { token: "test-fixture-token" },
+      }),
 
-      policy:
-        new DefaultConnectorPolicy(
-          authenticator,
-          sessions,
-        ),
+      policy: new DefaultConnectorPolicy(authenticator, sessions),
 
       gatewayAuthentication,
 

@@ -10,6 +10,8 @@
  * touched.
  */
 
+import { createHash } from "node:crypto";
+
 /**
  * Deal properties this milestone is allowed to read or write. HubSpot's
  * API returns every property value as a string regardless of the
@@ -69,7 +71,16 @@ export function isHubSpotCredentialValue(value: unknown): value is HubSpotCreden
   return typeof candidate.privateAppToken === "string" && candidate.privateAppToken.length > 0;
 }
 
-/** Redacted form of a HubSpot Private App token safe to place in receipts: first 12 chars plus ellipsis. */
+/**
+ * One-way fingerprint of a HubSpot Private App token, safe to place in
+ * receipts and caller-visible execution evidence: a truncated SHA-256
+ * digest, never a literal substring of the token. For HubSpot the bearer
+ * token *is* the entire credential, so a literal prefix (the prior
+ * implementation) would leak genuine credential bytes; a fingerprint lets
+ * an operator confirm "the same token was used across these executions"
+ * without any credential byte ever reaching a caller-facing surface
+ * (Phase 3D certification, Property A finding).
+ */
 export function redactHubSpotToken(token: string): string {
-  return `${token.slice(0, 12)}...`;
+  return `fp_${createHash("sha256").update(token).digest("hex").slice(0, 12)}`;
 }

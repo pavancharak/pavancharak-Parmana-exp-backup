@@ -203,22 +203,31 @@ paths:
         documented here because the spec must describe the API as implemented.
 
 
-        `razorpay:refund-create` and `razorpay:payment-fetch` are a second
-        pair of registered capabilities reachable through this same endpoint
-        by the identical capability-based routing mechanism as
-        `payments:execute` — see the razorpay-refund-flow example below.
-        Unlike `payments:execute`, this capability is registered
-        conditionally: if `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are not
-        configured, the connector is never registered and this action falls
-        into the "no Connector registered" case documented under 500 below.
-        The response body shape for an approved razorpay-refund-flow request
-        is structurally identical to the vendor-payment-flow response
-        (execution-trust-record-response.schema.json) — its execution's
-        evidence.attributes.connector.connectorId is "razorpay" and
-        capability is "razorpay:refund-create" rather than "vendor-payment" /
-        "payments:execute". See
+        `razorpay:refund-create` and `razorpay:payment-fetch` are the real,
+        currently-registered capabilities reachable through this same
+        endpoint by this capability-based routing mechanism today — see the
+        razorpay-refund-flow example below. Registration is conditional: if
+        `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are not configured, the
+        connector is never registered and this action falls into the "no
+        Connector registered" case documented under 500 below. `hubspot`'s
+        capabilities are reachable the same way, conditional on
+        `HUBSPOT_PRIVATE_APP_TOKEN`. See
         packages/api/tests/integration/razorpay-refund.integration.test.ts
-        for the executable, real-request proof of this flow.
+        for the executable, real-request proof of the razorpay flow.
+
+
+        **`payments:execute` (`vendor-payment`), shown in the
+        vendor-payment-flow example below, was removed from the repository
+        entirely** — see docs/VERIFICATION-GAPS.md G-27 in the source repo.
+        That example is a real request/response pair captured before the
+        removal; resubmitting it against a current server no longer produces
+        the shown APPROVED result; it falls into the "no Connector
+        registered" case instead, since no connector — production or test —
+        registers `payments:execute` any longer. It is retained here as a
+        real, historical illustration of the response shape, not as a
+        currently-runnable example. The `vendor-payment/2.0.0` policy file
+        itself is unaffected and still loads (see PolicyValidate below); only
+        the connector that would have executed against it is gone.
       requestBody:
         required: true
         content:

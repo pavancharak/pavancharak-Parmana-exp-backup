@@ -58,9 +58,9 @@ class RazorpayEnvironmentCredentialProvider implements CredentialProvider {
  * documented in .env.example and read directly, with no intermediate
  * bridge variable (a prior TEST_RAZORPAY_KEY_ID/SECRET naming here,
  * word-order-swapped from the documented .env names, depended entirely
- * on call sites remembering to copy one into the other). Mirrors
- * createCredentialProvider.ts's existing vendor-payment test/production
- * split.
+ * on call sites remembering to copy one into the other). Mirrors the
+ * same test/production split every credential provider in this
+ * directory uses.
  *
  * Production: RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET. If either is
  * unset, this returns undefined rather than a partially-configured

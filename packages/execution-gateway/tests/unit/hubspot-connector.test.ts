@@ -5,6 +5,7 @@ import {
   HUBSPOT_DEAL_UPDATE_CAPABILITY,
   HUBSPOT_TEST_MODE_PLACEHOLDER_TOKEN,
   MockHubSpotServer,
+  redactHubSpotToken,
   type HubSpotDeal,
 } from "@parmana/connector-hubspot";
 import {
@@ -250,7 +251,7 @@ describe("GatewayHubSpotAdapter", () => {
     expect((caught as Error).message).not.toContain("wrong-token-value");
   });
 
-  it("never places the token in connector response metadata, only a redacted form", async () => {
+  it("never places the token or any substring of it in connector response metadata, only a one-way fingerprint (Phase 3D certification, Property A)", async () => {
     server.setDeal(seededDeal());
 
     const result = await connector().execute(
@@ -264,8 +265,15 @@ describe("GatewayHubSpotAdapter", () => {
       context(),
     );
 
-    expect(JSON.stringify(result)).not.toContain(TOKEN);
-    expect(result.metadata?.bearerRedacted).toBe("pat-na1-1111...");
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain(TOKEN);
+    // Not merely "no full token": no substring of it of meaningful length
+    // either -- for HubSpot the bearer token IS the entire credential, so
+    // the old truncated-literal-prefix format (`"pat-na1-1111..."`) leaked
+    // genuine credential bytes.
+    expect(serialized).not.toContain(TOKEN.slice(0, 12));
+    expect(result.metadata?.bearerRedacted).toBe(redactHubSpotToken(TOKEN));
+    expect(result.metadata?.bearerRedacted).toMatch(/^fp_[0-9a-f]{12}$/);
   });
 
   it("refuses to send the built-in test-mode placeholder credential to HubSpot's real API, before any network call", async () => {

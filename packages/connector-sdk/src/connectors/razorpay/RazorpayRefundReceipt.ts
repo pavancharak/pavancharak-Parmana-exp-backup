@@ -6,8 +6,9 @@ import type { RazorpayRefund } from "./RazorpayTypes.js";
 
 /**
  * Receipt for one Razorpay refund request, approved or denied. Never
- * contains key_secret. key_id, if present, is redacted to its first 8
- * characters plus an ellipsis.
+ * contains key_secret. key_id, if present, is redacted to a one-way
+ * SHA-256 fingerprint (see redactRazorpayKeyId), never a literal
+ * substring of the credential.
  */
 export interface RazorpayRefundReceipt {
   readonly version: 1;

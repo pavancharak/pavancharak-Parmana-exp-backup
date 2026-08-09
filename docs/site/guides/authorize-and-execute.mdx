@@ -62,8 +62,7 @@ issuance through a connector, run [Quickstart](/quickstart) steps 3 and 5 if you
 start the server, then execute a transaction over HTTP.
 
 ```bash
-PARMANA_STORAGE=memory PARMANA_POLICY_DIR=/absolute/path/to/policies \
-  VENDOR_PAYMENT_TOKEN=quickstart-demo-token npm run dev
+PARMANA_STORAGE=memory PARMANA_POLICY_DIR=/absolute/path/to/policies NODE_ENV=test npm run dev
 ```
 
 ```python

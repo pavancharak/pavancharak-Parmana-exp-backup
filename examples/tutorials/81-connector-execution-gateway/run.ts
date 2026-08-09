@@ -5,7 +5,7 @@ import { InMemoryGatewaySessionStore, MemoryExecutionAuditSink } from "@parmana/
 // session mechanics generically, with one hand-built "sap" connector.
 // This tutorial shows the layer above that: GatewayConnectorRegistry,
 // the real production registry every capability (razorpay:refund-create,
-// hubspot:deal-update, payments:execute) actually resolves through --
+// hubspot:deal-update, test:fixture-execute) actually resolves through --
 // the exact class createConnectorRegistry.ts wires up, exercised the
 // same way its own unit test suite does.
 //
@@ -37,7 +37,7 @@ console.log("--------------------------------------------------");
 const registry1 = buildRegistry();
 console.log(`razorpay:refund-create -> connector "${registry1.resolveCapability("razorpay:refund-create").connectorId}"`);
 console.log(`razorpay:payment-fetch -> connector "${registry1.resolveCapability("razorpay:payment-fetch").connectorId}"`);
-console.log(`payments:execute       -> connector "${registry1.resolveCapability("payments:execute").connectorId}"`);
+console.log(`test:fixture-execute   -> connector "${registry1.resolveCapability("test:fixture-execute").connectorId}"`);
 console.log();
 
 console.log("Scenario 2: Outside test mode, with no Razorpay credentials configured -- fails closed, per capability");
@@ -61,17 +61,17 @@ try {
 }
 console.log(`razorpay:refund-create -> throws: ${razorpayError}`);
 
-// vendor-payment (a NODE_ENV=test-only MockConnector, per Phase 2A) is
-// ALSO absent outside test mode -- one missing connector's credentials
-// never take the whole registry down, but every connector still fails
-// closed independently on its own terms.
-let vendorPaymentError: string | undefined;
+// test-fixture (a NODE_ENV=test-only MockConnector) is ALSO absent
+// outside test mode -- one missing connector's credentials never take
+// the whole registry down, but every connector still fails closed
+// independently on its own terms.
+let testFixtureError: string | undefined;
 try {
-  registry2.resolveCapability("payments:execute");
+  registry2.resolveCapability("test:fixture-execute");
 } catch (error) {
-  vendorPaymentError = error instanceof Error ? error.message : String(error);
+  testFixtureError = error instanceof Error ? error.message : String(error);
 }
-console.log(`payments:execute       -> throws: ${vendorPaymentError}`);
+console.log(`test:fixture-execute   -> throws: ${testFixtureError}`);
 console.log();
 
 process.env.NODE_ENV = previousNodeEnv;
@@ -95,9 +95,9 @@ console.log();
 
 const allPassed =
   registry1.resolveCapability("razorpay:refund-create").connectorId === "razorpay" &&
-  registry1.resolveCapability("payments:execute").connectorId === "vendor-payment" &&
+  registry1.resolveCapability("test:fixture-execute").connectorId === "test-fixture" &&
   razorpayError?.includes("razorpay:refund-create") === true &&
-  vendorPaymentError?.includes("payments:execute") === true &&
+  testFixtureError?.includes("test:fixture-execute") === true &&
   registry3.resolveCapability("razorpay:refund-create").connectorId === "razorpay";
 
 if (allPassed) {

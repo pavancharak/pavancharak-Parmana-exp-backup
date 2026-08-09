@@ -50,8 +50,6 @@
 
 # ├── scenarios/
 
-# │   ├── vendor-payment
-
 # │   ├── expense-approval
 
 # │   └── purchase-order
@@ -220,7 +218,7 @@
 
 # ```
 
-# npm run example -- vendor-payment
+# npm run example -- expense-approval
 
 # ```
 

@@ -39,7 +39,11 @@ export const businessTransaction: BusinessTransaction = {
   intent: {
     intentId: "intent-001",
 
-    action: "vendor-payment",
+    // test:fixture-execute (not payments:execute/vendor-payment, removed
+    // per docs/VERIFICATION-GAPS.md G-27) -- a generic, test-only
+    // capability with no production implication, registered only when
+    // NODE_ENV=test (packages/api/src/bootstrap/createTestFixtureConnector.ts).
+    action: "test:fixture-execute",
 
     resource: "invoice",
 

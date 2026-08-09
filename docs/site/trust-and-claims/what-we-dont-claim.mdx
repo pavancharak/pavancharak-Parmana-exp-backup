@@ -29,15 +29,20 @@ because no implementation could honestly back them:
 Some real, tested guarantees hold only within a stated boundary. Treating the boundary as
 the whole claim is the honest reading:
 
-- **Envelope verification is non-bypassable only for a system that runs it.** As of commit
-  `651497a` the default server does, for the one connector it registers. A system you build
-  that doesn't call `@parmana/envelope-verifier` gets none of this.
+- **Envelope verification is non-bypassable only for a system that runs it.** The default
+  server does, for whichever connectors it registers (`razorpay`, `hubspot`, each
+  conditional on its credentials being configured). A system you build that doesn't call
+  `@parmana/envelope-verifier` gets none of this.
 - **Single-use is scoped to whichever `NonceStore` instance checks it.** Independent gateway
   instances, each with their own `MemoryNonceStore`, can each accept the same authorization
   once, not once fleet-wide (CLAIMS.md 3.2).
-- **Credential isolation is proven for one connector, `vendor-payment`.** The mechanism is
-  generic and tested, but reaching a *second* connector today is a bootstrap code change,
-  not something the architecture does automatically, see [Credential isolation](/concepts/credential-isolation).
+- **Credential isolation is proven for the two connectors registered in production
+  today, `razorpay` and `hubspot`.** (Previously proven only for `vendor-payment`, a
+  reference connector since removed from the repository entirely, not merely
+  superseded — see `docs/VERIFICATION-GAPS.md` G-27 in the source repository.) The
+  mechanism is generic and tested, but reaching a *third* connector is still a
+  bootstrap code change, not something the architecture does automatically, see
+  [Credential isolation](/concepts/credential-isolation).
 
 ## Mocks are labeled as mocks
 

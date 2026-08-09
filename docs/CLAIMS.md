@@ -270,9 +270,15 @@ Evidence
 
 * BusinessTrustRecordBuilder (renamed from ExecutionTrustRecordBuilder)
 
+* ExecutionComponent, ExecutionEvidenceBuilder (packages/runtime/src/{components/ExecutionComponent,ExecutionEvidenceBuilder}.ts) — the live pipeline stage that builds and attaches ExecutionEvidence to every Execution, called by RuntimeFactory-constructed Runtimes; not to be confused with ExecutionEvidenceComponent, a same-named-in-spirit stub confirmed unwired and deleted (docs/VERIFICATION-GAPS.md G-26)
+
+* ReceiptService (packages/runtime/src/services/receipt-service.ts), called directly by ExecutionTrustApplication.execute() on every successful execution
+
 * VerificationCrypto
 
 * ReceiptCrypto
+
+* packages/runtime/tests/integration/receipt.integration.test.ts, receipt-hybrid.integration.test.ts
 
 * G-05
 
@@ -534,6 +540,8 @@ Evidence
 
 Every route except `/health`, `/ready`, `/openapi.yaml`, `/documentation`, `POST /refusal/verify`, and `POST /audit/verify` requires a valid caller credential (`packages/api/src/app.ts`). The first four are liveness/readiness probes and API documentation; the last two are deliberately unauthenticated, independently third-party-verifiable signature-verification capabilities (RFC-0021 Refusal Record verification and caller-audit/webhook-audit signature verification, see 3.11), not routes that expose any caller's data. createApp's callerAuth option is mandatory: it accepts either an authenticator/auditSink pair or the literal string "disabled", so every call site states its choice explicitly; there is no default that silently mounts the API with no caller authentication. Production (server.ts) refuses to start with PARMANA_AUTH_DISABLED unset and no PARMANA_API_KEYS configured (2.17). A key valid for one caller does not grant a different caller's identity, and every accept/reject outcome is audited without ever recording the raw key. In production, that audit trail is durable (see 3.2's sibling claim for the NonceStore side of the same fix), backed by Supabase and shared across every process, not scoped to one process's uptime; `createCallerAuditSink.ts` fails closed at startup if Supabase is not configured. `InMemoryCallerAuditSink` remains available and correct for tests (NODE_ENV=test).
 
+**Precise scope of `PARMANA_AUTH_DISABLED=true` (docs/VERIFICATION-GAPS.md G-28):** this flag, when explicitly opted into, removes *caller identity and accountability only* — `RuntimeEngine`, `PolicyEngine`, `CapabilityPolicyBinder`, `SignalIntentBinder`, and every `SignalStateVerifier` never read the caller-auth middleware's output at all (confirmed by direct grep: zero references to caller identity anywhere in those files), so *action-level authorization* (whether a specific `razorpay:refund-create`/`hubspot:deal-update` request is itself authorized) remains fully enforced regardless of this flag. It does not disable the authorization boundary this document's other claims describe; it disables knowing who asked.
+
 
 
 Evidence
@@ -710,6 +718,148 @@ Evidence
 
 
 
+## 2.22 Canonical Capability-to-Policy Binding (TD-22)
+
+
+
+For every production capability, the policy that governs it is fixed structurally, not selected by the caller. `CapabilityPolicyBinder` checks a request's declared `Intent.action` against `CANONICAL_CAPABILITY_POLICY_BINDINGS`, a single hardcoded map from capability to the one policy reference that authorizes it (`packages/policy/src/CapabilityPolicyBinding.ts`) — covering every capability the production connector registry actually registers. A request pairing a real capability with any policy other than its canonical one is rejected as an ordinary policy denial, with zero rules evaluated, before `PolicyEngine.evaluate` ever runs.
+
+
+
+This closes the gap that would otherwise exist because policy *loading* (`FilePolicyRepository.load(name, version)`) is itself keyed by whatever `policy.name`/`policy.version` the caller declares — validated only against a path-traversal allowlist, not against the capability being executed. Without the binder, a caller could pair a real, fund-moving or record-mutating capability (e.g. `razorpay:refund-create`) with an unrelated, unprotected policy that has no `boundSignals` for it, and have the real `intent.parameters` executed under that looser policy's rules — bypassing the capability's own protections entirely, not merely weakening them. `CapabilityPolicyBinder` is unconditionally instantiated inside `RuntimeBuilder.build()` — not configuration, not omittable from production wiring — and runs before both `SignalIntentBinder` and `PolicyEngine.evaluate`, so a wrongly-paired policy is loaded but never evaluated.
+
+
+
+Evidence
+
+
+
+* packages/policy/src/CapabilityPolicyBinding.ts (`CANONICAL_CAPABILITY_POLICY_BINDINGS`, `CapabilityPolicyBinder`)
+
+* packages/runtime/src/RuntimeBuilder.ts (unconditional construction, no configuration flag)
+
+* packages/runtime/src/RuntimeEngine.ts (binder check ordered before `SignalIntentBinder`/`PolicyEngine.evaluate`)
+
+* packages/policy/tests/unit/CapabilityPolicyBinder.test.ts (proves the exact live-shaped exploit — `razorpay:refund-create` paired with the unrelated, unprotected `customer-refund/1.0.0` policy; `hubspot:deal-update` paired with `vendor-payment` — is rejected; also proves every production-registered capability has a binding)
+
+* docs/architecture/phase3d-independent-authorization-certification.md §5.1 (independent re-verification, Phase 3D)
+
+
+
+---
+
+
+
+## 2.23 Independently Certified Authorization (Phase 3D)
+
+
+
+*"Even if AI has valid credentials, it still cannot execute anything your business hasn't authorized. No exceptions"* — the specific claim tracked and re-verified across `docs/architecture/phase2k-capability-policy-binding.md`, `phase2l-authorization-exceptions.md` (which found it **not fully supported**, naming two exceptions: Razorpay's caller-declared daily cumulative total, and HubSpot's caller-declared `preAuthorizedForAmountChange`) — was independently re-certified from current repository state in `docs/architecture/phase3d-independent-authorization-certification.md`, treating every prior phase's conclusion as a claim to re-verify, not inherit.
+
+
+
+**Result: CLAIM FULLY CERTIFIED** for both capabilities actually reachable in production (`razorpay:refund-create`, `hubspot:deal-update`). Both of Phase 2L's named exceptions are independently confirmed closed at the mechanism level (2.4/3.4/3.10's own TD-23 updates), credential isolation, structural capability-to-policy binding (2.22, TD-22), replay resistance, concurrency safety, and auditability were each independently re-traced from source, and no repository evidence was found that materially contradicts the claim for either in-scope capability.
+
+
+
+Two narrow, genuinely fixable gaps the certification disclosed were closed in the same follow-up session, not merely noted: a truncated-credential-fragment leak into the caller-visible response (3.4/3.10's `keyIdRedacted`/`bearerRedacted` now return a one-way SHA-256 fingerprint, never a literal credential substring — see 3.4/3.10's own updates below) and a missing live-database concurrency proof for the Razorpay daily-refund-cap ledger (`packages/storage/tests/integration/supabase-razorpay-daily-refund-ledger.integration.test.ts`, new). **`payments:execute`/vendor-payment, originally carried forward here as a sixth disclosed limitation (a capability that would have failed this claim entirely if ever made production-reachable), was removed from the repository outright** rather than independently verified — it was never on the roadmap as a real capability; see `docs/VERIFICATION-GAPS.md` G-27 for the full account, including what was deliberately retained (the policy file and shared test fixtures that use it as generic example data, which carry no execution risk with zero connector able to back them). Five further disclosed limitations remain carried forward explicitly, each with a stated reason it was not force-closed: HubSpot's approval-issuer registry has never yet been exercised against a real operator-provisioned key; the internal Gateway attestation relies on an upstream nonce check rather than its own independent TTL; the internal gateway-session/credential-vault layer is single-process scoped; `OverrideService`'s continued, deliberate unreachability; and hybrid/PQ signing's scope stopping short of execution-authorization/Gateway/connector signing (most decisively for `OverrideService`, where `02-REMAINING.md`'s own standing security guard says not to wire it up). None of the five carried-forward items provide a currently exploitable path to unauthorized execution — full detail, with exact certification section references for each, in `docs/VERIFICATION-GAPS.md`'s "Gaps closed in the Phase 3D certification session".
+
+
+
+Evidence
+
+
+
+* docs/architecture/phase3d-independent-authorization-certification.md (full methodology, per-property verification, adversarial assessment, evidence summary)
+
+* packages/connector-sdk/src/connectors/razorpay/RazorpayTypes.ts (`redactRazorpayKeyId`, fingerprint-based)
+
+* packages/connector-hubspot/src/HubSpotTypes.ts (`redactHubSpotToken`, fingerprint-based)
+
+* packages/storage/tests/integration/supabase-razorpay-daily-refund-ledger.integration.test.ts
+
+
+
+---
+
+
+
+## 2.24 Authorization Is Caller-Type-Agnostic
+
+
+
+The authorization pipeline's outcome depends only on the requested action, the governing policy, and the independently-verified facts bearing on it — never on what kind of system, model, or entity submitted the request. This is the source-code basis for the positioning claim that Parmana protects institutional authority against execution risk from any source (AI agents, humans, applications, automated systems, third-party systems, compromised systems), not only AI: the mechanism does not special-case any of them, including ones it has no name for.
+
+
+
+Directly validated, not inferred from the absence of AI-specific code: `BusinessTransactionMapper.fromRequest` (`packages/api/src/mappers/BusinessTransactionMapper.ts:28`) casts the caller-declared `authority` field with no runtime validation against the `AuthorityType` enum (`USER | ROLE | SERVICE | ORGANIZATION`, `packages/shared/src/domain/authority.ts`) — an arbitrary string reaches the runtime unfiltered. `RuntimeEngine`, `PolicyEngine`, `SignalIntentBinder`, and `CapabilityPolicyBinder` contain zero references to `authority` or caller identity anywhere in their source (confirmed by direct grep across all four files). A regression test submits two transactions through the real `POST /execute` route, identical in every field except `authority.authorityType` — one declaring the conventional `"USER"`, the other declaring `"FULLY_AUTONOMOUS_AI_AGENT_NEVER_SEEN_BEFORE"`, a value that is not a member of the enum at all — and asserts byte-identical decisions (`outcome`, `matchedRuleId`, and, for the rejection case, the exact error text) on both the APPROVE and REJECT paths.
+
+
+
+Independently confirmed by the Strategic Positioning source-code validation audit (2026-08-09, read-only): the caller-authentication layer (`StaticKeyAuthenticator`, `packages/api/src/auth/StaticKeyAuthenticator.ts`) authenticates by opaque API-key hash comparison only, with no concept of caller category either — the same identity mechanism a human operator, a script, an AI agent, or a third-party integration would all use identically.
+
+
+
+**Scope, precisely:** this claim covers the two production-reachable capabilities (`razorpay:refund-create`, `hubspot:deal-update`, per 2.23) and the general-purpose pipeline mechanism itself. It does not claim that a non-AI caller has actually been exercised against a live production deployment — only that the mechanism contains no code path that could distinguish one caller kind from another to begin with.
+
+
+
+Evidence
+
+
+
+* packages/api/tests/integration/authority-type-agnostic-execution.integration.test.ts (2 cases: identical APPROVE, identical REJECT, across a conventional and a non-enum `authorityType`)
+
+* packages/api/src/mappers/BusinessTransactionMapper.ts (unvalidated `authority` cast)
+
+* packages/shared/src/domain/authority.ts (`AuthorityType` enum)
+
+* packages/api/src/auth/StaticKeyAuthenticator.ts (caller-type-agnostic authentication)
+
+* Repo-wide grep confirming zero `authority`/caller-identity references in RuntimeEngine.ts, PolicyEngine.ts, SignalIntentBinder.ts, CapabilityPolicyBinding.ts
+
+
+
+---
+
+
+
+## 2.25 Strategic Positioning — Independently Validated, YES (Pass 4)
+
+
+
+*"Only what you authorize should become real"* — the specific invariant underlying the "We Are Not in the AI Race" positioning — was independently, repeatedly source-code-validated across four passes (`docs/architecture/strategic-positioning-validation.md`, the living record). The first three passes reached **PARTIALLY SUPPORTED**: the authorization mechanism itself was fully validated for every capability actually reachable in production, but `payments:execute` (vendor-payment) existed in committed code with unverified caller-declared signals, gated only by `NODE_ENV`, not by any authorization-strength property — a capability that would have violated the claim had it ever been enabled as it then existed.
+
+
+
+**The fourth pass, run fresh with no reliance on the first three passes' conclusions, upgraded the verdict to SUPPORTED BY IMPLEMENTATION — YES.** The structural change: `payments:execute` was removed from the repository entirely (`docs/VERIFICATION-GAPS.md` G-27), not gated more tightly. `createConnectorRegistry.ts` now registers exactly three connectors in production wiring — `test-fixture` (a `NODE_ENV=test`-only, unbound, no-production-implication connector introduced solely to keep shared test infrastructure executable), `razorpay`, `hubspot` — and `payments:execute` has no connector to resolve to in any environment, independently re-confirmed by a dedicated regression test asserting this across `test`, `production`, and `development` `NODE_ENV` values. The fourth pass separately, freshly re-scrutinized the replacement test-only connector itself for new bypass risk (rather than assuming it safe by association with the removal) and found none: it is fail-closed by the identical mechanism every other connector in this registry uses, and unbound from `CapabilityPolicyBinding.ts`'s governance entirely.
+
+
+
+**Honesty constraint, carried from the fourth pass's own report, not rounded away here:** that pass re-executed only 2 of the 10 negative tests cited across this validation's history fresh (`authority-type-agnostic-execution.integration.test.ts`; `create-connector-registry.test.ts`'s new absence case) — the other 8 were cited from code paths confirmed structurally unchanged by the removal, not individually re-run in that session. Multi-tenant/cross-institution authority isolation and the direct-database-write bypass finding were explicitly left as "unchanged, not re-traced," not re-asserted clean. The YES verdict means the specific invariant is now supported without a known exception for every capability this repository currently exposes — it is not a claim that every adjacent property was re-proven from scratch in the same session. Full precision on this distinction: `docs/architecture/strategic-positioning-validation.md` §6 ("Final Answer").
+
+
+
+Evidence
+
+
+
+* docs/architecture/strategic-positioning-validation.md (full four-pass history, claim-by-claim matrices, execution control path, bypass analysis, negative-test evidence for each pass)
+
+* docs/VERIFICATION-GAPS.md G-27 (the removal this upgrade rests on)
+
+* packages/api/tests/unit/bootstrap/create-connector-registry.test.ts ("payments:execute has no connector to resolve to in any environment")
+
+* packages/api/tests/integration/authority-type-agnostic-execution.integration.test.ts (re-run fresh in pass 4, 2/2 passing, confirming no regression)
+
+* packages/api/src/bootstrap/createConnectorRegistry.ts, createTestFixtureConnector.ts (the exact production registration state pass 4 verified)
+
+
+
+---
+
+
+
 # 3. Conditional Claims
 
 
@@ -806,7 +956,7 @@ Evidence
 
 Razorpay refunds are authorized against a deterministic policy pack (payment must exist and be captured, currency must be INR, amount must not exceed the refundable remainder, a per-refund cap, a daily cumulative cap tracked through the existing storage layer) and executed with credentials the requesting code never holds: key_id and key_secret are resolved only inside the existing session credential vault, at execution time, and destroyed immediately afterward by the existing try/finally pattern. A signed authorization and the existing, unmodified Execution Gateway pipeline (envelope verification, one-time Gateway sessions, session-credential issuance/consumption/destruction) carry every request. A repeated request for the same parmana transaction id is answered from a local outcome cache before any network call is made; independently, before every refund-create call the connector lists existing Razorpay refunds for the payment and treats one already tagged with the same transaction id as already executed, never creating a duplicate. This claim covers refund creation only. It does not claim payout creation (RazorpayX), webhooks, or live-mode operation, and it does not claim any change to Phase 1's Runtime, Policy Engine, Execution Gateway, Replay, Receipt Generation, Verification, or REST API, all of which remain exactly as evidenced elsewhere in this document.
 
-The Razorpay connector is also registered in the production API bootstrap (`packages/api/src/bootstrap/createConnectorRegistry.ts`), reachable through the existing, unmodified `POST /execute` endpoint by capability-based routing (the same mechanism that already reaches the vendor-payment connector), rather than only through unit tests and the standalone tutorial. Reached this way, policy is evaluated against caller-supplied signals, the same generic mechanism vendor-payment already uses. Credentials (`RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`) are resolved by a dedicated environment-backed provider at execution time only, following the same session-credential isolation as every other production connector. If either variable is unset outside test mode, the connector is not registered at all: `razorpay:payment-fetch` and `razorpay:refund-create` simply have no connector to resolve to (ConnectorSdkRegistry's existing "No connector registered for capability" error), rather than the process starting with a mock or partially-configured credential, or the whole API refusing to start over one optional connector.
+The Razorpay connector is also registered in the production API bootstrap (`packages/api/src/bootstrap/createConnectorRegistry.ts`), reachable through the existing, unmodified `POST /execute` endpoint by capability-based routing, rather than only through unit tests and the standalone tutorial. Reached this way, policy is evaluated against caller-supplied signals, the same generic mechanism every capability-based connector in this registry uses. Credentials (`RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`) are resolved by a dedicated environment-backed provider at execution time only, following the same session-credential isolation as every other production connector. If either variable is unset outside test mode, the connector is not registered at all: `razorpay:payment-fetch` and `razorpay:refund-create` simply have no connector to resolve to (ConnectorSdkRegistry's existing "No connector registered for capability" error), rather than the process starting with a mock or partially-configured credential, or the whole API refusing to start over one optional connector.
 
 **Update (execution-ownership refactor, Phase 1C):** the executable connector class described throughout this section was migrated verbatim from `@parmana/connector-sdk`'s `RazorpayConnector` to `GatewayRazorpayAdapter` (`packages/execution-gateway/src/connector-execution/GatewayRazorpayAdapter.ts`) -- same behavior, new package, per that migration's own header comment ("migrated verbatim... only the executable class moved"). `RazorpayRefundService` and `RazorpayRefundHarness` (the "separate, test/tutorial-only harness" this section previously described as carrying independent fetch-verify behavior) no longer exist anywhere in the repository; `examples/tutorials/61-razorpay-refund`, previously cited as evidence below, does not exist either. This was an undocumented drift, independently re-discovered and flagged (not yet corrected) by `docs/architecture/phase2l-authorization-exceptions.md` before this pass. Capability identifiers and DTOs (`RazorpayCapabilities.ts`, `RazorpayTypes.ts`, `RazorpayMetadata.ts`) stayed in `@parmana/connector-sdk` and are imported back into the adapter; `RazorpayRefundReceipt.ts` and `MockRazorpayServer.ts` are unchanged at their original paths.
 
@@ -838,7 +988,7 @@ Evidence
 
 * packages/api/src/bootstrap/createRazorpayConnector.ts (delegates to `createGatewayRazorpayConnector`), createRazorpayCredentialProvider.ts (production registration; fails closed, the connector is never registered, when `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are unset outside test mode), createRazorpaySignalStateVerifier.ts (RFC-0022/TD-23), createConnectorRegistry.ts (conditional registration), createConnectorAuthenticator.ts (razorpay added to the trusted connector identity list)
 
-* packages/api/tests/unit/bootstrap/create-razorpay-credential-provider.test.ts, create-connector-registry.test.ts (credential present/absent/malformed cases; fail-closed capability resolution when unconfigured; **vendor-payment and razorpay each independently fail closed outside `NODE_ENV=test`** — vendor-payment's own fail-closed behavior was TD-1/Phase 2A's fix (previously it was unconditionally registered in every environment); see `docs/operations/td1-closure-summary.md` for the complete Implementation (Phase 2A) → Deployment Verification (Phase 2A.2) → Historical Integrity Verification (Phase 2A.3) → Technical Debt Closure (Phase 2A.4, TD-1 CLOSED) evidence chain; key_secret never embedded in a thrown error)
+* packages/api/tests/unit/bootstrap/create-razorpay-credential-provider.test.ts, create-connector-registry.test.ts (credential present/absent/malformed cases; fail-closed capability resolution when unconfigured; razorpay fails closed outside `NODE_ENV=test`; key_secret never embedded in a thrown error). **`payments:execute`/vendor-payment's own fail-closed history is now fully historical**: TD-1/Phase 2A first made it fail closed outside `NODE_ENV=test` (previously unconditionally registered in every environment; see `docs/operations/td1-closure-summary.md` for that evidence chain), and it was later removed from the repository entirely rather than independently verified (`docs/VERIFICATION-GAPS.md` G-27) — `payments:execute` now has no connector to resolve to in any environment, confirmed by `create-connector-registry.test.ts`'s own current assertion to that effect.
 
 * packages/api/tests/integration/razorpay-refund.integration.test.ts: a refund authorized, verified, and executed through a real `POST /execute` HTTP request against the production bootstrap chain (`createExecutionSystem`), landing on MockRazorpayServer; a policy-denied refund through the same path making zero calls to Razorpay; and (RFC-0022) "rejects by policy through POST /execute when caller-declared signals misrepresent the real Razorpay payment state"
 
@@ -847,6 +997,10 @@ Evidence
 * packages/execution-gateway/tests/unit/razorpay-connector.test.ts: regression coverage added alongside the placeholder-credential fix above: the connector refuses to send the built-in test-mode placeholder credential to Razorpay's real API before any network call (fetch spy asserts zero calls), and confirms the same placeholder still works normally against a mock server (baseUrl override); the guard is real-endpoint-specific, not a behavior change for existing mock-based tests
 
 * packages/connector-sdk/tests/unit/InMemoryRazorpayDailyRefundLedger.test.ts (TD-23, Phase 3B: atomic reserve-before-execute, concurrent-request race no longer over-permits)
+
+* packages/storage/tests/integration/supabase-razorpay-daily-refund-ledger.integration.test.ts (Phase 3D certification follow-up: the same atomic-reservation proof as the line above, against the real, production `SupabaseRazorpayDailyRefundLedger` implementation and a live Postgres connection, not only the in-memory test double — closes the live-concurrency test-coverage gap the certification disclosed)
+
+**Update (Phase 3D certification follow-up):** `redactRazorpayKeyId` (`RazorpayTypes.ts`) no longer truncates the literal `key_id` (previously: first 8 characters plus an ellipsis, still a genuine substring of the credential). It now returns a one-way, truncated SHA-256 fingerprint (`fp_` + 12 hex chars) — the same operational "which key executed this" signal, with zero credential bytes of any length ever reaching `ConnectorResponse.metadata`, the Trust Record, or the `POST /execute` response body. `razorpay-connector.test.ts`'s redaction test now asserts the response body contains no substring of `key_id` at all, not merely a differently-shaped value.
 
 **Evidence note:** `examples/tutorials/61-razorpay-refund`, and the `RazorpayConnector`/`RazorpayRefundService`/`RazorpayRefundHarness`/`razorpay-refund-service.test.ts` citations this section previously carried, no longer exist in the repository as of the Phase 1C execution-ownership refactor; this section was updated in a documentation-verification pass (following the discipline `docs/architecture/phase2l-authorization-exceptions.md` had already flagged the drift under) to cite only what currently exists.
 
@@ -1184,6 +1338,8 @@ A third, narrower point this milestone originally left unresolved: `preAuthorize
 
 **Update (TD-23, Phase 3C, now closed):** `preAuthorizedForAmountChange` is no longer trusted verbatim. `HubSpotSignalStateVerifier` (`packages/connector-hubspot/src/HubSpotSignalStateVerifier.ts`), constructed with a real `ApprovalVerifier` (`@parmana/approval`) unconditionally in `packages/api/src/bootstrap/createHubSpotSignalStateVerifier.ts` (that file's own comment: "approvalVerifier is always supplied here (never omitted) -- the production wiring path is where independent verification... becomes a structural invariant rather than an optional, caller-declared signal"), verifies a caller's `preAuthorizedForAmountChange: true` claim against a real, independently-issued, Ed25519-signed Approval Artifact (`SignedApproval`, `docs/architecture/phase3a-authorization-artifact-design.md`) carried in `signals.approvalArtifact` -- checking issuer identity against a registry, signature validity, expiry, capability/resource scope match, and single-use nonce consumption (`ApprovalVerifier.verify`, `packages/approval/src/ApprovalVerifier.ts`), all before the declared value is trusted. A missing, expired, wrong-scope, replayed, or unsigned artifact is treated as `preAuthorizedForAmountChange: false` regardless of what the caller declared. This closes the gap `docs/architecture/phase2l-authorization-exceptions.md` independently re-confirmed still open as of that phase.
 
+**Operational scope, independently confirmed by Phase 3D:** `createApprovalIssuerRegistry.ts`'s `TRUSTED_APPROVAL_ISSUERS` list ships **empty by default** — no real business-approver key is provisioned in this deployment. This is the correct fail-closed starting state (every `preAuthorizedForAmountChange` claim is rejected, genuine artifact or not, until an operator adds a real entry and deploys), not a gap in the mechanism above, but it means no over-threshold `hubspot:deal-update` amount change can be legitimately approved in the current deployment as configured — only ever denied. The verification mechanism itself is proven correct by unit and integration test against synthetic issuers (below); it has not yet been exercised against a real, operator-provisioned issuer key in production. See `docs/architecture/phase3d-independent-authorization-certification.md` §4.2, §12.3.
+
 **Test posture, in the order specified for this milestone:**
 
 * **Hermetic first, as originally shipped.** `packages/connector-hubspot/tests/unit/` (42 tests, all passing, no network calls beyond localhost): `hubspot-connector.test.ts` (12 — fetch, dealstage-only update, combined dealstage+amount update, deny-by-default property guard before any network call, empty-update rejection, non-2xx/timeout fail-closed, bad-credential-shape rejection, token never leaked into a thrown error or response metadata, placeholder-credential guard against the real endpoint and its mock-server exemption); `hubspot-deal-update-policy.test.ts` (9 — schema validation and every rule branch, including that no rule ever produces `require_override`); `hubspot-deal-update-signals.test.ts` (12 — `isHubSpotStageTransitionAllowed`'s forward/backward/terminal/unrecognized-stage cases, `buildHubSpotDealUpdateSignals`'s delta/threshold arithmetic and boundSignals-safe omission of absent fields); `hubspot-deal-update-harness.test.ts` (9 — the full authorize → verify → execute → confirm chain against `MockHubSpotServer` for approved dealstage-only, combined, and pre-authorized-over-threshold-amount cases; policy replay with no second HTTP call; token isolation from the receipt; `businessTransactionHash` tamper rejection). **Current location, after the Phase 1C migration and TD-23 (see updates above):** `hubspot-connector.test.ts` moved to `packages/execution-gateway/tests/unit/` (12 tests, unchanged); `hubspot-deal-update-harness.test.ts` no longer exists (`HubSpotDealUpdateHarness` was deleted, not migrated); a new `HubSpotSignalStateVerifier.test.ts` (10 tests) covers the TD-23 Approval Artifact verification instead. Current total: 43 unit tests across the two packages, all passing.
@@ -1215,6 +1371,8 @@ Evidence
 * `.env.example` (`HUBSPOT_PRIVATE_APP_TOKEN`, `TEST_HUBSPOT_PRIVATE_APP_TOKEN`, `ALLOW_LIVE_HUBSPOT`, `TEST_HUBSPOT_DEAL_ID`, `HUBSPOT_BASE_URL`)
 
 * Full monorepo suite run this session (`npm test`, `TEST_HUBSPOT_PRIVATE_APP_TOKEN`/`ALLOW_LIVE_HUBSPOT`/`TEST_HUBSPOT_DEAL_ID` configured so the HubSpot live suite ran rather than skipped): 710 passed, 35 skipped (the remaining gated live suites this environment did not opt into — Supabase, Razorpay), 0 failed. A separate, prior run of this same suite with no live credentials configured observed 707 passed / 37 skipped, confirming the HubSpot live suite's 3 tests move cleanly from skipped to passing and nothing else regresses. `npm run typecheck` and `npm run lint` both clean in both runs.
+
+**Update (Phase 3D certification follow-up):** `redactHubSpotToken` (`HubSpotTypes.ts`) no longer truncates the literal Private App token (previously: first 12 characters plus an ellipsis — for HubSpot the bearer token *is* the entire credential, so this was a genuine fragment of the actual secret). It now returns a one-way, truncated SHA-256 fingerprint (`fp_` + 12 hex chars), preserving the operational "same token used across these executions" signal with zero credential bytes reaching `ConnectorResponse.metadata`, the Trust Record, or the `POST /execute` response body. `hubspot-connector.test.ts`'s redaction test now asserts the response body contains no substring of the token at all.
 
 
 
@@ -1393,7 +1551,7 @@ The following claims are planned but are intentionally withheld until supported 
 
 * Every production Runtime enforces the canonical trust pipeline.
 
-* Every production API request executes through the canonical runtime.
+* Every production API request executes through the canonical runtime. **Reconciliation note (not a promotion — remains withheld pending whatever broader evidence standard this section applies):** Phase 3D's Property C bypass search (`docs/architecture/phase3d-independent-authorization-certification.md` §5.2) traced every route `packages/api/src/app.ts` mounts and confirmed only `POST /execute` reaches `application.execute()`/`RuntimeEngine`; every other route is read-only, verification-only, or a passive audit sink that never calls `executionSystem.execute()` or any connector. This is direct, current evidence bearing on this specific claim, scoped to the routes and connectors that exist today — flagged here so it isn't lost, without this reconciliation pass itself deciding whether it now meets this section's bar for promotion to §2.
 
 * Replay semantically verifies every trust artifact.
 
@@ -1401,7 +1559,7 @@ The following claims are planned but are intentionally withheld until supported 
 
 * Every guarantee includes complete independent verification evidence.
 
-* AI systems never possess or hold Parmana's execution credentials: no credential-brokering mechanism exists in the current implementation.
+* A general, named credential-brokering *mechanism* — a formal product capability letting an arbitrary future connector class (e.g. third-party cloud credentials via AWS STS, per `02-REMAINING.md`'s Tier 2 roadmap) prove "AI never possesses execution credentials" without bespoke per-connector work — does not exist; only the `CredentialProvider`/session-credential-vault pattern each connector individually implements does. **Narrowed by Phase 3D (2.22/2.23):** for the two connectors that exist today (Razorpay, HubSpot), the underlying property this future item describes — the AI-facing `/execute` request path never comes into possession of the raw connector credential, which is resolved only after authorization is fully decided, confined to the connector-execution layer — was independently traced end-to-end and verified true (`docs/architecture/phase3d-independent-authorization-certification.md` §3). What remains genuinely future is only the generalized, connector-class-agnostic mechanism, not the property itself for these two connectors. (Certification's own disclosed caveat, 2.23: a short, non-functional fingerprint of the credential, not the credential itself, reaches the caller-visible response — see 3.4/3.10.)
 
 * Enterprise-grade key custody: current key storage is local PEM files read by FileKeyProvider; no KMS, HSM, or cloud key vault integration exists.
 

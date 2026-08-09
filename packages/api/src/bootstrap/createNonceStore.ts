@@ -7,9 +7,9 @@ import { assertDatabaseUrlConfigured } from "./assertDatabaseUrlConfigured.js";
 /**
  * Creates the NonceStore used by the ExecutionGateway.
  *
- * Test wiring (NODE_ENV=test): MemoryNonceStore — mirrors the
- * production/test split createCredentialProvider.ts already
- * established for the vendor-payment connector credential.
+ * Test wiring (NODE_ENV=test): MemoryNonceStore — the same
+ * production/test split every credential provider in this directory
+ * uses (e.g. createRazorpayCredentialProvider.ts).
  *
  * Production: SupabaseNonceStore, a durable store shared across
  * every process pointed at the same Supabase project. Closes G-13

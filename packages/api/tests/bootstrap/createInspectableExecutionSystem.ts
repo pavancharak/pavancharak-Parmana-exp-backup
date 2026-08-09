@@ -92,7 +92,7 @@ export function createInspectableExecutionSystem(
   const clock = new SystemClock();
 
   const rawCredentials = new InMemoryCredentialVault();
-  rawCredentials.setCredential("vendor-payment", {
+  rawCredentials.setCredential("test-fixture", {
     value: Object.freeze({ token: "test-inspectable-token" }),
   });
 
@@ -115,8 +115,8 @@ export function createInspectableExecutionSystem(
   };
 
   const connectorIdentity = {
-    connectorId: "vendor-payment",
-    publicIdentity: "spiffe://parmana/connectors/vendor-payment",
+    connectorId: "test-fixture",
+    publicIdentity: "spiffe://parmana/connectors/test-fixture",
     authenticationMetadata: {},
   };
 
@@ -128,7 +128,7 @@ export function createInspectableExecutionSystem(
 
   const secureConnector = new SessionCredentialSecureConnector({
     identity: connectorIdentity,
-    capabilities: ["payments:execute"],
+    capabilities: ["test:fixture-execute"],
     policy: new DefaultConnectorPolicy(authenticator, sessions),
     gatewayAuthentication: registrationAttestation,
     sessionCredentials: sessionCredentialVault,

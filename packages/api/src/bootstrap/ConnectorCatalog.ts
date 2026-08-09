@@ -41,12 +41,6 @@ export interface ConnectorDefinition {
 export const ConnectorCatalog: readonly ConnectorDefinition[] =
   Object.freeze([
     Object.freeze({
-      id: "vendor-payment",
-      displayName: "Vendor Payment",
-      enabled: true,
-    }),
-
-    Object.freeze({
       id: "stripe",
       displayName: "Stripe",
       enabled: false,

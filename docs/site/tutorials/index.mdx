@@ -117,8 +117,10 @@ None of these four reach `packages/api` or `packages/runtime`. They exercise
 
 ## Scenarios
 
-Three production-shaped scenarios also live in `examples/scenarios/`, run in the same CI
-batch: `vendor-payment`, `expense-approval`, `purchase-order`.
+Two production-shaped scenarios also live in `examples/scenarios/`, run manually via `npm
+run examples` (`scripts/run-examples.ts`), not currently part of CI: `expense-approval`,
+`purchase-order`. (A third, `vendor-payment`, existed here until `payments:execute` was
+removed from the repository entirely — see `docs/VERIFICATION-GAPS.md` G-27.)
 
 ## Next
 

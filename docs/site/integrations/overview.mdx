@@ -47,7 +47,8 @@ export interface Connector {
   used until the real enterprise connector is implemented."* These are reference mocks for
   building against a realistic connector shape, not integrations, they never call SAP,
   Oracle, Workday, or Salesforce. `packages/api`'s default server registers only
-  `vendor-payment`, not these four, see [The gateway](/concepts/the-gateway).
+  `razorpay` and `hubspot`, not these four (nor any other capability), see [The
+  gateway](/concepts/the-gateway).
 
 ## How a Connector is reached
 
