@@ -91,10 +91,12 @@ target-version = "py310"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
-# Import order in parmana/models/*.py is produced deterministically by
-# generate_models.ts and enforced by the drift-guard check, not by
-# isort/ruff conventions.
-"parmana/models/*.py" = ["I001"]
+# Import order and line length in parmana/models/*.py are produced
+# deterministically by generate_models.ts and enforced by the drift-guard
+# check, not by isort/ruff conventions. The docstring header in particular
+# lists source files and can exceed line-length depending on how many
+# TS files a given model is generated from.
+"parmana/models/*.py" = ["I001", "E501"]
 
 [tool.black]
 line-length = 88

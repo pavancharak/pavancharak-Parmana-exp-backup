@@ -60,6 +60,12 @@ class ReceiptApi:
             response_model=Receipt,
         )
 
+    #: Makes `client.receipt(business_transaction_id)` work directly,
+    #: alongside the existing `client.receipt.generate(...)`, without
+    #: renaming the `ParmanaClient.receipt` attribute out from under
+    #: existing callers (examples/05_receipt.py, examples/11_end_to_end.py).
+    __call__ = generate
+
     def get_latest(
         self,
         business_transaction_id: str,

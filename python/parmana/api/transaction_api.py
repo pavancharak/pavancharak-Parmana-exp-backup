@@ -114,3 +114,10 @@ class TransactionApi:
             path=f"/transactions?page={page}&pageSize={page_size}",
             response_model=list[BusinessTransaction],
         )
+
+    #: Makes `client.transactions(page=..., page_size=...)` work
+    #: directly, alongside the existing `client.transactions.list(...)`
+    #: (and `.get(...)`, `.create(...)`), without renaming the
+    #: `ParmanaClient.transactions` attribute out from under existing
+    #: callers (examples/08_list_transactions.py, examples/11_end_to_end.py).
+    __call__ = list

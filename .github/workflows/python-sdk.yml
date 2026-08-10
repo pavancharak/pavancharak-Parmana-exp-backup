@@ -50,6 +50,14 @@ jobs:
       - name: Install workspace
         run: npm ci
 
+      - name: Build workspace
+        # python/tests/test_live_server_integration.py spawns the real
+        # @parmana/api server, which imports @parmana/shared (and other
+        # workspace packages) via their built dist/ output, not TS source
+        # -- same as ci.yml's own Build step, needed here too since each
+        # workflow gets a fresh checkout with no dist/ committed.
+        run: npm run build
+
       - name: Check generated models are up to date
         # python/parmana/models/*.py is generated from
         # packages/shared/src/domain/*.ts (and CryptoAlgorithms.ts) by

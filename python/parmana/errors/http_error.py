@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from .api_error import ApiError
+from .api_error import ParmanaError
 
 
-class ParmanaHttpError(ApiError):
+class ParmanaHttpError(ParmanaError):
     """
     Base class for errors raised from a non-2xx Runtime HTTP response.
 
@@ -174,9 +174,12 @@ class ConflictError(ParmanaHttpError):
         )
 
 
-class ServerError(ParmanaHttpError):
+class InternalServerError(ParmanaHttpError):
     """
-    Raised on any HTTP 5xx response.
+    Raised on any HTTP 5xx response. Named InternalServerError for
+    parity with the canonical error hierarchy (docs/sdk/SDK_CONFORMANCE.md
+    #7, typescript/src/errors/InternalServerError.ts); ServerError below
+    is a backward-compatible alias of this class.
     """
 
     def __init__(
@@ -192,6 +195,12 @@ class ServerError(ParmanaHttpError):
             code="SERVER_ERROR",
             request_id=request_id,
         )
+
+
+#: Backward-compatible alias -- this class was previously named
+#: ServerError. Existing `except ServerError` / `isinstance(e, ServerError)`
+#: code keeps working unchanged.
+ServerError = InternalServerError
 
 
 _STATUS_MAP: dict[int, Callable[..., ParmanaHttpError]] = {

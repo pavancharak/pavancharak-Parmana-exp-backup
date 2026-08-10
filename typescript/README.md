@@ -1,562 +1,284 @@
-\# Parmana TypeScript SDK
+# Parmana TypeScript SDK
 
-
-
-The official TypeScript SDK for \*\*Parmana\*\*.
-
-
+The official TypeScript SDK for **Parmana**.
 
 Parmana ensures that only Parmana-approved actions are executed.
 
+Parmana is an **Execution Trust Infrastructure** for AI systems.
 
+It ensures that autonomous systems execute **only policy-compliant actions** and produces cryptographically verifiable evidence for every execution.
 
-Parmana is an \*\*Execution Trust Infrastructure\*\* for AI systems.
+---
 
-
-
-It ensures that autonomous systems execute \*\*only policy-compliant actions\*\* and produces cryptographically verifiable evidence for every execution.
-
-
-
-\---
-
-
-
-\# Why Parmana?
-
-
+# Why Parmana?
 
 Modern AI systems can make decisions autonomously, but organizations need assurance that those decisions comply with business policies before execution.
 
-
-
 Parmana provides that assurance.
-
-
 
 Using Parmana, organizations can:
 
+- Execute only policy-compliant actions
+- Produce verifiable execution evidence
+- Build an auditable authorization-to-execution trust chain
+- Independently verify every execution
+- Support governance and regulatory compliance
 
+---
 
-\- Execute only policy-compliant actions
-
-\- Produce verifiable execution evidence
-
-\- Build an auditable authorization-to-execution trust chain
-
-\- Independently verify every execution
-
-\- Support governance and regulatory compliance
-
-
-
-\---
-
-
-
-\# Core Principle
-
-
+# Core Principle
 
 Parmana does not execute business actions.
 
-
-
 Parmana authorizes execution.
-
-
 
 Only Parmana-approved actions are executed.
 
+---
 
-
-\---
-
-
-
-\# Architecture
-
-
+# Architecture
 
 ```
-
 Application
-
-&#x20;     │
-
-&#x20;     ▼
-
+      │
+      ▼
 Parmana TypeScript SDK
-
-&#x20;     │
-
-&#x20;     ▼
-
+      │
+      ▼
 Parmana Runtime
-
-&#x20;     │
-
-&#x20;     ▼
-
+      │
+      ▼
 Execution Trust Infrastructure
-
-&#x20;     │
-
-&#x20;     ▼
-
+      │
+      ▼
 Execution Trust Record
-
-&#x20;     │
-
-&#x20;     ▼
-
+      │
+      ▼
 Independent Verification
-
 ```
 
+---
 
-
-\---
-
-
-
-\# Installation
-
-
+# Installation
 
 ```bash
-
 npm install @parmana/typescript-sdk
-
 ```
 
+---
 
-
-\---
-
-
-
-\# Quick Start
-
-
+# Quick Start
 
 ```typescript
-
 import {
-
-&#x20;   ParmanaClient,
-
-&#x20;   HttpTransport,
-
+    ParmanaClient,
+    HttpTransport,
 } from "@parmana/typescript-sdk";
 
-
-
 const client = new ParmanaClient({
+    endpoint: "https://runtime.example.com",
 
-&#x20;   endpoint: "https://runtime.example.com",
-
-
-
-&#x20;   transport: new HttpTransport({
-
-&#x20;       endpoint: "https://runtime.example.com",
-
-&#x20;   }),
-
+    transport: new HttpTransport({
+        endpoint: "https://runtime.example.com",
+    }),
 });
-
 ```
 
+---
 
-
-\---
-
-
-
-\# Runtime Health
-
-
+# Runtime Health
 
 ```typescript
-
 const health =
-
-&#x20;   await client.health();
-
+    await client.health();
 ```
 
+---
 
-
-\---
-
-
-
-\# Execute
-
-
+# Execute
 
 ```typescript
-
 const trustRecord =
-
-&#x20;   await client.execute(
-
-&#x20;       transaction,
-
-&#x20;   );
-
+    await client.execute(
+        transaction,
+    );
 ```
-
-
 
 The Runtime:
 
+1. Loads the requested policy.
+2. Evaluates policy deterministically.
+3. Produces a Decision.
+4. Enforces execution approval.
+5. Executes the Runtime Pipeline.
+6. Produces an Execution Trust Record.
 
+---
 
-1\. Loads the requested policy.
-
-2\. Evaluates policy deterministically.
-
-3\. Produces a Decision.
-
-4\. Enforces execution approval.
-
-5\. Executes the Runtime Pipeline.
-
-6\. Produces an Execution Trust Record.
-
-
-
-\---
-
-
-
-\# Verify
-
-
+# Verify
 
 ```typescript
-
 const verification =
-
-&#x20;   await client.getLatestVerification(
-
-&#x20;       trustRecord,
-
-&#x20;   );
-
+    await client.getLatestVerification(
+        trustRecord.businessTransactionId,
+    );
 ```
-
-
 
 Verification independently validates the Execution Trust Record.
 
+---
 
-
-\---
-
-
-
-\# Replay
-
-
+# Replay
 
 ```typescript
-
 const replay =
-
-&#x20;   await client.replay(
-
-&#x20;       trustRecord,
-
-&#x20;   );
-
+    await client.replay(
+        trustRecord.businessTransactionId,
+    );
 ```
-
-
 
 Replay deterministically re-executes the recorded execution.
 
+---
 
-
-\---
-
-
-
-\# Validate Policy
-
-
+# Validate Policy
 
 ```typescript
-
 const result =
-
-&#x20;   await client.validatePolicy(
-
-&#x20;       policy,
-
-&#x20;   );
-
+    await client.validatePolicy(
+        policy,
+    );
 ```
-
-
 
 Policy validation checks that a policy is structurally valid before deployment.
 
+---
 
-
-\---
-
-
-
-\# SDK Architecture
-
-
+# SDK Architecture
 
 ```
-
 ParmanaClient
-
 │
-
 ├── HealthApi
-
-├── RuntimeApi
-
+├── ExecutionApi
 ├── VerificationApi
-
 ├── ReplayApi
-
+├── ReceiptApi
+├── TransactionApi
+├── TrustRecordApi
 └── PolicyApi
-
 ```
-
-
 
 The client is intentionally small.
 
-
-
 Each API encapsulates a single Parmana capability.
 
+---
 
-
-\---
-
-
-
-\# Canonical Domain Model
-
-
+# Canonical Domain Model
 
 The SDK re-exports the canonical Parmana domain model from `@parmana/shared`.
 
-
-
 Core artifacts include:
 
-
-
-\- Authority
-
-\- Authorization
-
-\- Intent
-
-\- PolicyReference
-
-\- BusinessTransaction
-
-\- Decision
-
-\- Execution
-
-\- ExecutionEvidence
-
-\- ExecutionTrustRecord
-
-\- Verification
-
-\- Receipt
-
-\- Override
-
-
+- Authority
+- Authorization
+- Intent
+- PolicyReference
+- BusinessTransaction
+- Decision
+- Execution
+- ExecutionEvidence
+- ExecutionTrustRecord
+- Verification
+- Receipt
+- Override
 
 The SDK does not redefine these models.
 
+---
 
-
-\---
-
-
-
-\# Error Handling
-
-
+# Error Handling
 
 All SDK exceptions inherit from:
 
-
-
 ```typescript
-
 ParmanaError
-
 ```
-
-
 
 Common errors include:
 
+- ConfigurationError
+- ValidationError
+- ExecutionRejectedError
+- VerificationError
+- ReplayError
+- NetworkError
+- TimeoutError
+- InternalServerError
 
+---
 
-\- ConfigurationError
-
-\- ValidationError
-
-\- ExecutionRejectedError
-
-\- VerificationError
-
-\- ReplayError
-
-\- NetworkError
-
-\- TimeoutError
-
-\- InternalServerError
-
-
-
-\---
-
-
-
-\# Configuration
-
-
+# Configuration
 
 ```typescript
-
 const configuration = {
-
-&#x20;   endpoint: "...",
-
-&#x20;   transport: ...,
-
+    endpoint: "...",
+    transport: ...,
 };
-
 ```
-
-
 
 The SDK configuration controls communication with the Parmana Runtime.
 
-
-
 It does not control policy evaluation or runtime behavior.
-
-
 
 No route in the Parmana API enforces authentication or authorization today; every request is accepted from any caller who can reach the port (see docs/CLAIMS.md, "API-layer authentication and authorization"). The SDK configuration has no credentials field for that reason — do not build a client that assumes one.
 
+---
 
-
-\---
-
-
-
-\# Examples
-
-
+# Examples
 
 See the `examples/` directory.
 
+- Runtime Health
+- Execute
+- Verify
+- Replay
+- Policy Validation
 
+---
 
-\- Runtime Health
-
-\- Execute
-
-\- Verify
-
-\- Replay
-
-\- Policy Validation
-
-
-
-\---
-
-
-
-\# Documentation
-
-
+# Documentation
 
 The complete SDK documentation is available in:
 
-
-
 ```
-
 docs/sdk/
-
 ```
-
-
 
 Including:
 
+- SDK Architecture
+- SDK Specification
+- Error Model
+- Configuration
+- Versioning
+- Conformance
 
+---
 
-\- SDK Architecture
-
-\- SDK Specification
-
-\- Error Model
-
-\- Configuration
-
-\- Versioning
-
-\- Conformance
-
-
-
-\---
-
-
-
-\# License
-
-
+# License
 
 Apache License 2.0
 
+---
 
-
-\---
-
-
-
-\# About Parmana
-
-
+# About Parmana
 
 Parmana is an Execution Trust Infrastructure for autonomous and AI systems.
 
-
-
 It establishes a cryptographically verifiable trust chain linking:
-
-
 
 Authority → Authorization → Intent → Policy → Decision → Execution → Evidence → Verification
 
-
-
 This enables organizations to confidently deploy AI in high-impact workflows while maintaining governance, auditability, and independent verification.
-

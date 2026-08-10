@@ -6,6 +6,8 @@ Main entry point for the Parmana Python SDK.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 from parmana.api.execution_api import ExecutionApi
 from parmana.api.policy_api import PolicyApi
 from parmana.api.receipt_api import ReceiptApi
@@ -13,8 +15,14 @@ from parmana.api.replay_api import ReplayApi
 from parmana.api.transaction_api import TransactionApi
 from parmana.api.trust_record_api import TrustRecordApi
 from parmana.api.verification_api import VerificationApi
+from parmana.errors.configuration_error import ConfigurationError
 from parmana.transport.http_transport import HttpTransport
 from parmana.version import __version__
+
+if TYPE_CHECKING:
+    from parmana.models.business_transaction import BusinessTransaction
+    from parmana.models.trust_record import ExecutionTrustRecord
+    from parmana.models.verification import Verification
 
 
 class ParmanaClient:
@@ -55,6 +63,13 @@ class ParmanaClient:
         """
         Create a Parmana SDK client.
 
+        Raises
+        ------
+        ConfigurationError:
+            If `endpoint` is missing or empty. Mirrors
+            typescript/src/client/ParmanaClient.ts's identical
+            fail-fast check.
+
         This client is synchronous only. There is no async variant.
 
         Parameters
@@ -85,6 +100,9 @@ class ParmanaClient:
         debug:
             Enable request/response debug logging on the "parmana" logger.
         """
+
+        if not endpoint:
+            raise ConfigurationError("Runtime endpoint is required.")
 
         self._transport = HttpTransport(
             endpoint=endpoint,
@@ -140,6 +158,72 @@ class ParmanaClient:
         Parmana SDK version.
         """
         return __version__
+
+    #
+    # Canonical flat capabilities (docs/sdk/SDK_CONFORMANCE.md #5:
+    # execute(), verify(), replay(), validatePolicy(), health()), plus
+    # the other operations typescript/src/client/ParmanaClient.ts
+    # exposes at the top level. `replay()`, `receipt()`, and
+    # `transactions()` don't need wrapper methods here: those names are
+    # already taken by the nested API namespaces above, so those
+    # namespace objects were made directly callable instead (see
+    # ReplayApi.__call__, ReceiptApi.__call__, TransactionApi.__call__)
+    # -- `client.replay(id)` and `client.replay.replay(id)` both work,
+    # without breaking either existing call shape.
+    #
+
+    def health(self) -> dict[str, Any]:
+        """
+        Returns the Runtime health status.
+        """
+        return self.execution.health()
+
+    def execute(self, transaction: "BusinessTransaction") -> "ExecutionTrustRecord":
+        """
+        Execute a Business Transaction.
+        """
+        return self.execution.execute(transaction)
+
+    def verify(self, business_transaction_id: str) -> "Verification":
+        """
+        Run a fresh verification of an Execution Trust Record, appending
+        a new Verification to its history. Distinct from
+        get_latest_verification(), which reads the most recent one
+        without re-verifying.
+        """
+        return self.verification.verify(business_transaction_id)
+
+    def get_latest_verification(self, business_transaction_id: str) -> "Verification":
+        """
+        Returns the latest Verification, without performing a fresh one.
+        """
+        return self.verification.get_latest(business_transaction_id)
+
+    def create_transaction(self, transaction: "BusinessTransaction") -> "ExecutionTrustRecord":
+        """
+        Creates (executes) a Business Transaction via POST /transactions,
+        a second, independent entry point into the identical execution
+        pipeline as execute() (POST /execute).
+        """
+        return self.transactions.create(transaction)
+
+    def transaction(self, business_transaction_id: str) -> "BusinessTransaction":
+        """
+        Retrieves a Business Transaction.
+        """
+        return self.transactions.get(business_transaction_id)
+
+    def trust_record(self, business_transaction_id: str) -> "ExecutionTrustRecord":
+        """
+        Retrieves an Execution Trust Record.
+        """
+        return self.trust_records.get(business_transaction_id)
+
+    def validate_policy(self, policy_id: str, policy_version: str) -> dict[str, Any]:
+        """
+        Validates that a policy (name + version) is loadable.
+        """
+        return self.policy.validate(policy_id, policy_version)
 
     def __repr__(self) -> str:
         return (

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 
-class ApiError(Exception):
+class ParmanaError(Exception):
     """
-    Base exception for all Parmana SDK errors.
+    Canonical base exception for all Parmana SDK errors (see
+    docs/sdk/SDK_CONFORMANCE.md #7). Every SDK-specific exception
+    inherits from this class, mirroring
+    typescript/src/errors/ParmanaError.ts.
     """
 
     def __init__(
@@ -17,3 +20,9 @@ class ApiError(Exception):
 
         self.code = code
         self.request_id = request_id
+
+
+#: Backward-compatible alias -- this class was previously named
+#: ApiError. Existing `except ApiError` / `isinstance(e, ApiError)`
+#: code keeps working unchanged.
+ApiError = ParmanaError

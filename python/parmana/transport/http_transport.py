@@ -12,12 +12,13 @@ from typing import Any, TypeVar, overload
 import requests
 from requests import Response
 from requests.adapters import HTTPAdapter
-from requests.exceptions import RequestException
+from requests.exceptions import RequestException, Timeout
 from urllib3.util.retry import Retry
 
 from parmana.config.transport import Transport
 from parmana.errors.http_error import build_http_error
 from parmana.errors.network_error import NetworkError
+from parmana.errors.network_error import TimeoutError as ParmanaTimeoutError
 from parmana.serialization import decode
 
 logger = logging.getLogger("parmana")
@@ -151,6 +152,9 @@ class HttpTransport(Transport):
                 json=body,
                 timeout=self._timeout,
             )
+
+        except Timeout as exc:
+            raise ParmanaTimeoutError() from exc
 
         except RequestException as exc:
             raise NetworkError() from exc

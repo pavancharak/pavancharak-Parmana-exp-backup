@@ -14,6 +14,7 @@ import logging
 import pytest
 import responses
 from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import ReadTimeout
 
 from parmana.errors import (
     AuthenticationError,
@@ -23,6 +24,7 @@ from parmana.errors import (
     NetworkError,
     NotFoundError,
     ServerError,
+    TimeoutError as ParmanaTimeoutError,
     ValidationError,
 )
 from parmana.transport.http_transport import HttpTransport
@@ -306,6 +308,28 @@ def test_connection_failure_raises_network_error():
 
     with pytest.raises(NetworkError):
         _transport().send(method="GET", path="/health")
+
+
+@responses.activate
+def test_read_timeout_raises_timeout_error_not_generic_network_error():
+    """
+    A request timeout is a distinguishable failure mode (the Runtime may
+    still be processing) from a connection failure (nothing is
+    listening) -- mirrors typescript/src/transport/HttpTransport.ts,
+    which raises TimeoutError, not NetworkError, on an aborted request.
+    """
+    responses.add(
+        responses.GET,
+        f"{ENDPOINT}/health",
+        body=ReadTimeout("Read timed out."),
+    )
+
+    with pytest.raises(ParmanaTimeoutError) as excinfo:
+        _transport().send(method="GET", path="/health")
+
+    # TimeoutError subclasses NetworkError, so pre-existing
+    # `except NetworkError` call sites keep catching timeouts too.
+    assert isinstance(excinfo.value, NetworkError)
 
 
 @responses.activate

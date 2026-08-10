@@ -1,6 +1,13 @@
+import pytest
 import responses
 
-from parmana import ConflictError, ExecutionTrustRecord, ParmanaClient, ParmanaHttpError
+from parmana import (
+    ConfigurationError,
+    ConflictError,
+    ExecutionTrustRecord,
+    ParmanaClient,
+    ParmanaHttpError,
+)
 
 
 def test_client_creation():
@@ -52,3 +59,69 @@ def test_models_and_errors_are_importable_from_top_level_package():
 
     assert issubclass(ConflictError, ParmanaHttpError)
     assert ExecutionTrustRecord is not None
+
+
+@pytest.mark.parametrize("endpoint", ["", None])
+def test_client_creation_without_endpoint_raises_configuration_error(endpoint):
+    """
+    Mirrors typescript/src/client/ParmanaClient.ts's identical
+    fail-fast check: a missing Runtime endpoint must be rejected at
+    construction, not surface later as a confusing connection failure.
+    """
+
+    with pytest.raises(ConfigurationError):
+        ParmanaClient(endpoint=endpoint)
+
+
+@responses.activate
+def test_flat_client_methods_delegate_to_the_matching_nested_api():
+    """
+    docs/sdk/SDK_CONFORMANCE.md #5 requires execute(), verify(),
+    replay(), validatePolicy(), and health() directly on ParmanaClient,
+    not only on nested API namespaces.
+    """
+
+    responses.add(
+        responses.GET,
+        "http://localhost:3000/health",
+        json={"status": "UP"},
+        status=200,
+    )
+
+    client = ParmanaClient(endpoint="http://localhost:3000")
+
+    assert client.health() == {"status": "UP"}
+
+
+@responses.activate
+def test_replay_receipt_transactions_are_callable_and_still_navigable():
+    """
+    ReplayApi/ReceiptApi/TransactionApi are exposed on ParmanaClient
+    under the same name as the operation itself (`client.replay`,
+    `client.receipt`, `client.transactions`), so the flat
+    docs/sdk/SDK_CONFORMANCE.md #5 capability can't be a same-named
+    method without shadowing the existing namespace object. Making each
+    namespace object itself callable (__call__) satisfies both shapes
+    at once -- this proves neither broke the other.
+    """
+
+    responses.add(
+        responses.POST,
+        "http://localhost:3000/replay",
+        json={"businessTransactionId": "txn-1", "success": True, "mismatches": []},
+        status=200,
+    )
+    responses.add(
+        responses.GET,
+        "http://localhost:3000/transactions?page=1&pageSize=25",
+        json=[],
+        status=200,
+    )
+
+    client = ParmanaClient(endpoint="http://localhost:3000")
+
+    assert callable(client.replay)
+    client.replay("txn-1")  # client.replay(id) -- the flat shape
+    assert client.transactions() == []  # client.transactions() -- the flat shape
+    assert hasattr(client.replay, "replay")  # client.replay.replay(id) still works
+    assert hasattr(client.transactions, "list")  # client.transactions.list(...) still works
