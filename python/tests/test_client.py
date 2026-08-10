@@ -124,4 +124,5 @@ def test_replay_receipt_transactions_are_callable_and_still_navigable():
     client.replay("txn-1")  # client.replay(id) -- the flat shape
     assert client.transactions() == []  # client.transactions() -- the flat shape
     assert hasattr(client.replay, "replay")  # client.replay.replay(id) still works
-    assert hasattr(client.transactions, "list")  # client.transactions.list(...) still works
+    # client.transactions.list(...) still works
+    assert hasattr(client.transactions, "list")

@@ -24,8 +24,10 @@ from parmana.errors import (
     NetworkError,
     NotFoundError,
     ServerError,
-    TimeoutError as ParmanaTimeoutError,
     ValidationError,
+)
+from parmana.errors import (
+    TimeoutError as ParmanaTimeoutError,
 )
 from parmana.transport.http_transport import HttpTransport
 

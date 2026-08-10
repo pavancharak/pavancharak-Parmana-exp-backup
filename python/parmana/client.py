@@ -178,13 +178,13 @@ class ParmanaClient:
         """
         return self.execution.health()
 
-    def execute(self, transaction: "BusinessTransaction") -> "ExecutionTrustRecord":
+    def execute(self, transaction: BusinessTransaction) -> ExecutionTrustRecord:
         """
         Execute a Business Transaction.
         """
         return self.execution.execute(transaction)
 
-    def verify(self, business_transaction_id: str) -> "Verification":
+    def verify(self, business_transaction_id: str) -> Verification:
         """
         Run a fresh verification of an Execution Trust Record, appending
         a new Verification to its history. Distinct from
@@ -193,13 +193,15 @@ class ParmanaClient:
         """
         return self.verification.verify(business_transaction_id)
 
-    def get_latest_verification(self, business_transaction_id: str) -> "Verification":
+    def get_latest_verification(self, business_transaction_id: str) -> Verification:
         """
         Returns the latest Verification, without performing a fresh one.
         """
         return self.verification.get_latest(business_transaction_id)
 
-    def create_transaction(self, transaction: "BusinessTransaction") -> "ExecutionTrustRecord":
+    def create_transaction(
+        self, transaction: BusinessTransaction
+    ) -> ExecutionTrustRecord:
         """
         Creates (executes) a Business Transaction via POST /transactions,
         a second, independent entry point into the identical execution
@@ -207,13 +209,13 @@ class ParmanaClient:
         """
         return self.transactions.create(transaction)
 
-    def transaction(self, business_transaction_id: str) -> "BusinessTransaction":
+    def transaction(self, business_transaction_id: str) -> BusinessTransaction:
         """
         Retrieves a Business Transaction.
         """
         return self.transactions.get(business_transaction_id)
 
-    def trust_record(self, business_transaction_id: str) -> "ExecutionTrustRecord":
+    def trust_record(self, business_transaction_id: str) -> ExecutionTrustRecord:
         """
         Retrieves an Execution Trust Record.
         """
