@@ -76,15 +76,7 @@ def _generate_keypair(key_dir: str, key_id: str) -> None:
     # Python, so the test fixture can't drift from how real key material is
     # produced. Mirrors vitest.setup.ts's hermetic-keypair-per-run approach.
     subprocess.run(
-        [
-            "npx",
-            "tsx",
-            "scripts/generate-keypair.ts",
-            "--algorithm",
-            "ed25519",
-            "--key-id",
-            key_id,
-        ],
+        f"npx tsx scripts/generate-keypair.ts --algorithm ed25519 --key-id {key_id}",
         cwd=str(REPO_ROOT),
         env={**os.environ, "PARMANA_KEY_DIR": key_dir},
         shell=True,
