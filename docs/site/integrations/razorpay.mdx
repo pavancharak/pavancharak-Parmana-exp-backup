@@ -54,38 +54,64 @@ tested:
 "parameters.amountPaise" }` (see [Policies and the decision](/concepts/policies-and-the-decision)
 and [Security](/security/overview) for why this binding exists): the refund *amount* a caller
 declares is checked against the amount actually executed, before policy evaluation runs.
-Every other signal this policy evaluates — `paymentStatus`, `paymentCurrency`,
-`refundableRemainingPaise`, `requestedExceedsRemainder`, `dailyCumulativeAfterThisRefundPaise`
-— is **not** independently verified for this path; it remains a caller-declared attestation,
-same as before. `RazorpayRefundService`, described below, is different: it fetches the real
-payment from Razorpay first and builds every signal from that fetched state, so nothing there
-is caller-declared. If your integration reaches `razorpay-refund` through the generic
-`POST /execute` route rather than `RazorpayRefundService` directly, only the amount binding
-protects you.
+**Every other signal this policy evaluates is independently verified too**, not caller-declared:
+`RazorpaySignalStateVerifier` (`packages/connector-sdk/src/connectors/razorpay/`), wired
+unconditionally into the same production bootstrap chain every `POST /execute` call goes
+through (`createApplication` → `RuntimeFactory.create`, not a separate opt-in path), fetches
+the real payment from Razorpay and re-derives `paymentStatus`, `paymentCurrency`,
+`refundableRemainingPaise`, and `requestedExceedsRemainder` before an `APPROVE` decision is
+allowed to stand — any disagreement with the caller-declared value is a rejection, and a fetch
+failure itself counts as a violation, never a silent pass-through. `dailyCumulativeAfterThisRefundPaise`
+is independently derived the same way, from an atomic ledger reservation
+(`RazorpayDailyRefundLedger`), not compared against a Razorpay-reported fact. A caller cannot
+talk this policy into approving a refund by declaring false signals through this route; see
+`packages/api/tests/integration/razorpay-refund.integration.test.ts`'s "rejects ... when
+caller-declared signals misrepresent the real Razorpay payment state" case for the exact,
+passing proof.
 </Warning>
 
 ## Requesting a refund
 
-```typescript
-import { RazorpayRefundService } from "@parmana/connector-sdk";
+A refund request is a `POST /execute` call with `intent.action: "razorpay:refund-create"` and
+a `razorpay-refund` policy reference, the same shape [Authorize and
+execute](/guides/authorize-and-execute) documents generically:
 
-const outcome = await refundService.requestRefund({
-  businessTransactionId: "eed2a972-1bf5-4166-8472-761f76fbf1b2",
-  paymentId: "pay_XYZ789",
-  amountPaise: 100,          // omit for a full refund of the remaining refundable amount
-  reason: "Customer requested refund",
-  scopeId: "customer-42",    // groups requests under the daily cumulative cap
-});
-
-console.log(outcome.receipt.approved, outcome.receipt.razorpayRefundId, outcome.replayed);
+```json
+{
+  "intent": {
+    "action": "razorpay:refund-create",
+    "target": "razorpay://payments/pay_XYZ789/refund",
+    "parameters": { "paymentId": "pay_XYZ789", "amountPaise": 100, "reason": "Customer requested refund" }
+  },
+  "policy": { "name": "razorpay-refund", "version": "1.0.0", "schemaVersion": "1.0.0" },
+  "signals": {
+    "paymentStatus": "captured",
+    "paymentCurrency": "INR",
+    "refundableRemainingPaise": 1000000,
+    "requestedRefundAmountPaise": 100,
+    "requestedExceedsRemainder": false,
+    "dailyCumulativeAfterThisRefundPaise": 100
+  }
+}
 ```
 
-`RazorpayRefundOutcome.replayed` is `true` when this exact `businessTransactionId` was seen
-before, the service answers from a local outcome cache with zero policy evaluation and zero
-HTTP calls to Razorpay, stronger than, and separate from, the connector's own idempotency
-check against Razorpay's own refund list (matching on
-`notes["parmana_txn"] === businessTransactionId`). `key_secret` never appears anywhere in the
-receipt, `keyIdRedacted` shows only the first 8 characters.
+The declared `signals` above only need to be roughly right, the Warning above is the reason:
+`paymentStatus`, `paymentCurrency`, `refundableRemainingPaise`, `requestedExceedsRemainder`,
+and `dailyCumulativeAfterThisRefundPaise` are all independently re-derived from the real
+payment and the daily ledger before the decision stands, a caller declaring an optimistic or
+stale value does not get a free pass. `businessTransactionId` is this API's idempotency key
+(see [Idempotency and nonces](/api-reference/idempotency-and-nonces)): the connector's own
+duplicate-refund check against Razorpay's refund list (matching on
+`notes["parmana_txn"] === businessTransactionId`) is a second, independent safeguard on top of
+that. `key_secret` never appears in any response this API returns.
+
+<Info>
+An earlier version of this codebase exposed this same flow through a dedicated
+`RazorpayRefundService` class with its own fetch-verify logic. That class no longer exists —
+the fetch-verify behavior it pioneered was generalized into `RazorpaySignalStateVerifier` and
+wired into the production `POST /execute` path directly, described in the Warning above, so
+every caller gets it, not only callers of one specific TypeScript class.
+</Info>
 
 ## The reference policy
 
@@ -100,50 +126,41 @@ somehow none of the specific rules match.
 ## Try it without touching Razorpay at all
 
 ```bash
-npx tsx examples/tutorials/61-razorpay-refund/run.ts
+npx tsx examples/tutorials/63-razorpay-refund-connector/run.ts
 ```
 
 No environment variables, no network calls. This spins up an in-process
-`MockRazorpayServer` with fake test-mode credentials and runs the real
-`RazorpayRefundService` against it, loading the real policy above from disk. Real output from
-a run against this exact code:
+`MockRazorpayServer` with a placeholder test-mode credential and drives one refund through
+the exact same production bootstrap chain `server.ts` calls (`createExecutionSystem` →
+`createApplication`), pointed at the mock server via the `RAZORPAY_BASE_URL` test seam,
+loading the real policy above from disk. Real output from a run against this exact code:
 
 ```
 ==================================================
-Tutorial 61 - Razorpay Refund Connector
+Tutorial 63 - Razorpay Refund Connector
 ==================================================
 
-Outcome 1 - Approved and Executed
+Decision
 --------------------------------------------------
-Approved         : true
-Razorpay Refund  : rfnd_b5e7e281c6cb7b
-Amount (paise)   : 250000
-Policy Reason    : Refund authorized. Payment status, currency, refundable remainder, per-refund cap, and daily cumulative cap requirements were satisfied.
-Key ID (redacted): rzp_test...
+Outcome : APPROVED
+Reason  : Refund authorized. Payment status, currency, refundable remainder, per-refund cap, and daily cumulative cap requirements were satisfied.
 
-Outcome 2 - Denied by Policy
+Razorpay Mock Server State
 --------------------------------------------------
-Approved      : false
-Matched Rule  : reject-payment-not-captured
-Reason        : Refund rejected because the payment status is not captured.
+Refunds for pay_TUT063 : 1
+Amount                 : 250000 paise
+parmana_txn note       : 2e341428-76c3-427c-b7ff-4a1ddffe25a6
 
-Outcome 3 - Replay Returns Recorded Result
---------------------------------------------------
-Replayed              : true
-Same Refund Returned  : true
-Refunds On Razorpay   : 1 (unchanged from 1)
+✓ Refund authorized and executed against the real connector.
 
-Outcome 4 - Tamper Rejected
---------------------------------------------------
-Rejected      : true
-Reason        : Execution Gateway rejected request: failed checks [businessTransactionHashMatches, nonceUnseen]. businessTransactionHash mismatch: expected 475f50869e44bded75ef1c152ba1f8cb5c5cd1e0ddba48b79cb573664a05c878, got 844d9307d40ebd22245894767ceddd8052c31f535a70b4ff27358254bf10a78f.
-
-==================================================
-Tutorial completed successfully.
-==================================================
+Tutorial Complete
+Next: Tutorial 64 - Razorpay Policy Denial
 ```
 
-Refund ids and hash values are random per run, everything else in the output is stable.
+The `parmana_txn` note is a fresh random UUID per run, everything else in the output is
+stable. This one script covers the approved path only, tutorials 64-68 in the same directory
+cover policy denial, signal-state verification, the daily cumulative cap, webhook receipt,
+and settlement confirmation individually, see [Tutorials](/tutorials/index) for the full list.
 Covers refund creation only, payout creation is not demonstrated.
 
 ## Configuration

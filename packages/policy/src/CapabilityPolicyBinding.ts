@@ -27,10 +27,6 @@ export interface CapabilityPolicyBindingViolation {
  */
 export const CANONICAL_CAPABILITY_POLICY_BINDINGS: ReadonlyMap<string, PolicyReference> = new Map([
   [
-    "payments:execute",
-    { name: "vendor-payment", version: "2.0.0", schemaVersion: "1.0.0" },
-  ],
-  [
     "razorpay:payment-fetch",
     { name: "razorpay-refund", version: "1.0.0", schemaVersion: "1.0.0" },
   ],

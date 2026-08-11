@@ -59,10 +59,21 @@ absolute delta from the deal's current amount exceeds a configured threshold (10
 deal's own currency units) unless the caller declares `preAuthorizedForAmountChange: true`.
 
 <Warning>
-**`preAuthorizedForAmountChange` is a caller-declared signal this milestone does not
-independently verify.** There is no separately signed approval artifact behind it yet, a
-caller asserting `true` is taken on faith, the same way an unbound signal on any other
-policy is. Absent, it defaults to `false`, the safe default, see [FUTURE] below.
+**`preAuthorizedForAmountChange` is independently verified, not taken on faith — but nothing
+can pass that check in this deployment as configured, only fail it.** `HubSpotSignalStateVerifier`
+(`packages/connector-hubspot/src/HubSpotSignalStateVerifier.ts`), constructed with a real
+`ApprovalVerifier` unconditionally in `packages/api/src/bootstrap/createHubSpotSignalStateVerifier.ts`
+("`approvalVerifier` is always supplied here, never omitted"), checks a caller's declared
+`true` against a real, independently-issued, Ed25519-signed Approval Artifact carried in
+`signals.approvalArtifact` — issuer identity, signature validity, expiry, capability/resource
+scope, and single-use nonce consumption, all verified before the claim is trusted. A missing,
+expired, wrong-scope, replayed, or unsigned artifact is treated as `false` regardless of what
+the caller declared, the same fail-closed default as before. **The gap that remains:**
+`createApprovalIssuerRegistry.ts`'s trusted-issuer list ships **empty by default** — no real
+business-approver key is provisioned in this deployment, so every `preAuthorizedForAmountChange`
+claim is rejected today, genuine artifact or not, until an operator adds one. The mechanism is
+real, tested, and unconditionally wired in; it just has nothing to trust yet. See
+`docs/CLAIMS.md` §3.10's TD-23/Phase 3C update for the full trace.
 </Warning>
 
 `boundSignals` is present from this policy's first version, not added after a live
@@ -186,51 +197,39 @@ response:
 ## Try it without touching HubSpot at all
 
 ```bash
-npx tsx examples/tutorials/63-hubspot-deal-update/run.ts
+npx tsx examples/tutorials/69-hubspot-deal-update-connector/run.ts
 ```
 
 No environment variables, no network calls. This spins up an in-process
-`MockHubSpotServer` with a fake test-mode token and runs the real `HubSpotDealUpdateService`
-against it, loading the real policy above from disk. Real output from a run against this
-exact code:
+`MockHubSpotServer` with a placeholder test-mode token and drives one deal update through
+the exact same production bootstrap chain `server.ts` calls (`createExecutionSystem` →
+`createApplication`), pointed at the mock server via the connector's test seam, loading the
+real policy above from disk. Real output from a run against this exact code:
 
 ```
 ==================================================
-Tutorial 63 - HubSpot Deal Update Connector
+Tutorial 69 - HubSpot Deal Update Connector
 ==================================================
 
-Outcome 1 - Approved and Executed
+Decision
 --------------------------------------------------
-Approved            : true
-Applied Deal Stage  : qualifiedtobuy
-Applied Amount      : 5500
-Policy Reason       : Deal update authorized. The dealstage transition (if any) is on an allowed path, and the amount change (if any) is within threshold or has been pre-authorized.
-Token (redacted)    : pat-na1-demo...
+Outcome : APPROVED
+Reason  : Deal update authorized. The dealstage transition (if any) is on an allowed path, and the amount change (if any) is within threshold or has been pre-authorized.
 
-Outcome 2 - Denied by Policy
+HubSpot Mock Server State
 --------------------------------------------------
-Approved      : false
-Matched Rule  : reject-stage-transition-not-allowed
-Reason        : Deal update rejected because the requested dealstage transition is not on an allowed forward path.
+Deal 9001 dealstage : qualifiedtobuy
 
-Outcome 3 - Replay Returns Recorded Result
---------------------------------------------------
-Replayed              : true
-Same Receipt Returned : true
-Deal Stage On HubSpot : qualifiedtobuy (unchanged from qualifiedtobuy)
+✓ Deal update authorized and executed against the real connector.
 
-Outcome 4 - Tamper Rejected
---------------------------------------------------
-Rejected      : true
-Reason        : Execution Gateway rejected request: failed checks [businessTransactionHashMatches, nonceUnseen]. businessTransactionHash mismatch: expected ..., got ....
-
-==================================================
-Tutorial completed successfully.
-==================================================
+Tutorial Complete
+Next: Tutorial 70 - HubSpot Policy Denial
 ```
 
-Hash values are random per run, everything else in the output is stable. Covers `dealstage`/
-`amount` update only, nothing else demonstrated here.
+This one script covers the approved path only, tutorials 70-72 in the same directory cover
+policy denial, signal-state verification, and the signed approval-artifact check individually,
+see [Tutorials](/tutorials/index) for the full list. Covers `dealstage`/`amount` update only,
+nothing else demonstrated here.
 
 ## Setup
 
@@ -259,12 +258,17 @@ Razorpay's Basic-auth credential has two parts.
 
 This is the part worth reading in full before deciding how much to trust this connector.
 
-- **`packages/connector-hubspot/tests/unit/`** (42 tests) hit `MockHubSpotServer`, not the
-  real network. They run on every `npm test`, no gate required. This covers the full
-  authorize → verify → execute → confirm chain, every policy rule branch, replay with zero
-  second calls, `businessTransactionHash` tamper rejection, and the placeholder-credential
-  guard against a real-shaped endpoint.
-- **`packages/api/tests/integration/hubspot-deal-update.integration.test.ts`** (3 tests)
+- **43 unit tests across two packages** hit `MockHubSpotServer`, not the real network, and run
+  on every `npm test`, no gate required: `packages/connector-hubspot/tests/unit/` (31 tests,
+  including `HubSpotSignalStateVerifier.test.ts`'s Approval Artifact verification suite — a
+  matching artifact, an unknown issuer, a scope-escalated amount, a deal-id mismatch, and a
+  replayed nonce, each independently rejected or approved) and
+  `packages/execution-gateway/tests/unit/hubspot-connector.test.ts` (12 tests, moved here in
+  the Phase 1C migration). Together these cover the full authorize → verify → execute →
+  confirm chain, every policy rule branch, replay with zero second calls,
+  `businessTransactionHash` tamper rejection, and the placeholder-credential guard against a
+  real-shaped endpoint.
+- **`packages/api/tests/integration/hubspot-deal-update.integration.test.ts`** (6 tests)
   drives the same real, production-wired `POST /execute` route this page's examples above
   are captured from, against `MockHubSpotServer`. A policy denial here is proven to make zero
   HubSpot calls two ways: the mock server's own state is confirmed unchanged, and a `fetch`
@@ -296,8 +300,10 @@ This is the part worth reading in full before deciding how much to trust this co
 - **Per-pipeline stage-transition rules.** The forward-only stage order above is one global
   order, not keyed by a deal's own `pipeline` property. `isHubSpotStageTransitionAllowed`
   accepts a `stageOrder` override, nothing wires it to a pipeline yet.
-- **Independent verification of `preAuthorizedForAmountChange`.** It's an unverified
-  caller-declared signal today, see the warning above.
+- **A provisioned, real approval issuer.** Independent verification of
+  `preAuthorizedForAmountChange` is built, tested, and unconditionally wired in (see the
+  warning above), but the trusted-issuer registry ships empty — no business can actually
+  produce an artifact this deployment accepts until an operator provisions one.
 
 ## Next
 

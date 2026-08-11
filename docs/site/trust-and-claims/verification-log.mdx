@@ -6,7 +6,9 @@ description: "Dated entries recording live, end-to-end verification sessions run
 <Info>This page accumulates real verification sessions over time, each as its own dated
 entry. Nothing here is projected forward from one session to the next: a session that only
 exercised one connector says so, and a later session covering a different connector gets
-its own entry rather than silently extending an earlier claim.</Info>
+its own entry rather than silently extending an earlier claim. The real HubSpot test deal id
+used in the 2026-08-11 entry below is redacted to `[redacted-deal-id]` in this public copy;
+every other detail (requests, responses, database cross-checks) is reported unchanged.</Info>
 
 ## 2026-08-11 — Live end-to-end verification, HubSpot connector, `parmana-api.fly.dev`
 
@@ -14,7 +16,7 @@ its own entry rather than silently extending an earlier claim.</Info>
 
 This session verified the **HubSpot connector only**, against the live `parmana-api`
 deployment on Fly.io (`https://parmana-api.fly.dev`) and a real HubSpot test deal
-(id `339563440850`, "Parmana Test Deal").
+(id `[redacted-deal-id]`, "Parmana Test Deal").
 
 `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET`/`RAZORPAY_WEBHOOK_SECRET` are configured as
 **live-mode** credentials on this same deployment, confirmed via a prior secrets audit in
@@ -37,7 +39,7 @@ checked for a matching status code.
 | Step | Request | Result | Cross-check |
 |---|---|---|---|
 | Unauthenticated execute | `POST /execute`, no `Authorization` header | `401` `{"error":"authentication required"}` | `caller_audit_events` gained a new row: `type: "caller.rejected"`, `route: "/execute"`, `reason: "missing credential"`, signed — timestamp matched the response to the millisecond |
-| Policy-approved dealstage change | `POST /execute`, signed envelope proposing `appointmentscheduled` → `qualifiedtobuy` | `200`, `decision.outcome: "APPROVED"`, real HubSpot write executed (deal `339563440850` actually moved stage) | `execution_trust_records`, `executions`, `verifications`, and `receipts` rows queried directly — `trustRecordId`, `trustRecordHash`, `signature.value`, `verificationId`, `receiptId`, `receiptHash`, and every timestamp matched the API response byte-for-byte |
+| Policy-approved dealstage change | `POST /execute`, signed envelope proposing `appointmentscheduled` → `qualifiedtobuy` | `200`, `decision.outcome: "APPROVED"`, real HubSpot write executed (deal `[redacted-deal-id]` actually moved stage) | `execution_trust_records`, `executions`, `verifications`, and `receipts` rows queried directly — `trustRecordId`, `trustRecordHash`, `signature.value`, `verificationId`, `receiptId`, `receiptHash`, and every timestamp matched the API response byte-for-byte |
 | Policy-denied request | `POST /execute`, proposed amount $1,000 → $15,000 ($14,000 delta, over the $10,000 threshold, no `preAuthorizedForAmountChange`) | `403` `{"error":"Execution rejected: Deal update rejected because the requested amount change exceeds the configured threshold and has not been pre-authorized.","code":"POLICY_DENIED"}` | `refusal_records` gained exactly one new, signed row matching the reason and signals; **no** `execution_trust_records` row was created for this transaction (correct — a `REJECT` never reaches the trust pipeline) |
 | Zero HubSpot calls on denial | — | Confirmed two ways | (1) Source trace of `RuntimeEngine.execute()`: the signal-state verifier — the only code path that calls HubSpot's live API — runs only `if provisionalDecision.outcome === APPROVE`; this request's provisional decision was `REJECT` directly from `PolicyEngine.evaluate`, so it never ran. (2) Empirically: a follow-up read showed the deal's `amount` still `1000` and no HubSpot-side modification between the approved write and the denial check |
 | Trust record / verification presentation | `GET /trust-records/:id`, `GET /verification/:id` for the approved transaction | Both `200`, full record returned | Matched the raw `execution_trust_records`/`verifications` rows exactly (already confirmed above) |

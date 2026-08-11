@@ -3,7 +3,7 @@ title: "Production Deployment"
 description: "Running @parmana/api as a container on Fly.io or any Docker-based platform, validated against a real, permanent deployment."
 ---
 
-<Info>**[AVAILABLE]**, validated this session against real `parmana-api` and `parmana-api-live` Fly.io apps. Platform-agnostic by design, built against a bare `docker build` / `docker run`, not a specific PaaS's proprietary build system. Source: `DEPLOYMENT.md` (repo root).</Info>
+<Info>**[AVAILABLE]**, validated this session against a real, permanent Fly.io deployment (`parmana-api`), plus a second deployment on the same platform running live-mode Razorpay credentials. Platform-agnostic by design, built against a bare `docker build` / `docker run`, not a specific PaaS's proprietary build system. Source: `DEPLOYMENT.md` (repo root).</Info>
 
 ## Quick start
 
@@ -203,7 +203,7 @@ shape has validated exactly one authenticated, policy-gated 100-paise refund aga
 card-paid ₹10 Payment Link, through the same production `POST /execute` chain, with a genuine
 `refund.processed` webhook from Razorpay's own infrastructure and a signed `SETTLED`
 settlement confirmation roughly 43 seconds later. It does not validate volume, sustained
-live-mode operation, or failover, running two machines is for redundancy, not capacity or
+live-mode operation, or failover, running multiple machines is for redundancy, not capacity or
 tested failover behavior. See `docs/CLAIMS.md` §3.9 for the full trace and [Razorpay](/integrations/razorpay#whats-proven-where-precisely).
 </Warning>
 

@@ -3,10 +3,15 @@
 > Parmana is an authorization layer between a caller — an AI agent, script, or person — and the business systems that carry out an action. A caller submits a Business Transaction describing an intended action, its target, its parameters, and a set of signals; the caller never holds or transmits execution credentials for the target system. A policy engine evaluates the transaction's signals against one named, versioned policy and returns a decision of APPROVED or REJECTED; an unmatched transaction defaults to REJECTED. Only an APPROVED decision produces a signed, single-use, time-bounded execution authorization. Execution against the target system happens only when a valid, unexpired, not-previously-used authorization is presented; a missing, expired, reused, or invalid authorization is rejected before execution occurs.
 
 Reflects `openapi/openapi.yaml` (`info.version: 1.0.0`) and `packages/api/src/app.ts`, as of commit
-`0e69ed4b153b217689aff69b68fd0b7d40ad1de8` (2026-07-28). `GET /version` on a running instance
+`0e69ed4b153b217689aff69b68fd0b7d40ad1de8` (2026-07-28), verified directly against source, not
+summarized from other docs pages, 2026-07-29. `GET /version` on a running instance
 returns `{"name":"Parmana","version":"0.4.0","api":"v1"}` — a separate, hardcoded deployment
-identifier, not derived from this spec's version. Verified directly against source, not
-summarized from other docs pages, 2026-07-29.
+identifier, not derived from this spec's version. **Spot-corrected 2026-08-11**, not a full
+re-verification: rate limiting on `POST /execute`/`GET /health`/`GET /ready`, the corrected
+`403`/`POLICY_DENIED` policy-rejection status (superseding the `500`/`RUNTIME_ERROR` shape
+described below in the two SDK sections' bug-history text), the TypeScript SDK's package rename
+to `@parmana/sdk`, both SDKs' current test counts, and new Razorpay/HubSpot connector sections
+— all shipped after the date above.
 
 This file concatenates the full content of the pages an integrating agent needs, so it can be
 ingested in one fetch. It does not inline the OpenAPI spec itself: request/response schemas,
@@ -103,11 +108,32 @@ every time it does. It exists for local development and running the tutorials. N
 real deployment. It removes the only authentication this API has, and every route becomes
 reachable by anyone who can reach the port.
 
+### Rate limiting
+
+Source: `/api-reference/authentication#rate-limiting`. `packages/api/src/middleware/rate-limit.ts`.
+
+`POST /execute` is rate-limited per authenticated caller identity (`callerId`), not IP — a
+design-partner integration commonly calls from a shared backend IP, where an IP-keyed limit
+would either starve every caller behind it or mean nothing. Mounted only when caller
+authentication is enabled. `GET /health`/`GET /ready` get a separate, more permissive limit keyed
+by IP instead, since both are legitimately polled on a fixed interval by PaaS health checks.
+
+A rejected request gets `429`, `{"error":"Rate limit exceeded. Try again later.","code":
+"RATE_LIMITED"}`, and a `Retry-After` header; nothing is signed and no nonce is consumed for a
+request rejected here. Both limits have working defaults sized for a design-partner evaluation
+deployment, configurable per deployment via `RATE_LIMIT_EXECUTE_PER_MINUTE` /
+`RATE_LIMIT_HEALTH_PER_MINUTE`.
+
+**Scope:** the limiter's store is `express-rate-limit`'s default, in-memory, single-process
+store — a multi-machine deployment counts independently per machine, not fleet-wide. Same
+caveat as the replay-nonce store (see Idempotency and nonces below).
+
 ### Errors
 
 | Status | Condition | Body |
 |---|---|---|
 | 401 | Missing or invalid `Authorization` header | `{"error":"authentication required"}` |
+| 429 | Rate limit exceeded (see above) | `{"error":"Rate limit exceeded. Try again later.","code":"RATE_LIMITED"}` |
 
 See the Error catalog section below for every other error this API returns.
 
@@ -187,10 +213,17 @@ code.
 |---|---|---|---|---|
 | 401 | none | `authentication required` | `Authorization` header missing, not a `Bearer <key>`, or the key doesn't match a configured hash | Send a valid key. Not retryable without fixing the header. |
 
+### Rate limited
+
+| Status | Code | Message | Condition | Routes | What to do |
+|---|---|---|---|---|---|
+| 429 | `RATE_LIMITED` | `Rate limit exceeded. Try again later.` | Caller (by authenticated identity, not IP) exceeded the `/execute` rate limit, or the caller's IP exceeded the separate, more permissive `/health`/`/ready` limit | `POST /execute`, `GET /health`, `GET /ready` | Back off; the response carries a `Retry-After` header. Not a transient server issue — no nonce is consumed and nothing is signed for a request rejected here. |
+
 ### Authorization (caller is known; not permitted to act as this principal)
 
 | Status | Code | Message | Condition | Routes | What to do |
 |---|---|---|---|---|---|
+| 403 | `POLICY_DENIED` | `Execution rejected: <policy-specific reason>` | Policy evaluation returned `REJECTED` (`ExecutionGate.enforce`, thrown with an explicit `status: 403, code: "POLICY_DENIED"`) | `POST /execute`, `POST /transactions` | A real, observed pipeline outcome, not a bug: the request was well-formed but the business decision was no. Read the reason string; it names the specific Policy condition that failed. Previously indistinguishable from a genuine server error (both surfaced as a generic `500`) — corrected. Distinct from the caller-identity 403 below. |
 | 403 | none | `Caller is not permitted to assert this authority.principalId.` | `transaction.authority.principalId` is missing/empty, or doesn't equal the authenticated `callerId` (default, no `allowedPrincipalIds` configured for this key), or isn't present in that key's configured `allowedPrincipalIds` list (`isPrincipalAllowed`, `packages/api/src/routes/execute.ts` / `transactions.ts`) | `POST /execute`, `POST /transactions` | Set `authority.principalId` to an identity this caller's key is actually permitted to assert. Skipped entirely (no 403 possible) when caller authentication itself is disabled. |
 
 ### Validation (caller's request is malformed)
@@ -225,9 +258,8 @@ code.
 
 | Status | Code | Message | Condition | Routes | What to do |
 |---|---|---|---|---|---|
-| 500 | `RUNTIME_ERROR` | `Execution rejected: <policy-specific reason>` | Policy evaluation returned `REJECTED` (a `RuntimeError`, no dedicated status of its own) | `POST /execute`, `POST /transactions` | A real, observed pipeline outcome, not a bug: the request was well-formed but the business decision was no. Read the reason string; it names the specific Policy condition that failed. |
 | 500 | none | `Internal Server Error` | A structurally incomplete but UUID-valid body (for example, `businessTransactionId` present but `metadata` missing) throws an unhandled `TypeError` inside `BusinessTransactionValidator.validate` before any typed error class is constructed | `POST /execute`, `POST /transactions` | Send every required nested object from the request schema. The generic message hides the real cause; it is visible only in server logs. |
-| 500 | none | `Internal Server Error` | No Connector is registered for the request's `action`. Previously reached the client as a coded `RuntimeError`; it no longer does (see Error handling above). | `POST /execute`, `POST /transactions` | Use a registered `action` (`payments:execute` is the only one wired by default). This is flagged as a product regression, not a documentation issue. |
+| 500 | none | `Internal Server Error` | No Connector is registered for the request's `action`. Previously reached the client as a coded `RuntimeError`; it no longer does (see Error handling above). | `POST /execute`, `POST /transactions` | Use a registered `action`. Nothing is wired by default outside `NODE_ENV=test` (which registers `test:fixture-execute`); `razorpay:refund-create` and `hubspot:deal-update` register only when their respective credentials are configured. This is flagged as a product regression, not a documentation issue. |
 
 ### What's deliberately not here
 
@@ -593,7 +625,7 @@ Source: `/glossary`. Every term used across the docs site, mapped to its real so
 
 ## Python SDK
 
-Source: `/sdks/python`. `python/`, v1.0.5. 48 passing tests.
+Source: `/sdks/python`. `python/`, v1.0.5. 64 passing tests.
 
 A full SDK audit found and fixed three real, live-verified bugs in this pass: no bearer-key auth
 at all, two error-taxonomy bugs (`403` misclassified, real policy rejection never actually
@@ -638,25 +670,29 @@ except ConflictError as exc:          # HTTP 409
 |---|---|
 | 400 | `ValidationError` |
 | 401 | `AuthenticationError` |
-| 403 | `AuthorizationError` |
+| 403, code `POLICY_DENIED`, message starting `Execution rejected` | `ExecutionRejectedError` |
+| 403 (no `code`) | `AuthorizationError` |
 | 404 | `NotFoundError` |
 | 409 | `ConflictError` |
-| 500, code `RUNTIME_ERROR`, message starting `Execution rejected` | `ExecutionRejectedError` |
 | any other 5xx | `ServerError` |
 | connection failure | `NetworkError` |
 
 All inherit `ParmanaHttpError` → `ApiError`. The client reuses a `requests.Session()` (connection
 pooling) and retries idempotent GETs with backoff on 502/503/504; POSTs are never retried.
 
-**Two bugs fixed this pass, previously live and untested against real conditions:**
-1. `403` was mapped to `ExecutionRejectedError`. The real `403` is the caller-principal-scoping
-   check (`isPrincipalAllowed`, "Caller is not permitted to assert this authority.principalId.") —
-   unrelated to policy rejection. Now a dedicated `AuthorizationError`.
-2. Real policy rejection reaches the caller as `500`, code `RUNTIME_ERROR`, message starting
-   `"Execution rejected:"` — no dedicated status code exists for it. Classification was previously
-   status-code-only, so this real condition raised generic `ServerError`, never
-   `ExecutionRejectedError`. Live-confirmed fixed: a real risk-rejected `vendor-payment` execution
-   now raises `ExecutionRejectedError` with `status_code == 500`.
+**Two bugs fixed in the SDK-audit pass, previously live and untested against real conditions:**
+1. `403` was mapped to `ExecutionRejectedError`. The real `403` (at the time, the only one) was
+   the caller-principal-scoping check (`isPrincipalAllowed`) — unrelated to policy rejection. Now
+   a dedicated `AuthorizationError`.
+2. Real policy rejection reached the caller as `500`, code `RUNTIME_ERROR`, message starting
+   `"Execution rejected:"` — there was no dedicated status code for it at the time. Classification
+   was previously status-code-only, so this real condition raised generic `ServerError`, never
+   `ExecutionRejectedError`.
+
+**Since superseded again, current behavior is the table above.** A later server-side fix gave
+policy rejection its own dedicated `403` with `code: "POLICY_DENIED"`, replacing the `500`/
+`RUNTIME_ERROR` shape bug #2 describes; `build_http_error` checks for that code ahead of the
+generic `403` branch so it doesn't collide with bug #1's caller-identity `403` (no `code`).
 
 ### Every endpoint the API exposes has a method
 
@@ -689,12 +725,14 @@ caller-auth middleware before this route's own handler runs, using the shared en
 ### Test suite
 
 Previously 26 tests: real but incomplete (no auth coverage, a wrong assumption baked into the
-`403` test, no real-server integration test). Now 48: unit tests for every error-mapping case
-including both fixed bugs, bearer-key header attachment tests, and a real-server integration
-suite (`python/tests/test_live_server_integration.py`) that spawns the actual `@parmana/api`
-process (the same entry point `npm run dev` runs) on a real OS-assigned TCP port and drives it
-with the real `ParmanaClient` over real HTTP — a real `401`, a real `403`, a real `400`, a real
-policy rejection, a real `404`, a real `409` duplicate, and the `policy.validate()` `404` case.
+`403` test, no real-server integration test). Now 64: unit tests for every error-mapping case
+including both fixed bugs, bearer-key header attachment tests, and two real-server integration
+suites. `test_live_server_integration.py` spawns the actual `@parmana/api` process (the same
+entry point `npm run dev` runs) on a real OS-assigned TCP port and drives it with the real
+`ParmanaClient` over real HTTP — a real `401`, a real `403`, a real `400`, a real policy
+rejection, a real `404`, a real `409` duplicate, and the `policy.validate()` `404` case.
+`test_quickstart_example.py` does the same for `run_quickstart()`, the quickstart example script
+itself, additionally asserting its documented printed output matches what it actually prints.
 
 ---
 
@@ -702,9 +740,10 @@ policy rejection, a real `404`, a real `409` duplicate, and the `policy.validate
 
 Source: `/sdks/typescript`. `typescript/src/`. Builds. Version `1.0.0`.
 
-**The package is named `@parmana/legacy-reference` in `typescript/package.json`**, private, not
-published under any `@parmana/...` name a normal `npm install` could resolve. Install from a
+**The package is named `@parmana/sdk` in `typescript/package.json`**, private, not
+published to any registry a normal `npm install` could resolve. Install from a
 local path or a git reference; there is no working install command against a published package.
+(Renamed from `@parmana/legacy-reference`, itself renamed from `@parmana/typescript-sdk`.)
 
 The original three gaps tracked here (no bearer-key auth, an unused error taxonomy, an empty test
 suite) were fixed in an earlier pass. A follow-up full SDK audit found and fixed three more real
@@ -718,7 +757,7 @@ real running local server.
 `HttpTransport`:
 
 ```typescript
-import { ParmanaClient, HttpTransport } from "@parmana/legacy-reference";
+import { ParmanaClient, HttpTransport } from "@parmana/sdk";
 
 const endpoint = "http://localhost:3000";
 const apiKey = "my-secret-api-key";
@@ -745,10 +784,10 @@ non-2xx response, built from the real `{error, code?}` envelope
 |---|---|
 | 400 | `ValidationError` |
 | 401 | `AuthenticationError` |
-| 403 | `AuthorizationError` |
+| 403, code `POLICY_DENIED`, message starting `Execution rejected` | `ExecutionRejectedError` |
+| 403 (no `code`) | `AuthorizationError` |
 | 404 | `NotFoundError` |
 | 409 | `ConflictError` |
-| 500, code `RUNTIME_ERROR`, message starting `Execution rejected` | `ExecutionRejectedError` |
 | any other non-2xx | `InternalServerError` |
 | connection failure | `NetworkError` |
 | request timeout | `TimeoutError` |
@@ -807,16 +846,159 @@ surface.
 
 ### Test suite
 
-Previously 9 files, 0 bytes each. Now 103 tests: unit tests for every error-mapping case
-(`test/HttpTransport.test.ts`, `test/Errors.test.ts`) built from real, verified response shapes,
-unit tests for the three newly-added methods (`test/NewApiMethods.test.ts`), and an integration
-suite (`test/integration/parmana-client.integration.test.ts`) that boots the actual `@parmana/api`
-Express application — real `StaticKeyAuthenticator`, real `PolicyEngine`, real Ed25519 signing,
-the real, `NODE_ENV=test`-only generic test-fixture connector (`createTestFixtureConnector.ts`,
-successor to the now-removed `vendor-payment`) — on a real OS-assigned TCP port and drives it with the real
-`ParmanaClient` over real HTTP: a real `401`, a real `403`, a real `400`, a real policy rejection,
-a real `404`, a real `409` duplicate, plus `version()`, `verify()`, and `createTransaction()`
-exercised against real responses.
+Previously 9 files, 0 bytes each. Now 129 tests across 15 files: unit tests for every
+error-mapping case (`test/HttpTransport.test.ts`, `test/Errors.test.ts`) built from real,
+verified response shapes, unit tests for the three model-audit-pass methods
+(`test/NewApiMethods.test.ts`), a retry-logic suite (`test/RetryPolicy.test.ts`, backoff on
+idempotent GETs against 502/503/504, POSTs never retried), per-route unit suites, and two
+integration suites that boot the actual `@parmana/api` Express application — real
+`StaticKeyAuthenticator`, real `PolicyEngine`, real Ed25519 signing, the real,
+`NODE_ENV=test`-only generic test-fixture connector (`createTestFixtureConnector.ts`, successor
+to the now-removed `vendor-payment`) — on a real OS-assigned TCP port and drive it with the real
+`ParmanaClient` over real HTTP: `test/integration/parmana-client.integration.test.ts` (a real
+`401`, a real `403`, a real `400`, a real policy rejection, a real `404`, a real `409` duplicate,
+plus `version()`, `verify()`, and `createTransaction()` exercised against real responses) and
+`test/integration/examples.integration.test.ts` (runs the quickstart example script itself).
+
+---
+
+## Razorpay
+
+Source: `/integrations/razorpay`. `packages/connector-sdk/src/connectors/razorpay/`,
+`packages/api/src/webhooks/`, `docs/CLAIMS.md` §3.4 through §3.9. Test mode and live mode
+both proven end to end against a real, deployed Razorpay account. One of the two connectors
+in this codebase that talk to a real external system (the other is HubSpot, below);
+everything else offered as a reference (SAP, Salesforce, Workday, Oracle) is a mock, and no
+other capability registers by default at all.
+
+### What it does
+
+Refund creation against Razorpay, policy-gated, idempotent, and closed out by a signed
+settlement confirmation once Razorpay actually processes the refund. Does not create
+payments, does not handle payouts (RazorpayX, unimplemented), does not change anything about
+Policy Engine, Execution Gateway, Replay, Receipt Generation, Verification, or the REST API.
+`RazorpayConnector` calls `https://api.razorpay.com/v1` over real HTTP with HTTP Basic auth.
+
+Three moving parts, each independently real and tested: refund creation (`POST /execute` with
+a `razorpay-refund` policy reference), webhook receipt (`POST /webhooks/razorpay`, signature
+verification plus durable recording, does not yet act on the event), and settlement
+confirmation (a background poll loop fetches the refund's real status directly from Razorpay,
+never trusting the webhook's own claimed event type, and appends a signed
+`SettlementConfirmation` to the Execution Trust Record).
+
+### Every signal this policy evaluates is independently verified, not caller-declared
+
+`razorpay-refund/1.0.0` declares `boundSignals: { "requestedRefundAmountPaise":
+"parameters.amountPaise" }`, checked by `SignalIntentBinder` before policy evaluation runs.
+Separately, `RazorpaySignalStateVerifier` is wired unconditionally into the same production
+bootstrap chain every `POST /execute` call goes through (not a separate opt-in path): it
+fetches the real payment from Razorpay and re-derives `paymentStatus`, `paymentCurrency`,
+`refundableRemainingPaise`, and `requestedExceedsRemainder` before an `APPROVE` decision is
+allowed to stand — any disagreement with the caller-declared value is a rejection, and a
+fetch failure itself counts as a violation. `dailyCumulativeAfterThisRefundPaise` is
+independently derived from an atomic ledger reservation (`RazorpayDailyRefundLedger`), not
+compared against a Razorpay-reported fact. A caller cannot talk this policy into approving a
+refund by declaring false signals through the generic `POST /execute` route — an earlier
+version of this codebase exposed a separate `RazorpayRefundService` class with its own
+fetch-verify logic; that class no longer exists, its behavior was generalized into
+`RazorpaySignalStateVerifier` so every caller gets it.
+
+### The reference policy
+
+`policies/razorpay-refund/1.0.0/policy.json` rejects a refund unless every condition holds:
+the payment is `captured`, the currency is `INR`, the requested amount is positive, the
+amount does not exceed the payment's refundable remainder, the amount does not exceed a
+500000 paise (₹5000) per-refund cap, and the running daily total does not exceed a 2000000
+paise (₹20000) cumulative cap.
+
+### Configuration
+
+`RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` (production credential pair, unset means the
+connector is not registered), `RAZORPAY_TEST_KEY_ID`/`RAZORPAY_TEST_KEY_SECRET` (test-mode
+override), `RAZORPAY_WEBHOOK_SECRET` (enables `POST /webhooks/razorpay`, unset means the
+route is never mounted), `RAZORPAY_SETTLEMENT_POLL_INTERVAL_MS` (default `15000` ms). Once
+any Razorpay credential is set, Supabase becomes required too.
+
+### What's proven where
+
+Hermetic integration tests (`razorpay-refund.integration.test.ts`,
+`razorpay-settlement.integration.test.ts`) hit `MockRazorpayServer`, run on every `npm test`.
+`razorpay-real-webhook-fixture.integration.test.ts` replays a real, captured (PII-redacted)
+Razorpay-delivered webhook payload through the live route code. `razorpay-live.integration.test.ts`
+is the only test that calls a real Razorpay endpoint, gated behind `ALLOW_LIVE_RAZORPAY=1`,
+proving Razorpay test-mode reachability and money movement (one ₹1.00 refund), never
+live-mode. True live-mode operation (real money, real bank settlement) is proven once,
+manually, against a permanent production deployment: one authenticated, policy-gated
+100-paise refund against a real, card-paid ₹10 Payment Link, producing a genuine
+`refund.processed` webhook and a signed `SETTLED` settlement confirmation roughly 43 seconds
+later. This validates one real-money transaction end to end, not sustained live-mode
+operation, volume, or failover. See `docs/CLAIMS.md` §3.9 for the full trace.
+
+## HubSpot
+
+Source: `/integrations/hubspot`. `packages/connector-hubspot/`, `docs/CLAIMS.md` §3.10.
+Hermetic test suite plus a live run against a real HubSpot developer/test account. The second
+connector in this codebase that talks to a real external system (after Razorpay, above).
+
+### What it does
+
+Updates one property, or two, on one HubSpot object type: a Deal's `dealstage`, optionally
+alongside `amount`, in a single `PATCH /crm/v3/objects/deals/{dealId}` call. Does not touch
+Contacts or Companies, does not delete or archive deals, has no webhook or event-driven
+trigger, does not perform multi-object writes. A request naming any property other than
+`dealstage`/`amount` is refused before any network call, deny-by-default.
+
+### The policy model
+
+`policies/hubspot-deal-update/1.0.0/policy.json` rejects a proposed `dealstage` transition
+unless it moves strictly forward through a fixed default stage order (`appointmentscheduled`
+→ `qualifiedtobuy` → `presentationscheduled` → `decisionmakerboughtin` → `contractsent` →
+`closedwon`), with one exception: moving to `closedlost` is allowed from any non-terminal
+stage. An `amount` change is rejected if its absolute delta exceeds a configured threshold
+(10,000, in the deal's own currency units) unless the caller declares
+`preAuthorizedForAmountChange: true`. `boundSignals` (`proposedDealStage` →
+`parameters.dealstage`, `proposedAmount` → `parameters.amount`) is checked by
+`SignalIntentBinder` before policy evaluation runs.
+
+### `preAuthorizedForAmountChange` is independently verified, not taken on faith
+
+`HubSpotSignalStateVerifier`, constructed with a real `ApprovalVerifier` unconditionally in
+production bootstrap, checks a caller's declared `true` against a real, independently-issued,
+Ed25519-signed Approval Artifact carried in `signals.approvalArtifact` — issuer identity,
+signature validity, expiry, capability/resource scope, and single-use nonce consumption, all
+verified before the claim is trusted. A missing, expired, wrong-scope, replayed, or unsigned
+artifact is treated as `false` regardless of what the caller declared. **The gap that
+remains:** the trusted-issuer registry ships empty by default — no real business-approver key
+is provisioned in this deployment, so every `preAuthorizedForAmountChange` claim is rejected
+today, genuine artifact or not, until an operator adds one. The mechanism is real, tested,
+and unconditionally wired in; it just has nothing to trust yet. Separately,
+`RazorpaySignalStateVerifier` and `HubSpotSignalStateVerifier` are composed by
+`CompositeSignalStateVerifier` into the one verifier `RuntimeEngine` accepts, so both
+connectors' independent verification runs on the same production `POST /execute` path with no
+cross-contamination between them.
+
+### Setup
+
+A HubSpot Private App scoped to exactly two CRM scopes: `crm.objects.deals.read`,
+`crm.objects.deals.write`. `HUBSPOT_PRIVATE_APP_TOKEN` (production credential, unset means the
+connector is not registered), `TEST_HUBSPOT_PRIVATE_APP_TOKEN` (test-mode override),
+`ALLOW_LIVE_HUBSPOT` (opt-in for the gated live suite), `TEST_HUBSPOT_DEAL_ID` (required only
+for the live suite's mutating case).
+
+### What's proven where
+
+43 unit tests across two packages (`packages/connector-hubspot/tests/unit/`,
+`packages/execution-gateway/tests/unit/hubspot-connector.test.ts`) hit `MockHubSpotServer`,
+run on every `npm test` — including `HubSpotSignalStateVerifier.test.ts`'s Approval Artifact
+verification suite (a matching artifact, an unknown issuer, a scope-escalated amount, a
+deal-id mismatch, a replayed nonce). `hubspot-deal-update.integration.test.ts` (6 tests)
+drives the real, production-wired `POST /execute` route against `MockHubSpotServer`, proving a
+policy denial makes zero HubSpot calls two ways. `hubspot-live.integration.test.ts` (3 tests)
+is the only test that calls the real HubSpot API, gated behind `ALLOW_LIVE_HUBSPOT=1`, run to
+completion against a real HubSpot developer/test account: a reachability check, a policy
+denial proven to make zero real HubSpot calls, and a non-destructive amount change against a
+real test deal, reverted to its original value in the same run. See `docs/CLAIMS.md` §3.10
+for the full trace.
 
 ---
 

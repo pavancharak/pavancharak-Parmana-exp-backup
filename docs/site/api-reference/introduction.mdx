@@ -50,3 +50,9 @@ SDK](/sdks/python). The TypeScript SDK: `ValidationError`/`AuthenticationError`/
 <Info>**Every route requires a caller bearer key, except `GET /health`.** See
 [Authentication](/api-reference/authentication) for how to send one and what it does and
 does not prove.</Info>
+
+## Rate limiting
+
+`POST /execute` is rate-limited per authenticated caller; `GET /health` and `GET /ready` carry a
+separate, more permissive limit keyed by IP. See [Authentication](/api-reference/authentication#rate-limiting)
+for the mechanism and [Error catalog](/api-reference/error-catalog) for the exact `429` shape.

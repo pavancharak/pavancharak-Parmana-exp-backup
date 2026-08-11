@@ -3,10 +3,13 @@
 > Parmana is an authorization layer between a caller — an AI agent, script, or person — and the business systems that carry out an action. A caller submits a Business Transaction describing an intended action, its target, its parameters, and a set of signals; the caller never holds or transmits execution credentials for the target system. A policy engine evaluates the transaction's signals against one named, versioned policy and returns a decision of APPROVED or REJECTED; an unmatched transaction defaults to REJECTED. Only an APPROVED decision produces a signed, single-use, time-bounded execution authorization. Execution against the target system happens only when a valid, unexpired, not-previously-used authorization is presented; a missing, expired, reused, or invalid authorization is rejected before execution occurs.
 
 Reflects `openapi/openapi.yaml` (`info.version: 1.0.0`) and `packages/api/src/app.ts`, as of commit
-`0e69ed4b153b217689aff69b68fd0b7d40ad1de8` (2026-07-28). `GET /version` on a running instance
+`0e69ed4b153b217689aff69b68fd0b7d40ad1de8` (2026-07-28), verified directly against source, not
+summarized from other docs pages, 2026-07-29. `GET /version` on a running instance
 returns `{"name":"Parmana","version":"0.4.0","api":"v1"}` — a separate, hardcoded deployment
-identifier, not derived from this spec's version. Verified directly against source, not
-summarized from other docs pages, 2026-07-29.
+identifier, not derived from this spec's version. **Spot-corrected 2026-08-11**, not a full
+re-verification: the TypeScript SDK's package name (renamed `@parmana/legacy-reference` →
+`@parmana/sdk`) and a rate-limiting bullet for `POST /execute`/`GET /health`/`GET /ready`,
+shipped after the date above.
 
 There is no fixed public base URL. `openapi/openapi.yaml` lists only `http://localhost:3000` as
 a server; every real deployment runs on its own operator-chosen host. See
@@ -24,6 +27,7 @@ For the complete integration surface concatenated into a single document, see
 - [Error handling](https://docs.parmanasystems.com/api-reference/error-handling): the shared `{"error": string}` envelope, when the optional `code` field is present versus absent, and two verified gaps where a route that looks coded is not.
 - [Error catalog](https://docs.parmanasystems.com/api-reference/error-catalog): every status code, `code` value, exact message, and triggering condition this API returns, one table.
 - [Idempotency and nonces](https://docs.parmanasystems.com/api-reference/idempotency-and-nonces): there is no `Idempotency-Key` header. `businessTransactionId` is the API-layer idempotency mechanism, and a duplicate is a `409`, not a replayed response.
+- [Authentication § Rate limiting](https://docs.parmanasystems.com/api-reference/authentication#rate-limiting): `POST /execute` is rate-limited per authenticated caller identity; `GET /health`/`GET /ready` carry a separate, more permissive limit keyed by IP. A rejected request is `429`, `code: "RATE_LIMITED"`, with a `Retry-After` header. Process-local (in-memory) store, not fleet-wide across a multi-machine deployment.
 
 ## Core model
 
@@ -34,11 +38,20 @@ For the complete integration surface concatenated into a single document, see
 ## SDKs
 
 - [Python SDK](https://docs.parmanasystems.com/sdks/python): actively maintained, generated (not hand-maintained, drift-guarded in CI) models, bearer-key auth, a typed exception per HTTP status (`ValidationError`/`AuthenticationError`/`AuthorizationError`/`NotFoundError`/`ConflictError`/`ExecutionRejectedError`/`ServerError`), tested against both mocked HTTP and a real running `@parmana/api` instance. `pip install -e ./python`.
-- [TypeScript SDK](https://docs.parmanasystems.com/sdks/typescript): actively maintained, bearer-key auth, a typed error thrown per HTTP status (`ValidationError`/`AuthenticationError`/`AuthorizationError`/`NotFoundError`/`ConflictError`/`ExecutionRejectedError`/`InternalServerError`), tested against both a mocked transport and a real running `@parmana/api` instance. Package name is `@parmana/legacy-reference`, not published to a registry — install from a local path or git reference.
+- [TypeScript SDK](https://docs.parmanasystems.com/sdks/typescript): actively maintained, bearer-key auth, a typed error thrown per HTTP status (`ValidationError`/`AuthenticationError`/`AuthorizationError`/`NotFoundError`/`ConflictError`/`ExecutionRejectedError`/`InternalServerError`), tested against both a mocked transport and a real running `@parmana/api` instance. Package name is `@parmana/sdk`, private, not published to a registry — install from a local path or git reference.
 
 Both SDKs cover every real capability in the OpenAPI spec, including `POST /transactions` (a
 second entry point into the same execution pipeline as `POST /execute`, differing only in its
 `201` status code) — added to both this pass, previously missing from both.
+
+## Connectors
+
+The only two connectors in this codebase that call a real external system; everything else
+offered as a reference (SAP, Salesforce, Workday, Oracle) is a mock, and no other capability
+registers by default at all.
+
+- [Razorpay](https://docs.parmanasystems.com/integrations/razorpay): policy-gated refund creation, a verified webhook, and a signed settlement confirmation, proven end to end in both test mode and live mode. Every signal the `razorpay-refund` policy evaluates is independently verified against a real Razorpay payment fetch before an approval stands, not caller-declared.
+- [HubSpot](https://docs.parmanasystems.com/integrations/hubspot): policy-gated updates to a Deal's `dealstage` and `amount`. `preAuthorizedForAmountChange` is verified against a real, signed Approval Artifact, not taken on faith — though the trusted-issuer registry ships empty by default, so no such artifact can pass in an unconfigured deployment.
 
 ## Known limitations
 

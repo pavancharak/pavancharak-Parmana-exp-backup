@@ -47,6 +47,12 @@ handling](/api-reference/error-handling) for the envelope shape this table assum
 | 404 | none | `Verification not found.` | Record exists but has no Verification yet | `GET /verification/{id}` | In practice every Execution produces a Verification synchronously, this is an edge case for records that haven't completed that step. |
 | 404 | none | `Receipt not found.` | Record exists but has no Receipt yet | `GET /receipt/latest/{id}` | Call `POST /receipt` first, or the record's Execution hasn't reached that stage. |
 
+## Rate limited
+
+| Status | Code | Message | Condition | Routes | What to do |
+|---|---|---|---|---|---|
+| 429 | `RATE_LIMITED` | `Rate limit exceeded. Try again later.` | Caller (by authenticated identity, not IP) exceeded the configured `/execute` rate limit, or the caller's IP exceeded the separate, more permissive `/health`/`/ready` limit | `POST /execute`, `GET /health`, `GET /ready` | Back off; the response carries a `Retry-After` header. Not a transient server issue — no nonce is consumed and nothing is signed for a request rejected here. See [Authentication](/api-reference/authentication#rate-limiting) for the mechanism. |
+
 ## Conflict
 
 | Status | Code | Message | Condition | Routes | What to do |
@@ -72,7 +78,7 @@ exact scope.
 | Status | Code | Message | Condition | Routes | What to do |
 |---|---|---|---|---|---|
 | 500 | none | `Internal Server Error` | A structurally incomplete but UUID-valid body (for example, `businessTransactionId` present but `metadata` missing) throws an unhandled `TypeError` inside `BusinessTransactionValidator.validate` before any typed error class is constructed | `POST /execute`, `POST /transactions` | Send every required nested object from the [OpenAPI reference](/api-reference/introduction)'s request schema. The generic message hides the real cause; it is visible only in server logs. |
-| 500 | none | `Internal Server Error` | **Regression, verified this pass:** no Connector is registered for the request's `action`. Previously reached the client as a coded `RuntimeError` (`"No connector registered for action: <action>.", code: RUNTIME_ERROR`); it no longer does, see [Error handling](/api-reference/error-handling) for the mechanism. | `POST /execute`, `POST /transactions` | Use a registered `action` (`payments:execute` is the only one wired by default, see [Add a connector](/guides/add-a-connector)). This is flagged as a product regression to fix in `packages/connector-sdk`, not a documentation issue. |
+| 500 | none | `Internal Server Error` | **Regression, verified in an earlier pass, not yet fixed:** no Connector is registered for the request's `action`. Previously reached the client as a coded `RuntimeError` (`"No connector registered for action: <action>.", code: RUNTIME_ERROR`); it no longer does, see [Error handling](/api-reference/error-handling) for the mechanism. | `POST /execute`, `POST /transactions` | Use a registered `action`. Nothing is wired by default outside `NODE_ENV=test` (which registers `test:fixture-execute`); `razorpay:refund-create` and `hubspot:deal-update` register only when their respective credentials are configured, see [Connector Development Guide](/integrations/connector-development-guide). This is flagged as a product regression to fix in `packages/connector-sdk`, not a documentation issue. |
 
 ## What's deliberately not here
 

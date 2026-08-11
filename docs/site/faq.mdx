@@ -24,11 +24,14 @@ description: "Direct answers, including the ones that aren't flattering."
     [Roadmap](/roadmap).
   </Accordion>
   <Accordion title="Which SDK should I use?">
-    Python, without much hesitation right now. It's [AVAILABLE]: real tests, structured
-    errors that actually raise, generated models with a drift guard. The TypeScript SDK is
-    [PARTIAL], real client code, but its test suite is currently empty and its HTTP
-    transport doesn't raise on 4xx/5xx. See [Python SDK](/sdks/python) and
-    [TypeScript SDK](/sdks/typescript).
+    Either — both are [AVAILABLE] and actively maintained. Python's models are generated
+    from the same TypeScript domain types the server uses, drift-guarded in CI; the
+    TypeScript SDK's models are hand-maintained but spot-checked against the real schemas.
+    Both raise a typed exception per HTTP status and are tested against a real running
+    server, not just mocks. The TypeScript package is private and not published to a
+    registry (`@parmana/sdk` in `typescript/package.json`, install from a local path or git
+    reference); Python installs with `pip install -e ./python`. See [Python
+    SDK](/sdks/python) and [TypeScript SDK](/sdks/typescript).
   </Accordion>
   <Accordion title="Can I use Go / Java / .NET?">
     Not via an SDK, none exists. Call the [REST API](/api-reference/introduction) directly;

@@ -55,10 +55,41 @@ startup every time it does. It exists for local development and running the tuto
 **Never set it in a real deployment.** It removes the only authentication this API has, and
 every route becomes reachable by anyone who can reach the port.
 
+## Rate limiting
+
+<Info>**[AVAILABLE]**, `packages/api/src/middleware/rate-limit.ts`.</Info>
+
+`POST /execute` — the endpoint that signs and writes to the database on every request — is
+rate-limited **per authenticated caller identity** (the `callerId` this page establishes), not
+by IP: a design-partner integration commonly calls from a shared backend IP, where an IP-keyed
+limit would either starve every caller behind it or be loose enough to mean nothing. It is
+mounted only when caller authentication is enabled; there is no caller identity to key off when
+auth is disabled. `GET /health` and `GET /ready` get a separate, deliberately more permissive
+limit keyed by IP instead, since both are legitimately polled on a fixed interval by PaaS
+health-check infrastructure and must never be tight enough to throttle that.
+
+A rejected request gets `429`, `{"error":"Rate limit exceeded. Try again later.","code":
+"RATE_LIMITED"}`, and a `Retry-After` header, and never reaches policy evaluation or signing —
+no nonce is consumed and nothing is signed for a request this middleware rejects. Both limits
+have working defaults sized for a design-partner evaluation deployment, not high-volume
+production traffic, and are independently configurable per deployment via
+`RATE_LIMIT_EXECUTE_PER_MINUTE` / `RATE_LIMIT_HEALTH_PER_MINUTE` (see `.env.example`).
+
+<Warning>
+**Scope, precisely, the same caveat as the replay-nonce store's** (see [Idempotency and
+nonces](/api-reference/idempotency-and-nonces)). The limiter's store is
+`express-rate-limit`'s default, in-memory, single-process store. A multi-machine deployment
+counts independently per machine — the effective ceiling for a given caller is the configured
+per-minute limit **times** the number of machines serving traffic, not a fleet-wide limit
+enforced once across every machine. A shared store (Redis or equivalent) would close that gap;
+none is wired in today.
+</Warning>
+
 ## Errors
 
 | Status | Condition | Body |
 |---|---|---|
 | 401 | Missing or invalid `Authorization` header | `{"error":"authentication required"}` |
+| 429 | Rate limit exceeded (see above) | `{"error":"Rate limit exceeded. Try again later.","code":"RATE_LIMITED"}` |
 
 See the [Error catalog](/api-reference/error-catalog) for every other error this API returns.

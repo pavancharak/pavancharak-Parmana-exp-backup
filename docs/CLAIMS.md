@@ -744,6 +744,8 @@ Evidence
 
 * docs/architecture/phase3d-independent-authorization-certification.md §5.1 (independent re-verification, Phase 3D)
 
+**Update (code-only ground-truth capture pass, follow-up closure):** this section's "covering every capability the production connector registry actually registers" was, until this pass, not quite true — `CANONICAL_CAPABILITY_POLICY_BINDINGS` also carried a stale `payments:execute` entry left behind by G-27's vendor-payment removal (`docs/VERIFICATION-GAPS.md` G-27's own update). Removed; the table now matches the claim exactly. See that G-27 update for the full trace.
+
 
 
 ---

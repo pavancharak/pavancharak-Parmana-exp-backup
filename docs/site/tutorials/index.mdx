@@ -1,9 +1,9 @@
 ---
 title: "Tutorials"
-description: "All 62 numbered examples in examples/tutorials/, grouped by what they demonstrate. This page links to them, it does not duplicate their content."
+description: "All 94 numbered examples in examples/tutorials/, grouped by what they demonstrate. This page links to them, it does not duplicate their content."
 ---
 
-<Info>**[AVAILABLE]**, all 62 run in CI on every change via `npm run examples` (two are excluded from the unattended batch and run individually, noted below). See [Detect tampering](/guides/detect-tampering) and [Choose a signature provider](/guides/choose-a-signature-provider) for guides built directly on several of these.</Info>
+<Info>**[AVAILABLE]**, 93 run unattended in CI via `npm run examples` (`scripts/run-examples.ts`), confirmed passing this pass; one (09, noted below) needs a live server and runs individually. Numbering has a gap at 61 — retired during a connector refactor, never reused. See [Detect tampering](/guides/detect-tampering) and [Choose a signature provider](/guides/choose-a-signature-provider) for guides built directly on several of these.</Info>
 
 Run any of them directly: `node_modules/.bin/tsx examples/tutorials/<NN-name>/run.ts`.
 
@@ -108,12 +108,99 @@ None of these four reach `packages/api` or `packages/runtime`. They exercise
 | 59 | Secure Connectors | Gateway attestation plus a `SessionCredentialSecureConnector`, including a spoofed-attestation rejection |
 | 60 | End-to-End Enterprise Execution | The full credential-isolated path, one run |
 
-## Connector integration and signal/intent binding (61-62)
+## Signal/Intent binding (62)
+
+<Info>Tutorial 61 does not exist — the number was retired during a connector refactor (an
+earlier, single Razorpay tutorial split into the Razorpay group below) and was never
+reused.</Info>
 
 | # | Name | Demonstrates |
 |---|---|---|
-| 61 | Razorpay Refund | A real connector fetch-verifying payment state before evaluating policy, then executing through the signed-authorization / Execution Gateway pipeline, unmodified — approval, denial, replay, and tamper rejection |
 | 62 | Signal/Intent Binding | `SignalIntentBinder` rejecting a caller-declared signal that doesn't match `intent`, and the same transaction approved once correctly bound — see [Trust and Claims](/trust-and-claims/claims-discipline) for the live bypass this closed |
+
+## Razorpay: connector, fetch-verification, caps, webhooks, settlement (63-68)
+
+See [Razorpay](/integrations/razorpay) for the connector these exercise and its exact proven
+scope.
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 63 | Razorpay Refund Connector | The full path from a `BusinessTransaction` through policy to a real (mocked) refund call, via the same production composition (`createExecutionSystem` + `createApplication`) `server.ts` itself calls |
+| 64 | Razorpay Policy Denial | A refund exceeding the payment's real refundable remainder rejected, zero refund calls ever reaching the connector |
+| 65 | Razorpay Signal-State Verification | `RazorpaySignalStateVerifier` independently fetching the real payment and rejecting a caller-declared signal that disagrees with it, naming the exact mismatch |
+| 66 | Razorpay Daily Cumulative Cap | Two concurrent refunds racing the daily cap; the atomic `RazorpayDailyRefundLedger` lets exactly one through, never both |
+| 67 | Razorpay Webhook Receipt | HMAC-SHA256 signature verification over the raw body plus atomic `eventId` dedupe, exercised directly against the real functions |
+| 68 | Razorpay Settlement Confirmation | `RazorpaySettlementProcessor` always re-fetching the refund from Razorpay rather than trusting the webhook's own claimed event type |
+
+## HubSpot: connector, denial, verification, approval artifacts (69-72)
+
+See [HubSpot](/integrations/hubspot) for the connector these exercise and its exact proven
+scope.
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 69 | HubSpot Deal Update Connector | The full path from a `BusinessTransaction` through policy to a real (mocked) `PATCH` call, via the same production composition `server.ts` itself calls |
+| 70 | HubSpot Policy Denial | A move out of a terminal pipeline stage rejected, the deal left completely untouched on HubSpot |
+| 71 | HubSpot Signal-State Verification | `HubSpotSignalStateVerifier` independently fetching the real deal and rejecting a caller-declared `currentDealStage` that disagrees with it |
+| 72 | HubSpot Approval Artifact | An over-threshold amount change requiring a real, independently-issued, signed Approval Artifact scoped to the right deal and amount, not a bare `preAuthorizedForAmountChange: true` claim |
+
+## Refusal records and signed audit events (73-75)
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 73 | Refusal Records | A policy `REJECT` producing a durable, signed Refusal Record, retrievable and independently verifiable afterward |
+| 74 | Refusal Record Fail-Open | A Refusal Record write failure never blocking, delaying, or changing the actual rejection a caller receives — the record is evidence, not a gate |
+| 75 | Signed Audit Events | Caller-authentication audit events signed with the same root of trust as every other Parmana artifact, tampering detectable |
+
+## Caller scoping and concurrency (76-78)
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 76 | Caller Principal Scoping | `isPrincipalAllowed()`: fail-closed by default, an authenticated caller may only assert its own identity absent an explicit operator grant |
+| 77 | Caller Ownership Scoping | `isOwnedByCaller()`: one authenticated caller can't read another caller's transaction, trust record, or receipt history |
+| 78 | Duplicate Transaction Race | Two concurrent `create()` calls for the identical `businessTransactionId`, exactly one winning, the stored record never silently overwritten |
+
+## Storage and config validation (79-80)
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 79 | Storage Backend Selection | `StorageFactory.createFromEnvironment()`, and why `NODE_ENV=test` always resolves to in-memory regardless of other config |
+| 80 | Fail-Closed Config Validation | Invalid `CRYPTO_MODE`/`PARMANA_STORAGE`/`PARMANA_API_KEYS` values rejected at load time with a named, specific error, never a silent fallback |
+
+## Multi-connector composition (81-83)
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 81 | Connector Execution Gateway | `GatewayConnectorRegistry` resolving a capability string to its registered connector, each connector failing closed independently when its own credentials are absent |
+| 82 | Composite Signal-State Verification | `CompositeSignalStateVerifier` composing the Razorpay and HubSpot verifiers into the one verifier `RuntimeEngine` accepts, with no cross-contamination between them |
+| 83 | Capability/Policy Binding (TD-22) | `CapabilityPolicyBinder` closing the gap where a real, fund-moving capability could be paired with the wrong, unprotected policy |
+
+## HTTP surface hardening (84, 88-91)
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 84 | Caller Authentication | The real Express caller-authentication middleware over a real listening server: valid/missing/invalid credentials, per-caller scoping, key rotation and revocation |
+| 88 | Malformed Request Handling | Malformed JSON and oversized request bodies returning specific `400`/`413` errors, not a generic `500` |
+| 89 | Readiness Probe | `GET /ready`, distinct from `GET /health`, across memory-backed and (genuinely unreachable) Supabase-backed storage |
+| 90 | OpenAPI Self-Description | `GET /openapi.yaml` serving a valid, unauthenticated, fully-dereferenced OpenAPI 3.1 document, no unresolved `$ref`s |
+| 91 | Graceful Shutdown | The `SIGTERM`/`SIGINT` handler draining in-flight requests before exit, force-exiting on a hung close after a bounded timeout |
+
+## Real-world fixtures and gateway internals (85-87, 92-93)
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 85 | Razorpay Real Webhook Fixture | The actual `POST /webhooks/razorpay` route replaying a real, PII-redacted Razorpay-delivered payload, not a synthetic one this codebase constructed |
+| 86 | Gateway Attestation | `SignedTokenConnectorAuthenticator`'s full surface: payload tampering, the missing-attestation default, request-bound vs. signature-only checks, the trusted-connector allow-list |
+| 87 | Key Provider Path Traversal | `FileKeyProvider` rejecting a path-traversal `keyId` on every one of its four methods, before ever touching the filesystem |
+| 92 | Public API Boundary | `@parmana/execution-gateway`'s internal implementation classes checked directly against the real compiled export surface, none reachable from outside |
+| 93 | Trust Record Ordering | A Trust Record's collections preserving insertion order through a full round trip, hash and signature both still valid on reload |
+
+## SDK and generic verification (94-95)
+
+| # | Name | Demonstrates |
+|---|---|---|
+| 94 | SDK HTTP Transport | The published TypeScript SDK's `HttpTransport`: bearer-key attachment and its full status-code-to-typed-error-class mapping, including `403`/`POLICY_DENIED` |
+| 95 | Generic Approval Verifier | `ApprovalVerifier` exercised directly, connector-agnostic, with its full nine-check breakdown and durable, cross-process replay protection |
 
 ## Scenarios
 

@@ -12,9 +12,10 @@ maintained SDKs (`POST /transactions`). All re-verified against a real running l
 the fix history at the bottom of this page.</Info>
 
 <Warning>
-**The package is named `@parmana/legacy-reference` in `typescript/package.json`**, private,
-not published under any `@parmana/...` name a normal `npm install` could resolve. Install from
-a local path or a git reference instead.
+**The package is named `@parmana/sdk` in `typescript/package.json`**, private,
+not published to any registry a normal `npm install` could resolve. Install from
+a local path or a git reference instead. (Renamed from `@parmana/legacy-reference`, itself
+renamed from `@parmana/typescript-sdk` — see [Changelog](/changelog) for when.)
 </Warning>
 
 ## Bearer-key authentication
@@ -23,7 +24,7 @@ a local path or a git reference instead.
 `HttpTransport`:
 
 ```typescript
-import { ParmanaClient, HttpTransport } from "@parmana/legacy-reference";
+import { ParmanaClient, HttpTransport } from "@parmana/sdk";
 
 const endpoint = "http://localhost:3000";
 const apiKey = "my-secret-api-key";
@@ -60,7 +61,7 @@ import {
   InternalServerError,
   NetworkError,
   TimeoutError,
-} from "@parmana/legacy-reference";
+} from "@parmana/sdk";
 
 try {
   await client.execute(transaction);
@@ -77,10 +78,10 @@ try {
 |---|---|
 | 400 | `ValidationError` |
 | 401 | `AuthenticationError` |
-| 403 | `AuthorizationError` |
+| 403, code `POLICY_DENIED`, message starting `Execution rejected` | `ExecutionRejectedError` |
+| 403 (no `code`) | `AuthorizationError` |
 | 404 | `NotFoundError` |
 | 409 | `ConflictError` |
-| 500, code `RUNTIME_ERROR`, message starting `Execution rejected` | `ExecutionRejectedError` |
 | any other non-2xx | `InternalServerError` |
 | connection failure | `NetworkError` |
 | request timeout | `TimeoutError` |
@@ -159,18 +160,24 @@ npm run test    # vitest
 
 ## Test suite
 
-Previously 9 files, 0 bytes each, "9 passed" trivially. Now 103 tests: unit tests for every
-error-mapping case (`test/HttpTransport.test.ts`, `test/Errors.test.ts`), unit tests for the three
-newly-added methods (`test/NewApiMethods.test.ts`), and an integration suite
-(`test/integration/parmana-client.integration.test.ts`) that boots the actual `@parmana/api`
+Previously 9 files, 0 bytes each, "9 passed" trivially. Now 129 tests across 15 files, `npm run
+test` (`vitest run`), confirmed against a real run this pass: unit tests for every error-mapping
+case (`test/HttpTransport.test.ts`, `test/Errors.test.ts`), unit tests for the three
+capabilities added in the model-audit pass (`test/NewApiMethods.test.ts`), a retry-logic suite
+(`test/RetryPolicy.test.ts`, real backoff on idempotent GETs against 502/503/504, POSTs never
+retried, matching the Python SDK's own retry behavior), per-route unit suites
+(`test/AuditApi.test.ts`, `test/HealthApi.test.ts`, `test/PolicyApi.test.ts`,
+`test/RefusalApi.test.ts`, `test/ReplayApi.test.ts`, `test/RuntimeApi.test.ts`,
+`test/VerificationApi.test.ts`), and two integration suites that boot the actual `@parmana/api`
 Express application — real `StaticKeyAuthenticator`, real `PolicyEngine`, real Ed25519 signing,
 the real, `NODE_ENV=test`-only generic test-fixture connector (`createTestFixtureConnector.ts`,
 successor to the now-removed `vendor-payment`, see `docs/VERIFICATION-GAPS.md` G-27) — on a
-real OS-assigned TCP port and drives it with the real
-`ParmanaClient` over real HTTP: a real `401`, a real `403`, a real `400`, a real policy rejection,
-a real `404`, a real `409` duplicate, plus `version()`, `verify()`, and `createTransaction()`
-exercised against real responses, each asserted against the exact typed result and exact message
-the server returned.
+real OS-assigned TCP port and drive it with the real `ParmanaClient` over real HTTP:
+`test/integration/parmana-client.integration.test.ts` (a real `401`, a real `403`, a real `400`,
+a real policy rejection, a real `404`, a real `409` duplicate, plus `version()`, `verify()`, and
+`createTransaction()`, each asserted against the exact typed result and exact message the server
+returned) and `test/integration/examples.integration.test.ts` (runs the quickstart example
+script itself, see [Changelog](/changelog)).
 
 ## What's still true from before
 

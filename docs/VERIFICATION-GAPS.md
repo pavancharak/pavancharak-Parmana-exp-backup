@@ -967,6 +967,25 @@ as "unchanged, not re-traced"): `docs/architecture/strategic-positioning-validat
 own record for exact pass/skip counts, unchanged aside from the tests removed/updated for
 this capability specifically).
 
+**Update (code-only ground-truth capture pass, follow-up closure): one more miss from this
+entry's own removal list, found and fixed.** `packages/policy/src/CapabilityPolicyBinding.ts`'s
+`CANONICAL_CAPABILITY_POLICY_BINDINGS` still carried a `"payments:execute" →
+{name: "vendor-payment", version: "2.0.0", ...}` entry — not in this entry's "Removed:" list
+above, and confirmed genuinely orphaned relative to the current connector registry
+(`createConnectorRegistry.ts` registers exactly `test-fixture`, `razorpay`, `hubspot`; no
+`payments:execute`-capable connector exists in any environment, as this entry itself already
+established). Inert, not dangerous — `CapabilityPolicyBinder.findViolation()` can only ever
+reject a request for a bound action, and `payments:execute` has no connector to reach
+`RuntimeEngine` for in the first place — but stale relative to `CANONICAL_CAPABILITY_POLICY_BINDINGS`'s
+own doc comment, which claims the table covers "every capability actually registered in
+production bootstrap." Removed the entry; `packages/policy/tests/unit/CapabilityPolicyBinder.test.ts`'s
+`"binds every production-registered capability..."` test (which had been asserting the stale
+set, including `payments:execute`, as expected output — itself a second symptom of the same
+miss) updated to match the corrected table. Full regression suite re-run clean, unchanged
+pass/skip counts aside from this one test's edited assertion. No other reference to this
+binder entry found in `CLAIMS.md` or elsewhere in this file that depended on `payments:execute`
+being present in the table.
+
 **G-28. `PARMANA_AUTH_DISABLED=true`'s exact scope, precisely documented (previously
 undocumented in either `CLAIMS.md` or this file, despite `CLAIMS.md` 2.16/2.17 already
 citing the flag by name).** Flagged by the Strategic Positioning source-code validation

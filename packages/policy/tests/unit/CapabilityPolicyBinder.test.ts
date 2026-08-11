@@ -109,12 +109,20 @@ describe("CapabilityPolicyBinder", () => {
     expect(CANONICAL_CAPABILITY_POLICY_BINDINGS.size).toBe(seenActions.size);
   });
 
-  it("binds every production-registered capability found during Phase 2K verification", () => {
+  it("binds every capability the production connector registry actually registers", () => {
     const boundActions = new Set(CANONICAL_CAPABILITY_POLICY_BINDINGS.keys());
 
+    //
+    // payments:execute (vendor-payment) was in this set at Phase 2K,
+    // when the vendor-payment connector was still registered. It was
+    // removed entirely (docs/VERIFICATION-GAPS.md G-27), and this
+    // binder's own canonical table was subsequently found to still
+    // carry the stale entry -- a capability that no connector
+    // resolves to has nothing for this binder to protect. Removed
+    // here to match the actual current connector registry.
+    //
     expect(boundActions).toEqual(
       new Set([
-        "payments:execute",
         "razorpay:payment-fetch",
         "razorpay:refund-create",
         "razorpay:refund-fetch",

@@ -7,8 +7,69 @@ description: "What actually shipped, by commit, newest first. Not a marketing su
 Pulled directly from `git log` on `main` in `pavancharak/parmana-exp`, commit hashes are
 real and checkable. This page covers the commits that changed what a reader of this site can
 actually do or rely on, not every commit in the repository's history, run `git log` yourself
-for the complete record, 141 commits as of this page's last update.
+for the complete record, 192 commits as of this page's last update.
 </Info>
+
+## 2026-08-11
+
+- **`6a1c3ae`** docs: latency/voice-AI readiness investigation — four findings on whether
+  Parmana can meet a sub-500ms latency budget (cold Postgres connections, since fixed;
+  synchronous caller-auth audit writes, confirmed deliberate; a region mismatch; anycast
+  relay overhead), explicit that a full, real `POST /execute` round trip remains unmeasured.
+  Also added [Verification Log](/trust-and-claims/verification-log)'s first entry (live
+  HubSpot verification against the deployed instance) and repositioned the README tagline.
+- **`09eb2d4`** feat(sdk): dogfood the SDKs end to end — the HubSpot live integration suite
+  rewritten to run through the real `@parmana/sdk` package (`ParmanaClient`/`HttpTransport`)
+  instead of `supertest` against an in-process Express object, and both documented
+  "quickstart" example scripts (`python/examples/quickstart/run.py`,
+  `typescript/examples/02-execute.ts`) proven to actually run for the first time, by a real
+  test each. Found and fixed real bugs along the way, including all 7
+  `typescript/examples/*.ts` files importing `@parmana/typescript-sdk`, a package name that
+  has never existed. See `docs/CLAIMS.md` §3.15.
+- **`bf6a413`** docs: document per-caller rate limiting on `/execute` (`docs/CLAIMS.md`
+  §3.14, `.env.example`), see [Authentication](/api-reference/authentication#rate-limiting).
+- **`6f39ef1`** feat(api): add rate limiting — `POST /execute` per authenticated caller
+  identity, `GET /health`/`GET /ready` separately by IP with a far more permissive limit, see
+  [Authentication](/api-reference/authentication#rate-limiting).
+- **`85dc62d`** feat(sdk): add refusal-record and audit-verify route coverage to both SDKs.
+- **`328be90`** fix(python-sdk): fix stale repository URLs, add missing Apache-2.0 license
+  text.
+- **`6f6c76f`** fix: resolve additional pre-existing test failures found while verifying SDK
+  fixes, plus 2 lint errors.
+- **`6597939`** fix(typescript-sdk): fix an env-path test bug, implement retry logic (backoff
+  on idempotent GETs against 502/503/504), and rename the package
+  `@parmana/legacy-reference` → `@parmana/sdk`, see [TypeScript SDK](/sdks/typescript).
+
+## 2026-08-10
+
+- **`5b5cf2c`** / **`b4a2e9c`** / **`3cb4249`** Python SDK and API error-handling fixes: a
+  `shell=True` plus list-argument bug that broke key generation in CI, and `ruff` lint
+  failures in `client.py` and its tests.
+
+## 2026-08-09
+
+- **`2e94a0a`** complete hybrid signature migration — see [Security](/security/overview)
+  §3.13 for the current scope (built and tested, not yet running in any deployed
+  environment).
+- **`1d8ebf0`** refactor: strengthen execution authorization architecture.
+
+## 2026-08-07
+
+- **`1e3bd90`** Update documentation and project artifacts.
+
+## 2026-08-05
+
+- **`0e3e465`** feat(hubspot): implement Signed Approval Artifact, closing the HubSpot half
+  of TD-23, see [HubSpot](/integrations/hubspot).
+- **`d6b3143`** fix(razorpay): derive the daily cumulative refund cap from the repository
+  rather than a hardcoded value, closing the Razorpay half of TD-23, see
+  [Razorpay](/integrations/razorpay).
+- **`e55c646`**, **`470121b`**, **`56cef07`**, **`17c5554`**, **`d38e775`**, **`a30f24a`**,
+  **`ae7c930`**, **`58a3f39`**, **`e44bffc`**, **`5bd4ea6`**, **`4e5f78d`**, **`5470847`** —
+  a technical-debt hardening series (TD-1 through TD-23) from an internal architecture
+  review: canonical capability-to-policy binding, a dead composition-root removal, replay
+  endpoint semantics certified by test, stale vendor-payment/caller-auth documentation
+  corrected, and residual debug instrumentation removed.
 
 ## 2026-07-28
 
@@ -34,8 +95,8 @@ for the complete record, 141 commits as of this page's last update.
 ## 2026-07-19
 
 - **`e13dd2a`** feat: production deployment, execution hardening, and live Razorpay
-  validation, the live-mode refund validated against `parmana-api-live`, see
-  [Razorpay](/integrations/razorpay) and `docs/CLAIMS.md` §3.9.
+  validation, the live-mode refund validated against a second, live-mode Fly.io deployment,
+  see [Razorpay](/integrations/razorpay) and `docs/CLAIMS.md` §3.9.
 - **`731465c`** feat(razorpay): add webhook processing, settlement confirmations, and live
   integration support, `POST /webhooks/razorpay`, `RazorpaySettlementProcessor`, see
   [Verify Razorpay webhooks](/guides/verify-razorpay-webhooks) and
