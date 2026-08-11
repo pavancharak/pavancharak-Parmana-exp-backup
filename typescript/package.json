@@ -1,5 +1,5 @@
 {
-  "name": "@parmana/legacy-reference",
+  "name": "@parmana/sdk",
   "version": "1.0.0",
   "private": true,
   "description": "Official Parmana TypeScript SDK",
@@ -37,12 +37,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/parmana-ai/parmana.git"
+    "url": "https://github.com/pavancharak/parmana-exp.git"
   },
   "bugs": {
-    "url": "https://github.com/parmana-ai/parmana/issues"
+    "url": "https://github.com/pavancharak/parmana-exp/issues"
   },
-  "homepage": "https://parmana.ai",
+  "homepage": "https://github.com/pavancharak/parmana-exp",
   "dependencies": {
     "dotenv": "^17.4.2"
   },

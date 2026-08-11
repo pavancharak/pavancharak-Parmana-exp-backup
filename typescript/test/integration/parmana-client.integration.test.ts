@@ -33,12 +33,11 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { fileURLToPath } from "node:url";
 
-import { createApplication } from "../../../packages/api/src/application.js";
-import { createApp } from "../../../packages/api/src/app.js";
 import { createExecutionSystem } from "../../../packages/api/src/bootstrap/createExecutionSystem.js";
 import { StaticKeyAuthenticator } from "../../../packages/api/src/auth/StaticKeyAuthenticator.js";
 import { InMemoryCallerAuditSink } from "../../../packages/api/src/auth/InMemoryCallerAuditSink.js";
 import { hashApiKey } from "../../../packages/api/src/auth/hashApiKey.js";
+import { AuditEventCrypto } from "../../../packages/crypto/src/AuditEventCrypto.js";
 
 import { ParmanaClient } from "../../src/client/ParmanaClient.js";
 import { HttpTransport } from "../../src/transport/HttpTransport.js";
@@ -141,6 +140,37 @@ beforeAll(async () => {
   process.env.PARMANA_POLICY_DIR = fileURLToPath(
     new URL("../../../policies", import.meta.url),
   );
+
+  // Deliberately dynamic imports, deferred until after PARMANA_POLICY_DIR
+  // above is set. packages/api/src/application.ts constructs its
+  // `policyRepository` export as a module-level singleton, reading
+  // PARMANA_POLICY_DIR the instant the module is first evaluated. Static
+  // top-level imports (as these used to be) run before this beforeAll's
+  // own body ever executes -- ES module imports are hoisted and fully
+  // evaluated before the importing module's own code runs -- so they
+  // would permanently capture whatever PARMANA_POLICY_DIR happened to
+  // already be: the repo's own .env sets PARMANA_POLICY_DIR=./policies
+  // (relative), which resolves against process.cwd() at the moment
+  // dotenv loads it, not against this file's location. Running this
+  // suite via `cd typescript && npm test` (cwd = typescript/) previously
+  // resolved that to the nonexistent typescript/policies/, producing a
+  // live "Policy 'vendor-payment' version '2.0.0' was not found" 404 on
+  // every test that reached policy evaluation -- invisible from the repo
+  // root (ci.yml's `npm test` runs from there, where the same relative
+  // path happens to resolve correctly), but real and reproducible from
+  // this package's own conventional `npm test` invocation.
+  //
+  // `createApp` needs the same deferral: it statically imports
+  // ./routes/policies.js, which itself statically imports
+  // application.js -- so a static top-level `import { createApp } from
+  // ".../app.js"` in this file would transitively evaluate the
+  // policyRepository singleton (via application.js's module-level
+  // `loadConfig()`) just as early as importing application.js directly,
+  // silently reintroducing the exact same bug through a different path.
+  const { createApplication } = await import(
+    "../../../packages/api/src/application.js"
+  );
+  const { createApp } = await import("../../../packages/api/src/app.js");
 
   const executionSystem = createExecutionSystem();
   const application = createApplication(executionSystem);
@@ -354,6 +384,115 @@ describe("ParmanaClient against a real local @parmana/api instance", () => {
       // status/createdAt supplied by the client are always ignored;
       // Parmana assigns RECEIVED and the current server time.
       expect(trustRecord.transaction.status).toBe("RECEIVED");
+    });
+  });
+
+  describe("gap closed this audit: Refusal Record and audit-event verification coverage (RFC-0021)", () => {
+    it("a real policy-rejected transaction produces a Refusal Record, readable and independently verifiable", async () => {
+      const transaction = buildTransaction({ riskScore: 999 });
+      const client = authenticatedClient();
+
+      let caught: unknown;
+      try {
+        await client.execute(transaction);
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(ExecutionRejectedError);
+
+      const refusalRecord = await client.refusalRecord(
+        transaction.businessTransactionId,
+      );
+      expect(refusalRecord.businessTransactionId).toBe(
+        transaction.businessTransactionId,
+      );
+      expect(refusalRecord.decision.outcome).toBe("REJECTED");
+
+      expect(await client.verifyRefusalRecord(refusalRecord)).toBe(true);
+    });
+
+    it("an unauthenticated caller can still verify a Refusal Record -- POST /refusal/verify is exempt from caller-auth by design", async () => {
+      const transaction = buildTransaction({ riskScore: 999 });
+      const client = authenticatedClient();
+
+      try {
+        await client.execute(transaction);
+      } catch {
+        // Expected: this transaction is deliberately built to be
+        // policy-rejected. The resulting Refusal Record is this
+        // test's real subject, not the rejection itself (already
+        // covered above).
+      }
+
+      const refusalRecord = await client.refusalRecord(
+        transaction.businessTransactionId,
+      );
+
+      expect(
+        await unauthenticatedClient().verifyRefusalRecord(refusalRecord),
+      ).toBe(true);
+    });
+
+    it("a tampered Refusal Record fails verification against the real server", async () => {
+      const transaction = buildTransaction({ riskScore: 999 });
+      const client = authenticatedClient();
+
+      try {
+        await client.execute(transaction);
+      } catch {
+        // Expected: see above.
+      }
+
+      const refusalRecord = await client.refusalRecord(
+        transaction.businessTransactionId,
+      );
+
+      const tampered = {
+        ...refusalRecord,
+        decision: {
+          ...refusalRecord.decision,
+          reason: "tampered after the fact",
+        },
+      };
+
+      expect(await client.verifyRefusalRecord(tampered)).toBe(false);
+    });
+
+    it("verifies a genuinely signed audit event against the real running server", async () => {
+      const event = {
+        type: "caller.authenticated",
+        occurredAt: new Date().toISOString(),
+        route: "/execute",
+        callerId: "typescript-sdk-integration-test",
+      };
+
+      // Signed here with the exact same key material
+      // (FileKeyProvider/DEFAULT_KEY_ID) the live server this test
+      // drives resolves for itself -- both run in this same process,
+      // so this is a genuine round trip through the real POST
+      // /audit/verify route, not a mock of AuditEventCrypto.
+      const signature = await new AuditEventCrypto().sign(event);
+
+      expect(
+        await unauthenticatedClient().verifyAuditEvent(event, signature),
+      ).toBe(true);
+    });
+
+    it("a tampered audit event fails verification against the real server", async () => {
+      const event = {
+        type: "caller.rejected",
+        occurredAt: new Date().toISOString(),
+        route: "/execute",
+        reason: "invalid credential",
+      };
+
+      const signature = await new AuditEventCrypto().sign(event);
+
+      const tampered = { ...event, reason: "tampered after the fact" };
+
+      expect(
+        await unauthenticatedClient().verifyAuditEvent(tampered, signature),
+      ).toBe(false);
     });
   });
 });
