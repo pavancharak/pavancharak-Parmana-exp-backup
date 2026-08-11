@@ -31,7 +31,17 @@ export class PostgresPoolFactory {
       throw new Error("DATABASE_URL environment variable is missing.");
     }
 
-    this.pool = new Pool({ connectionString });
+    this.pool = new Pool({ connectionString, min: 1, keepAlive: true });
+
+    // Best-effort warm-up: opens the first connection immediately
+    // instead of on the first real query. A failure here doesn't
+    // prevent the pool from being used -- the query that actually
+    // needs a connection will surface its own error.
+    this.pool
+      .connect()
+      .then((client) => client.release())
+      .catch(() => {});
+
     return this.pool;
   }
 }
