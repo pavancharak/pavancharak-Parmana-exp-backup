@@ -1489,6 +1489,25 @@ Evidence
 
 
 
+## 3.14 Per-Caller Rate Limiting on `/execute` (Scoped)
+
+`POST /execute` — the endpoint that signs and writes to the database on every request — enforces a per-caller rate limit, closing a gap found during live load testing of `parmana-api.fly.dev`: no rate limiting existed anywhere in this codebase at all, confirmed both by code review (no rate-limiting package in any `package.json`) and empirically, by firing several thousand unthrottled requests against the live deployment with zero `429`s at any concurrency level tested. `GET /health` and `GET /ready` carry a separate, far more permissive limit, since both are cheap, unauthenticated, and legitimately polled on a fixed interval by PaaS health-check infrastructure (`fly.toml`'s own check runs every 30s per machine).
+
+The `/execute` limiter is keyed by authenticated caller identity (`req.callerId`, set by caller-auth), not by IP — a design-partner integration commonly calls from a shared backend IP, where an IP-keyed limit would either starve every caller behind it or be loose enough to mean nothing. It is mounted only when caller authentication is enabled (`createApp`'s `callerAuth` option is not `"disabled"`): there is no caller identity to key off when auth is off, and rate-limiting a route with no caller identity by falling back to IP would silently become the exact IP-keyed control this design deliberately avoids. Both limits are configurable (`RATE_LIMIT_EXECUTE_PER_MINUTE`, default 30; `RATE_LIMIT_HEALTH_PER_MINUTE`, default 300 — see `.env.example`), sized for a design-partner evaluation deployment, not high-volume production traffic. A rejected request returns `429` with a clear `{ "error", "code": "RATE_LIMITED" }` body and a `Retry-After` header, and never reaches `BusinessTransactionMapper`, policy evaluation, or `RuntimeAuthorizationSigner` — no nonce is consumed and nothing is signed for a request this middleware rejects, confirmed directly: a rate-limited request produces zero new execution-audit events.
+
+**Scope, precisely, mirroring 3.2's own caveat for `NonceStore`:** the limiter's store is `express-rate-limit`'s default, in-memory, single-process store. This deployment runs two Fly machines, each counting independently — the effective ceiling for a given caller is `RATE_LIMIT_EXECUTE_PER_MINUTE × machineCount`, not a fleet-wide limit enforced once across every machine. A shared store (Redis or equivalent) would close that gap; none is wired in, and this claim does not represent one as existing.
+
+Evidence
+
+* `packages/api/src/middleware/rate-limit.ts` (`createExecuteRateLimiter`, `createHealthReadyRateLimiter`)
+* `packages/api/src/app.ts` (mounting: health/ready limiter shared across both routes; execute limiter conditional on `callerAuth !== "disabled"`, mounted ahead of `createExecuteRouter`)
+* `packages/shared/src/config/Config.ts` (`RateLimitConfig`, `RATE_LIMIT_EXECUTE_PER_MINUTE` / `RATE_LIMIT_HEALTH_PER_MINUTE`, defaults 30/300)
+* `packages/api/tests/integration/rate-limit.integration.test.ts`: normal traffic under the limit passes unaffected; traffic over the limit gets a clean 429 with `Retry-After` and zero new execution-audit events; a rate-limited caller does not block a different caller's traffic (per-key, not global); the health/ready limiter is shared across both routes; rate limiting is skipped entirely when `callerAuth` is `"disabled"`; an omitted `rateLimit` option falls back to the documented defaults
+
+---
+
+
+
 # Maturity Assessment (TRL)
 
 
