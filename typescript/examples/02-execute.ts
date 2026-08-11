@@ -1,134 +1,170 @@
+import { pathToFileURL } from "node:url";
+
 import {
-  AuthorityType,
   BusinessTransaction,
-  BusinessTransactionStatus,
   HttpTransport,
   ParmanaClient,
-} from "@parmana/typescript-sdk";
+} from "@parmana/sdk";
 
-const businessTransactionId =
-  "550e8400-e29b-41d4-a716-446655440000";
+/**
+ * Constructs a ParmanaClient, submits a Business Transaction through
+ * POST /execute, and returns the resulting Execution Trust Record.
+ * Exported (rather than only run as a top-level script) so
+ * typescript/test/integration/examples.integration.test.ts can prove
+ * this exact example actually works against a real running server,
+ * not just that it compiles.
+ */
+export async function runExecuteExample(
+  endpoint = "http://localhost:3000",
+) {
+  const client =
+    new ParmanaClient({
+      endpoint,
 
-const client =
-  new ParmanaClient({
-    endpoint:
-      "http://localhost:3000",
+      transport:
+        new HttpTransport({
+          endpoint,
+        }),
+    });
 
-    transport:
-      new HttpTransport({
-        endpoint:
-          "http://localhost:3000",
-      }),
-  });
+  const businessTransactionId =
+    crypto.randomUUID();
 
-const transaction: BusinessTransaction = {
-  businessTransactionId,
-
-  metadata: {
+  const transaction: BusinessTransaction = {
     businessTransactionId,
 
-    correlationId:
-      "corr-001",
+    metadata: {
+      businessTransactionId,
 
-    tenantId:
-      "tenant-001",
+      correlationId:
+        "corr-001",
 
-    sourceSystem:
-      "typescript-sdk-example",
+      tenantId:
+        "tenant-001",
 
-    submittedBy:
-      "demo-user",
+      sourceSystem:
+        "typescript-sdk-example",
 
-    submittedAt:
-      new Date(),
-  },
+      submittedBy:
+        "demo-user",
 
-  authority: {
-    authorityId:
-      "authority-001",
-
-    authorityType:
-      AuthorityType.USER,
-
-    principalId:
-      "alice@example.com",
-
-    displayName:
-      "Alice",
-
-    issuedAt:
-      new Date(),
-  },
-
-  authorization: {
-    authorizationId:
-      "authorization-001",
-
-    authorityId:
-      "authority-001",
-
-    purpose:
-      "Vendor payment approval",
-
-    issuedAt:
-      new Date(),
-  },
-
-  intent: {
-    intentId:
-      "intent-001",
-
-    authorizationId:
-      "authorization-001",
-
-    action:
-      "TransferFunds",
-
-    target:
-      "vendor/vendor-123",
-
-    parameters: {
-      amount: 100,
-      currency: "USD",
+      submittedAt:
+        new Date(),
     },
+
+    authority: {
+      authorityId:
+        "authority-001",
+
+      authorityType:
+        "USER",
+
+      principalId:
+        "alice@example.com",
+
+      displayName:
+        "Alice",
+
+      issuedAt:
+        new Date(),
+    },
+
+    authorization: {
+      authorizationId:
+        "authorization-001",
+
+      authorityId:
+        "authority-001",
+
+      purpose:
+        "Vendor payment approval",
+
+      issuedAt:
+        new Date(),
+    },
+
+    intent: {
+      intentId:
+        "intent-001",
+
+      authorizationId:
+        "authorization-001",
+
+      // test:fixture-execute, not TransferFunds/payments:execute: the
+      // capability this example originally targeted was never
+      // registered by any connector in this repository (a NODE_ENV=test
+      // -only generic fixture connector plays that zero-external
+      // -dependency role instead, see
+      // createTestFixtureConnector.ts and docs/VERIFICATION-GAPS.md
+      // G-27) -- so this example, never covered by any test or build
+      // (excluded from typescript/tsconfig.json's own include list),
+      // had never actually been run against a real server before this
+      // pass proved it.
+      action:
+        "test:fixture-execute",
+
+      target:
+        "vendor/vendor-123",
+
+      parameters: {
+        amount: 100,
+        currency: "USD",
+      },
+
+      createdAt:
+        new Date(),
+    },
+
+    policy: {
+      name:
+        "vendor-payment",
+
+      version:
+        "2.0.0",
+
+      schemaVersion:
+        "1.0.0",
+    },
+
+    signals: {
+      vendorVerified: true,
+      invoiceVerified: true,
+      paymentApproved: true,
+      sufficientFunds: true,
+      paymentAmount: 100,
+      riskScore: 5,
+      // vendor-payment@2.0.0 declares boundSignals: vendorId -> target;
+      // SignalIntentBinder rejects this transaction unless this signal
+      // exactly equals intent.target, checked before policy evaluation
+      // ever runs (docs/VERIFICATION-GAPS.md G-24).
+      vendorId: "vendor/vendor-123",
+    },
+
+    status:
+      "RECEIVED",
 
     createdAt:
       new Date(),
-  },
+  };
 
-  policy: {
-    name:
-      "vendor-payment",
+  return client.execute(transaction);
+}
 
-    version:
-      "1.0.0",
+const isMainModule =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
 
-    schemaVersion:
-      "1.0.0",
-  },
+if (isMainModule) {
+  const trustRecord =
+    await runExecuteExample(
+      process.env.PARMANA_EXAMPLE_ENDPOINT,
+    );
 
-  signals: {
-    amount: 100,
-    vendorVerified: true,
-    paymentApproved: true,
-  },
-
-  status:
-    BusinessTransactionStatus.RECEIVED,
-
-  createdAt:
-    new Date(),
-};
-
-const trustRecord =
-  await client.execute(
-    transaction,
+  console.log(
+    JSON.stringify(
+      trustRecord,
+      null,
+      2,
+    ),
   );
-
-console.log(
-  JSON.stringify(
-    trustRecord,
-    null,
-    2,
-  ),
-);
+}

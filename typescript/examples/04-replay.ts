@@ -1,7 +1,7 @@
 import {
   HttpTransport,
   ParmanaClient,
-} from "@parmana/typescript-sdk";
+} from "@parmana/sdk";
 
 const client =
   new ParmanaClient({
@@ -16,10 +16,9 @@ const client =
   });
 
 const replay =
-  await client.replay({
-    businessTransactionId:
-      "550e8400-e29b-41d4-a716-446655440000",
-  });
+  await client.replay(
+    "550e8400-e29b-41d4-a716-446655440000",
+  );
 
 console.log(
   JSON.stringify(

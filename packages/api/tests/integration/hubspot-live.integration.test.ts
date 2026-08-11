@@ -1,9 +1,16 @@
 import { randomUUID } from "node:crypto";
+import type { AddressInfo } from "node:net";
+import type { Server } from "node:http";
 
-import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import type { BusinessTransaction } from "@parmana/shared";
+import {
+  ExecutionRejectedError,
+  HttpTransport,
+  InternalServerError,
+  ParmanaClient,
+} from "@parmana/sdk";
+import type { BusinessTransaction } from "@parmana/sdk";
 
 import { createApplication } from "../../src/application.js";
 import { createApp } from "../../src/app.js";
@@ -42,13 +49,25 @@ const testDealId = hubspotLiveConfigured ? resolveHubSpotTestDealGate("HubSpot L
  * caller-supplied signals (the same mechanism razorpay-live.integration.
  * test.ts's own reachability tests use) — not HubSpotDealUpdateService's
  * separate fetch-then-evaluate flow, which remains unit-test-only.
+ *
+ * Driven through the real, installable @parmana/sdk package (built to
+ * typescript/dist/ — a devDependency of this package, resolved via the
+ * npm workspace link, not a relative import into typescript/src/), over
+ * a real listening HTTP server, instead of supertest driving the
+ * in-process Express app object directly. This is the one gated live
+ * suite this dogfooding pass rewrote end to end; see CLAIMS.md for what
+ * this does and does not yet prove. Prerequisite: `npm run build` in
+ * typescript/ must have already produced dist/ — already true in CI
+ * (ci.yml builds before testing) and after any local `npm run build`
+ * at the repo root.
  */
-describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
+describe.skipIf(!hubspotLiveConfigured)("HubSpot live (through the real @parmana/sdk package)", () => {
   const originalHubSpotBaseUrl = process.env.HUBSPOT_BASE_URL;
 
-  let app: ReturnType<typeof createApp>;
+  let server: Server;
+  let client: ParmanaClient;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     // No bridge needed: createHubSpotCredentialProvider.ts's NODE_ENV=test
     // branch reads TEST_HUBSPOT_PRIVATE_APP_TOKEN directly — the same
     // name documented in .env.example — so the real test token already
@@ -61,15 +80,28 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
 
     const executionSystem = createExecutionSystem();
     const application = createApplication(executionSystem);
-    app = createApp(application, { callerAuth: "disabled", razorpayWebhook: "disabled" });
+    const app = createApp(application, { callerAuth: "disabled", razorpayWebhook: "disabled" });
+
+    server = await new Promise<Server>((resolve) => {
+      const httpServer = app.listen(0, "127.0.0.1", () => resolve(httpServer));
+    });
+
+    const address = server.address() as AddressInfo;
+    const endpoint = `http://127.0.0.1:${address.port}`;
+
+    client = new ParmanaClient({ endpoint, transport: new HttpTransport({ endpoint }) });
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     if (originalHubSpotBaseUrl === undefined) {
       delete process.env.HUBSPOT_BASE_URL;
     } else {
       process.env.HUBSPOT_BASE_URL = originalHubSpotBaseUrl;
     }
+
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
   });
 
   interface ObservedCall {
@@ -89,7 +121,11 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
       observed.push({ method: init?.method ?? "GET", url: String(input), status: response.status });
       // Returned untouched (body never consumed here) so production
       // behavior — including HubSpotConnector's own parseOrFailClosed
-      // handling — is entirely unaffected.
+      // handling — is entirely unaffected. This also transparently
+      // records the SDK's own HttpTransport calls to the local server
+      // above (http://127.0.0.1:<port>/...); every assertion below
+      // filters specifically for the real HubSpot origin, so those
+      // extra local entries never affect any "zero HubSpot calls" check.
       return response;
     });
   });
@@ -112,6 +148,7 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
     const authorityId = randomUUID();
     const authorizationId = randomUUID();
     const intentId = randomUUID();
+    const now = new Date();
 
     return {
       businessTransactionId,
@@ -119,8 +156,9 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
       metadata: {
         businessTransactionId,
         correlationId: randomUUID(),
-        createdBy: "hubspot-live-integration-test",
-        createdAt: new Date(),
+        sourceSystem: "hubspot-live-integration-test",
+        submittedBy: "hubspot-live-integration-test",
+        submittedAt: now,
       },
 
       authority: {
@@ -128,14 +166,14 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
         authorityType: "USER",
         principalId: "hubspot-live-integration-test",
         displayName: "HubSpot Live Integration Test",
-        issuedAt: new Date(),
+        issuedAt: now,
       },
 
       authorization: {
         authorizationId,
         authorityId,
         purpose: "HubSpot live integration test",
-        authorizedAt: new Date(),
+        issuedAt: now,
       },
 
       intent: {
@@ -143,12 +181,12 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
         authorizationId,
         action: "hubspot:deal-update",
         target: `hubspot://deals/${overrides.dealId}`,
-        parameters: Object.freeze({
+        parameters: {
           dealId: overrides.dealId,
           ...(overrides.dealstage !== undefined ? { dealstage: overrides.dealstage } : {}),
           ...(overrides.amount !== undefined ? { amount: overrides.amount } : {}),
-        }),
-        createdAt: new Date(),
+        },
+        createdAt: now,
       },
 
       policy: {
@@ -159,52 +197,18 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
 
       signals: overrides.signals,
 
-      decision: { outcome: "APPROVED" },
-      status: "APPROVED",
-      createdAt: new Date(),
-    } as unknown as BusinessTransaction;
+      status: "RECEIVED",
+      createdAt: now,
+    };
   }
 
-  async function fetchDealTransaction(dealId: string): Promise<BusinessTransaction> {
-    const businessTransactionId = randomUUID();
-    const authorityId = randomUUID();
-    const authorizationId = randomUUID();
-    const intentId = randomUUID();
-
-    return {
-      businessTransactionId,
-      metadata: {
-        businessTransactionId,
-        correlationId: randomUUID(),
-        createdBy: "hubspot-live-integration-test",
-        createdAt: new Date(),
-      },
-      authority: {
-        authorityId,
-        authorityType: "USER",
-        principalId: "hubspot-live-integration-test",
-        displayName: "HubSpot Live Integration Test",
-        issuedAt: new Date(),
-      },
-      authorization: {
-        authorizationId,
-        authorityId,
-        purpose: "HubSpot live integration test",
-        authorizedAt: new Date(),
-      },
-      intent: {
-        intentId,
-        authorizationId,
-        action: "hubspot:deal-fetch",
-        target: `hubspot://deals/${dealId}`,
-        parameters: Object.freeze({ dealId }),
-        createdAt: new Date(),
-      },
+  function fetchDealTransaction(dealId: string): BusinessTransaction {
+    return liveTransaction({
+      dealId,
       // Reused deliberately: no dedicated fetch-only policy pack exists.
       // Policy evaluation is generic over caller-supplied signals and
       // independent of which capability intent.action names — this
       // pack's APPROVE rule is satisfied by these signals regardless.
-      policy: { name: "hubspot-deal-update", version: "1.0.0", schemaVersion: "1.0.0" },
       signals: {
         currentDealStage: "appointmentscheduled",
         dealStageChangeRequested: false,
@@ -214,10 +218,7 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
         amountChangeExceedsThreshold: false,
         preAuthorizedForAmountChange: false,
       },
-      decision: { outcome: "APPROVED" },
-      status: "APPROVED",
-      createdAt: new Date(),
-    } as unknown as BusinessTransaction;
+    });
   }
 
   // Fixed, deliberately non-existent deal id: real enough to be
@@ -227,18 +228,24 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
   const NON_EXISTENT_DEAL_ID = "999999999999";
 
   it(
-    "drives hubspot:deal-fetch through a real POST /execute to the live HubSpot API",
+    "drives hubspot:deal-fetch through a real POST /execute (via the SDK) to the live HubSpot API",
     async () => {
-      const transaction = await fetchDealTransaction(NON_EXISTENT_DEAL_ID);
+      const transaction = fetchDealTransaction(NON_EXISTENT_DEAL_ID);
 
-      const response = await request(app).post("/execute").send(transaction);
+      let caught: unknown;
+      try {
+        await client.execute(transaction);
+      } catch (error) {
+        caught = error;
+      }
 
       // The connector's real error detail is swallowed by the generic
       // error handler (mirrors razorpay-live.integration.test.ts's own
       // documented behavior) — this only proves the full chain ran and
-      // reached the connector's failure path.
-      expect(response.status).toBe(500);
-      expect(response.body.error).toBe("Internal Server Error");
+      // reached the connector's failure path, thrown as the SDK's
+      // typed InternalServerError.
+      expect(caught).toBeInstanceOf(InternalServerError);
+      expect((caught as InternalServerError).message).toBe("Internal Server Error");
 
       // The independent, out-of-band proof that this specific failure
       // came from a genuine HubSpot HTTP response, not a network
@@ -253,7 +260,7 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
   );
 
   it(
-    "denies a disallowed dealstage transition through POST /execute before any HubSpot call",
+    "denies a disallowed dealstage transition through POST /execute (via the SDK) before any HubSpot call",
     async () => {
       const transaction = liveTransaction({
         dealId: NON_EXISTENT_DEAL_ID,
@@ -270,10 +277,14 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
         },
       });
 
-      const response = await request(app).post("/execute").send(transaction);
+      let caught: unknown;
+      try {
+        await client.execute(transaction);
+      } catch (error) {
+        caught = error;
+      }
 
-      expect(response.status).toBe(403);
-      expect(response.body.code).toBe("POLICY_DENIED");
+      expect(caught).toBeInstanceOf(ExecutionRejectedError);
 
       // Policy rejection happens in ExecutionGate.enforce, before
       // ExecutionComponent ever dispatches to the connector — zero real
@@ -321,7 +332,7 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
     }
 
     it(
-      "reads the real deal, applies a small within-threshold amount change through POST /execute, verifies it live, then reverts it",
+      "reads the real deal, applies a small within-threshold amount change through POST /execute (via the SDK), verifies it live, then reverts it",
       async () => {
         const before = await fetchDealLive();
         const originalAmount = before.amount !== undefined ? Number(before.amount) : 0;
@@ -350,8 +361,8 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
           },
         });
 
-        const response = await request(app).post("/execute").send(updateTransaction);
-        expect(response.status).toBe(200);
+        const trustRecord = await client.execute(updateTransaction);
+        expect(trustRecord.businessTransactionId).toBe(updateTransaction.businessTransactionId);
 
         const afterNudge = await fetchDealLive();
         expect(Number(afterNudge.amount)).toBe(nudgedAmount);
@@ -373,8 +384,8 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (HTTP boundary)", () => {
           },
         });
 
-        const revertResponse = await request(app).post("/execute").send(revertTransaction);
-        expect(revertResponse.status).toBe(200);
+        const revertTrustRecord = await client.execute(revertTransaction);
+        expect(revertTrustRecord.businessTransactionId).toBe(revertTransaction.businessTransactionId);
 
         const afterRevert = await fetchDealLive();
         expect(Number(afterRevert.amount)).toBe(originalAmount);

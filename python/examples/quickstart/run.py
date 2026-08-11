@@ -16,17 +16,29 @@ from uuid import uuid4
 
 from parmana import (
     Authority,
+    AuthorityType,
     Authorization,
     BusinessTransaction,
     BusinessTransactionMetadata,
+    BusinessTransactionStatus,
+    ExecutionTrustRecord,
     Intent,
     ParmanaClient,
     PolicyReference,
 )
 
 
-def main() -> None:
-    client = ParmanaClient(endpoint="http://localhost:3000")
+def run_quickstart(endpoint: str = "http://localhost:3000") -> ExecutionTrustRecord:
+    """
+    Constructs a ParmanaClient, submits a Business Transaction, and
+    returns the resulting Execution Trust Record. Exported (rather than
+    only run as a top-level script) so
+    tests/test_quickstart_example.py can prove this exact example
+    actually works against a real running server, not just that it
+    compiles.
+    """
+
+    client = ParmanaClient(endpoint=endpoint)
 
     print(f"Connected to {client.endpoint} (SDK v{client.version})")
 
@@ -45,7 +57,7 @@ def main() -> None:
         ),
         authority=Authority(
             authority_id="authority-001",
-            authority_type="SERVICE",
+            authority_type=AuthorityType.SERVICE,
             principal_id="python-sdk",
             display_name="Python SDK Quickstart",
             issued_at=now,
@@ -96,7 +108,7 @@ def main() -> None:
             # example itself used to have.
             "vendorId": "vendor://payments",
         },
-        status="RECEIVED",
+        status=BusinessTransactionStatus.RECEIVED,
         created_at=now,
     )
 
@@ -109,6 +121,12 @@ def main() -> None:
 
     print("\nFull Execution Trust Record:")
     print(json.dumps(asdict(trust_record), indent=2, default=str))
+
+    return trust_record
+
+
+def main() -> None:
+    run_quickstart()
 
 
 if __name__ == "__main__":

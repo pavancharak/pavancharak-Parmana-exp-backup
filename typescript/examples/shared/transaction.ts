@@ -1,8 +1,6 @@
 import {
-  AuthorityType,
   BusinessTransaction,
-  BusinessTransactionStatus,
-} from "@parmana/typescript-sdk";
+} from "@parmana/sdk";
 
 export function createTransaction(
   overrides: Partial<BusinessTransaction>,
@@ -22,7 +20,7 @@ export function createTransaction(
 
     authority: {
       authorityId: "authority-001",
-      authorityType: AuthorityType.USER,
+      authorityType: "USER",
       principalId: "demo-user",
       issuedAt: new Date(),
     },
@@ -52,7 +50,7 @@ export function createTransaction(
     signals: {},
 
     status:
-      BusinessTransactionStatus.RECEIVED,
+      "RECEIVED",
 
     createdAt:
       new Date(),

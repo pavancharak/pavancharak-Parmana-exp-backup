@@ -1,7 +1,7 @@
 import {
   HttpTransport,
   ParmanaClient,
-} from "@parmana/typescript-sdk";
+} from "@parmana/sdk";
 
 export function createClient() {
   return new ParmanaClient({

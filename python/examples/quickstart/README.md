@@ -16,38 +16,42 @@ Constructs a `ParmanaClient`, submits a Business Transaction through
 
 ## Prerequisites
 
-- Node.js >= 22 and the repo's root `npm install` already run (to build/run
+- Node.js >= 24 and the repo's root `npm install` already run (to build/run
   `packages/api` via `tsx`).
-- A local Parmana API server running on `http://localhost:3000`. From the
-  repo root:
+- A local Parmana API server running on `http://localhost:3000`, with
+  caller authentication disabled (this example never supplies an
+  `api_key`) and a Gateway keypair present (`keys/default.{private,public}.pem`,
+  `keys/gateway.{private,public}.pem` -- not generated automatically;
+  `npx tsx scripts/generate-keypair.ts --algorithm ed25519 --key-id default`
+  and `... --key-id gateway`). From the repo root:
 
   ```bash
   PARMANA_STORAGE=memory \
     PARMANA_POLICY_DIR=/absolute/path/to/policies \
     PARMANA_KEY_DIR=/absolute/path/to/keys \
-    VENDOR_PAYMENT_TOKEN=quickstart-demo-token \
-    node_modules/.bin/tsx packages/api/src/server.ts
+    PARMANA_AUTH_DISABLED=true \
+    npx tsx packages/api/src/server.ts
   ```
 
   `memory` storage is used here so the example has no external database
   dependency. The repo's committed `.env` defaults to Supabase-backed
   storage; override `PARMANA_STORAGE` as shown above to run fully locally.
 
-  The Execution Gateway is wired into this server unconditionally
-  (`createExecutionSystem()` always builds one), so it needs a Gateway
-  keypair (`keys/gateway.private.pem` / `.public.pem`, not generated
-  automatically, run `npm run generate:gateway-keys`) and a credential
-  for the one wired connector (`VENDOR_PAYMENT_TOKEN`, any placeholder
-  value works against the mock connector).
-
-  > On this repo's current setup, plain `npm run dev` / `npx tsx ...`
-  > from the repo root do not resolve correctly, because both the root
-  > `package.json` and `typescript/package.json` declare
-  > `"name": "parmana"`. Invoke the local `tsx` binary directly, as shown
-  > above (pre-existing, unrelated to the Python SDK -- see the
-  > consolidated core-API findings note).
+  This example targets `test:fixture-execute`, a generic,
+  `NODE_ENV=test`-only fixture connector (`createTestFixtureConnector.ts`)
+  that needs no credential of its own -- the `payments:execute`/
+  `vendor-payment` connector and its `VENDOR_PAYMENT_TOKEN` this example
+  originally targeted were removed from the repository entirely
+  (docs/VERIFICATION-GAPS.md G-27), not renamed.
 
 - The Python SDK installed: `pip install -e ./python`.
+
+## Automated proof
+
+`python/tests/test_quickstart_example.py` runs this exact script (via
+its exported `run_quickstart()`) against a real, freshly-spawned local
+server on every `pytest` run -- this isn't just an example that happens
+to compile, it's asserted to actually work.
 
 ## Run
 
@@ -55,51 +59,51 @@ Constructs a `ParmanaClient`, submits a Business Transaction through
 python python/examples/quickstart/run.py
 ```
 
-## Expected output (real run against a local server, 2026-07-12)
+## Expected output (real run against a local server, 2026-08-11)
 
 ```
-Connected to http://localhost:3000 (SDK v1.0.0)
+Connected to http://127.0.0.1:3999 (SDK v1.0.5)
 
-Business Transaction ID: be045836-0016-4c96-838e-a8934cbe0ee9
-Trust Record ID:         cabb41d7-1ab5-4cc9-a950-5c4300c6a826
-Trust Record Hash:       fdb313e82c7cd86cf5f1dfb0ab90ac72f550a67a91891ebfce9462a73e9da103
+Business Transaction ID: 922d87cc-9417-4d10-b9ec-a7ace53226d5
+Trust Record ID:         97c2d623-0de7-4794-b9e5-902332bdcf53
+Trust Record Hash:       d11af9c31333bc5f0a2a1ff4124c47379798829f216223cf60dc3484268b2883
 Signature Algorithm:     SignatureAlgorithm.ED25519
 
 Full Execution Trust Record:
 {
-  "trust_record_id": "cabb41d7-1ab5-4cc9-a950-5c4300c6a826",
+  "trust_record_id": "97c2d623-0de7-4794-b9e5-902332bdcf53",
   ...
   "executions": [
     {
       ...
       "evidence": {
-        "business_transaction_id": "be045836-0016-4c96-838e-a8934cbe0ee9",
-        "action": "payments:execute",
+        "business_transaction_id": "922d87cc-9417-4d10-b9ec-a7ace53226d5",
+        "action": "test:fixture-execute",
         "target": "vendor://payments",
         "parameters": { "amount": 1000, "currency": "USD" },
         "success": true,
-        "executed_at": "2026-07-12 07:25:59.706000+00:00",
+        "executed_at": "2026-08-11 07:09:42.662000+00:00",
         "attributes": {
           "connector": {
-            "connectorId": "vendor-payment",
+            "connectorId": "test-fixture",
             "connectorVersion": "1.0.0",
-            "capability": "payments:execute",
+            "capability": "test:fixture-execute",
             "sanitizedEndpoint": "vendor://payments",
-            "credentialProviderId": "environment",
+            "credentialProviderId": "static",
             "responseSummary": { "success": true, "metadata": {} },
-            "connectorEvidenceHash": "1903ba5fd1e4b27ac643e690a8ccf12d503710125dd88c1971ae18890748c70c"
+            "connectorEvidenceHash": "6263f537a7bcb8d941cea5f6b12bd1589b51879c88221a8c57101fc7fed2539c"
           }
         }
       },
-      "metadata": { "authorizationId": "7824fffb-dbb2-4046-9436-fbbd0ea777fa" }
+      "metadata": { "authorizationId": "3808f0d4-a158-431d-b4ae-98196cda32d9" }
     }
   ],
   ...
   "signature": {
     "algorithm": "ed25519",
     "key_id": "default",
-    "value": "9zEj+jTwPgjqBiZwZ9t2V4HurABRfLsS3yNuviy+w+LYpxQZVV5Ra3k79z32Xqr8rtrlIEyWdTu80zknwbdYAQ==",
-    "signed_at": "2026-07-12 07:25:59.707000+00:00"
+    "value": "JEMIPJQ3fvSEnjoHOqypoaTx3xNyiSd4LCInlchJhSuzhc8wH5RsiMJla5/idVIdzT2xX/aNzPEJbfBZjK1VBw==",
+    "signed_at": "2026-08-11 07:09:42.673000+00:00"
   }
 }
 ```
