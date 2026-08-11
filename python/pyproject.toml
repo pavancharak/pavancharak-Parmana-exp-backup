@@ -115,3 +115,15 @@ python_version = "3.10"
 packages = ["parmana"]
 strict = true
 warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+# tests/test_quickstart_example.py imports `examples.quickstart.run` as a
+# namespace package (no __init__.py, by design -- these are documented,
+# standalone example scripts, not part of the installed `parmana` package).
+# Without this, `examples` only resolves when pytest is invoked as
+# `python -m pytest` (which prepends cwd to sys.path); the CI workflow and
+# the `pytest` console-script entry point both invoke bare `pytest`, which
+# does not, so collection fails with "ModuleNotFoundError: No module named
+# 'examples'". `pythonpath = ["."]` puts this directory (where this file
+# lives, pytest's rootdir) on sys.path for every invocation style.
+pythonpath = ["."]

@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "prepare": "git config core.hooksPath scripts/git-hooks || true",
-    "build": "npm run openapi && tsc -b",
+    "build": "npm run openapi && tsc -b && npm run build --workspace=typescript",
     "build:verbose": "tsc -b --verbose",
     "build:force": "tsc -b --force --verbose",
     "clean": "tsc -b --clean",
