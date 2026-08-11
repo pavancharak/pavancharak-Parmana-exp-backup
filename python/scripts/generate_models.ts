@@ -146,6 +146,8 @@ function mapType(node: ts.TypeNode): MappedType {
       return plain("bool");
     case ts.SyntaxKind.NumberKeyword:
       return plain("float");
+    case ts.SyntaxKind.UnknownKeyword:
+      return plain("Any");
   }
 
   console.warn(
@@ -285,6 +287,7 @@ const DOMAIN_FILES = [
   "settlement-confirmation.ts",
   "execution-trust-record.ts",
   "execution-authorization.ts",
+  "refusal-record.ts",
 ];
 
 for (const file of DOMAIN_FILES) {
@@ -392,6 +395,15 @@ const MODULES: ModuleSpec[] = [
     file: "execution_authorization",
     types: ["ExecutionAuthorizationPayload", "SignedExecutionAuthorization"],
     docSource: "domain/execution-authorization.ts",
+  },
+  {
+    file: "refusal_record",
+    types: [
+      "RefusalIntentSnapshot",
+      "RefusalBindingViolation",
+      "RefusalRecord",
+    ],
+    docSource: "domain/refusal-record.ts",
   },
 ];
 

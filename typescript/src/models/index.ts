@@ -1,3 +1,4 @@
+export * from "./audit-event.js";
 export * from "./authority.js";
 export * from "./authorization.js";
 export * from "./business-transaction.js";
@@ -6,6 +7,7 @@ export * from "./intent.js";
 export * from "./override.js";
 export * from "./policy.js";
 export * from "./receipt.js";
+export * from "./refusal-record.js";
 export * from "./replay-result.js";
 export * from "./settlement-confirmation.js";
 export * from "./signature.js";

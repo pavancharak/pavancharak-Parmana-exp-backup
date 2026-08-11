@@ -22,6 +22,7 @@ Covers, against real responses:
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import hashlib
 import json
 import os
@@ -49,6 +50,8 @@ from parmana import (
     NotFoundError,
     ParmanaClient,
     PolicyReference,
+    Signature,
+    SignatureAlgorithm,
     ValidationError,
 )
 
@@ -351,3 +354,91 @@ class TestCompletenessGapsClosedThisAudit:
         # status/created_at supplied by the client are always ignored;
         # Parmana assigns RECEIVED and the current server time.
         assert record.transaction.status.value == "RECEIVED"
+
+
+class TestRefusalAndAuditVerifyRouteCoverage:
+    """refusal.get()/refusal.verify()/audit.verify() previously had zero
+    SDK coverage of any kind (RFC-0021's Refusal Record routes and the
+    audit-sink signing milestone's POST /audit/verify)."""
+
+    def test_policy_rejected_transaction_produces_a_verifiable_refusal_record(
+        self, live_server
+    ):
+        transaction = _transaction(risk_score=999)
+        client = _authenticated_client(live_server)
+
+        with pytest.raises(ExecutionRejectedError):
+            client.execution.execute(transaction)
+
+        record = client.refusal_record(transaction.business_transaction_id)
+        assert record.business_transaction_id == transaction.business_transaction_id
+        assert record.decision.outcome.value == "REJECTED"
+
+        assert client.verify_refusal_record(record) is True
+
+    def test_unauthenticated_caller_can_still_verify_a_refusal_record(
+        self, live_server
+    ):
+        transaction = _transaction(risk_score=999)
+        auth_client = _authenticated_client(live_server)
+
+        with pytest.raises(ExecutionRejectedError):
+            auth_client.execution.execute(transaction)
+
+        record = auth_client.refusal_record(transaction.business_transaction_id)
+
+        assert (
+            _unauthenticated_client(live_server).verify_refusal_record(record) is True
+        )
+
+    def test_tampered_refusal_record_fails_verification(self, live_server):
+        transaction = _transaction(risk_score=999)
+        client = _authenticated_client(live_server)
+
+        with pytest.raises(ExecutionRejectedError):
+            client.execution.execute(transaction)
+
+        record = client.refusal_record(transaction.business_transaction_id)
+        tampered_decision = dataclasses.replace(
+            record.decision, reason="tampered after the fact"
+        )
+        tampered = dataclasses.replace(record, decision=tampered_decision)
+
+        assert client.verify_refusal_record(tampered) is False
+
+    def test_audit_verify_rejects_a_fabricated_signature_against_the_real_server(
+        self, live_server
+    ):
+        # A genuine signed-event round trip needs the Runtime's own key
+        # material, which this fixture's server subprocess holds
+        # in-process and does not expose -- see
+        # typescript/test/integration/parmana-client.integration.test.ts's
+        # equivalent test for that in-process round trip. This still
+        # exercises the real POST /audit/verify route end-to-end: a
+        # structurally valid but cryptographically wrong signature must
+        # come back False, not raise.
+        client = _unauthenticated_client(live_server)
+
+        event = {
+            "type": "caller.authenticated",
+            "occurredAt": datetime.now(UTC).isoformat(),
+            "route": "/execute",
+            "callerId": CALLER_ID,
+        }
+
+        signature = Signature(
+            algorithm=SignatureAlgorithm.ED25519,
+            key_id="default",
+            value="not-a-real-signature",
+            signed_at=datetime.now(UTC),
+        )
+
+        assert client.verify_audit_event(event, signature) is False
+
+    def test_audit_verify_raises_validation_error_on_a_malformed_body(
+        self, live_server
+    ):
+        client = _unauthenticated_client(live_server)
+
+        with pytest.raises(ValidationError):
+            client.audit.verify({"type": "caller.authenticated"}, None)

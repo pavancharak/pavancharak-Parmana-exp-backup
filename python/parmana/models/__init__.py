@@ -36,6 +36,11 @@ from .execution_authorization import (
     ExecutionAuthorizationPayload,
     SignedExecutionAuthorization,
 )
+from .refusal_record import (
+    RefusalIntentSnapshot,
+    RefusalBindingViolation,
+    RefusalRecord,
+)
 from .replay_result import ReplayResult
 
 __all__ = [
@@ -57,6 +62,9 @@ __all__ = [
     "Override",
     "PolicyReference",
     "Receipt",
+    "RefusalBindingViolation",
+    "RefusalIntentSnapshot",
+    "RefusalRecord",
     "ReplayResult",
     "SettlementConfirmation",
     "SettlementStatus",

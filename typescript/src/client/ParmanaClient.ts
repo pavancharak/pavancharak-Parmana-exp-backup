@@ -21,9 +21,12 @@
  */
 
 import type {
+  AuditEvent,
   BusinessTransaction,
   ExecutionTrustRecord,
   Receipt,
+  RefusalRecord,
+  Signature,
   Verification,
 } from "../models/index.js";
 
@@ -81,6 +84,14 @@ import {
   type PolicyValidationResult,
 } from "./PolicyApi.js";
 
+import {
+  RefusalApi,
+} from "./RefusalApi.js";
+
+import {
+  AuditApi,
+} from "./AuditApi.js";
+
 /**
  * Canonical Parmana SDK client.
  */
@@ -136,6 +147,16 @@ export class ParmanaClient {
   private readonly policyApi: PolicyApi;
 
   /**
+   * Runtime Refusal Record API.
+   */
+  private readonly refusalApi: RefusalApi;
+
+  /**
+   * Runtime Audit Event API.
+   */
+  private readonly auditApi: AuditApi;
+
+  /**
    * Creates a Parmana SDK client.
    */
   constructor(
@@ -182,6 +203,12 @@ export class ParmanaClient {
 
     this.policyApi =
       new PolicyApi(this.transport);
+
+    this.refusalApi =
+      new RefusalApi(this.transport);
+
+    this.auditApi =
+      new AuditApi(this.transport);
   }
 
   /**
@@ -319,6 +346,42 @@ export class ParmanaClient {
   ): Promise<PolicyValidationResult> {
     return this.policyApi.validate(
       policy,
+    );
+  }
+
+  /**
+   * Retrieves a Refusal Record by Business Transaction ID.
+   */
+  public refusalRecord(
+    businessTransactionId: string,
+  ): Promise<RefusalRecord> {
+    return this.refusalApi.get(
+      businessTransactionId,
+    );
+  }
+
+  /**
+   * Verifies a Refusal Record's signature.
+   */
+  public verifyRefusalRecord(
+    record: RefusalRecord,
+  ): Promise<boolean> {
+    return this.refusalApi.verify(
+      record,
+    );
+  }
+
+  /**
+   * Verifies a signed caller-authentication or Razorpay-webhook audit
+   * event's signature.
+   */
+  public verifyAuditEvent(
+    event: AuditEvent,
+    signature: Signature,
+  ): Promise<boolean> {
+    return this.auditApi.verify(
+      event,
+      signature,
     );
   }
 }

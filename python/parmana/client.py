@@ -8,9 +8,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from parmana.api.audit_api import AuditApi
 from parmana.api.execution_api import ExecutionApi
 from parmana.api.policy_api import PolicyApi
 from parmana.api.receipt_api import ReceiptApi
+from parmana.api.refusal_api import RefusalApi
 from parmana.api.replay_api import ReplayApi
 from parmana.api.transaction_api import TransactionApi
 from parmana.api.trust_record_api import TrustRecordApi
@@ -21,6 +23,8 @@ from parmana.version import __version__
 
 if TYPE_CHECKING:
     from parmana.models.business_transaction import BusinessTransaction
+    from parmana.models.refusal_record import RefusalRecord
+    from parmana.models.signature import Signature
     from parmana.models.trust_record import ExecutionTrustRecord
     from parmana.models.verification import Verification
 
@@ -145,6 +149,14 @@ class ParmanaClient:
             self._transport,
         )
 
+        self.refusal = RefusalApi(
+            self._transport,
+        )
+
+        self.audit = AuditApi(
+            self._transport,
+        )
+
     @property
     def endpoint(self) -> str:
         """
@@ -226,6 +238,25 @@ class ParmanaClient:
         Validates that a policy (name + version) is loadable.
         """
         return self.policy.validate(policy_id, policy_version)
+
+    def refusal_record(self, business_transaction_id: str) -> RefusalRecord:
+        """
+        Retrieves a Refusal Record by Business Transaction ID.
+        """
+        return self.refusal.get(business_transaction_id)
+
+    def verify_refusal_record(self, record: RefusalRecord) -> bool:
+        """
+        Verifies a Refusal Record's signature.
+        """
+        return self.refusal.verify(record)
+
+    def verify_audit_event(self, event: dict[str, Any], signature: Signature) -> bool:
+        """
+        Verifies a signed caller-authentication or Razorpay-webhook
+        audit event's signature.
+        """
+        return self.audit.verify(event, signature)
 
     def __repr__(self) -> str:
         return (
