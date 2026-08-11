@@ -1,7 +1,7 @@
 # Parmana
 
-**Execution Trust Infrastructure: turning what an AI agent did into a
-verifiable record, not a hope.**
+**Institutional Authority Infrastructure: protecting who has the authority
+to decide what becomes real-world execution.**
 
 [![CI](https://github.com/pavancharak/parmana-exp/actions/workflows/ci.yml/badge.svg)](https://github.com/pavancharak/parmana-exp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-proprietary-lightgrey)](./LICENSE)
@@ -145,6 +145,12 @@ non-Razorpay connector among them.
 We're looking for a small number of design partners to run Parmana
 against a real integration under real constraints. If that's you, or
 you're evaluating Parmana for a role, reach out: **founder@parmanasystems.com**.
+
+## Support
+
+- Email: [founder@parmanasystems.com](mailto:founder@parmanasystems.com)
+- Documentation: [parmanasystems.com](https://parmanasystems.com)
+- Issues: [github.com/pavancharak/parmana-exp/issues](https://github.com/pavancharak/parmana-exp/issues)
 
 ## License
 

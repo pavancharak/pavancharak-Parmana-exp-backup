@@ -147,7 +147,8 @@
             "pages": [
               "trust-and-claims/claims-discipline",
               "trust-and-claims/what-we-dont-claim",
-              "trust-and-claims/trl7-verification"
+              "trust-and-claims/trl7-verification",
+              "trust-and-claims/verification-log"
             ]
           },
           {
