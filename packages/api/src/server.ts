@@ -68,6 +68,7 @@ const app =
             eventStore: createRazorpayWebhookEventStore(),
             auditSink: createRazorpayWebhookAuditSink(),
           },
+      rateLimit: loadConfig().rateLimit,
     },
   );
 

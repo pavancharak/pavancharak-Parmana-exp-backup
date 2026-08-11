@@ -152,6 +152,9 @@ export interface Config {
   readonly auth:
     ApiAuthConfig;
 
+  readonly rateLimit:
+    RateLimitConfig;
+
   readonly logging:
     LoggingConfig;
 }
@@ -271,6 +274,25 @@ export interface ApiAuthConfig {
 }
 
 /**
+ * Rate limiting configuration.
+ *
+ * Both are per-caller/per-IP-per-minute ceilings applied by
+ * packages/api/src/middleware/rate-limit.ts; see that file for exactly
+ * where and how each is keyed.
+ */
+export interface RateLimitConfig {
+  /**
+   * POST /execute, keyed by authenticated caller identity.
+   */
+  readonly executePerMinute: number;
+
+  /**
+   * GET /health and GET /ready, keyed by IP.
+   */
+  readonly healthPerMinute: number;
+}
+
+/**
  * Logging configuration.
  */
 export interface LoggingConfig {
@@ -380,6 +402,20 @@ policy: Object.freeze({
       disabled:
         process.env.PARMANA_AUTH_DISABLED ===
         "true",
+    }),
+
+    rateLimit: Object.freeze({
+      executePerMinute: Number(
+        process.env
+          .RATE_LIMIT_EXECUTE_PER_MINUTE ??
+          30,
+      ),
+
+      healthPerMinute: Number(
+        process.env
+          .RATE_LIMIT_HEALTH_PER_MINUTE ??
+          300,
+      ),
     }),
 
     logging: Object.freeze({

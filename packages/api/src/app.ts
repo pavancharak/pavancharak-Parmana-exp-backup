@@ -3,6 +3,7 @@ import documentationRoutes from "./routes/documentation.js";
 
 import { errorHandler } from "./middleware/error-handler.js";
 import { createCallerAuthMiddleware } from "./middleware/caller-auth.js";
+import { createExecuteRateLimiter, createHealthReadyRateLimiter } from "./middleware/rate-limit.js";
 
 import policyRoutes from "./routes/policies.js";
 import type { ExecutionTrustApplication } from "@parmana/runtime";
@@ -62,9 +63,30 @@ export type RazorpayWebhookOption =
       readonly auditSink: RazorpayWebhookAuditSink;
     };
 
+/**
+ * Optional, unlike callerAuth/razorpayWebhook: every existing call site
+ * (roughly twenty test files, plus server.ts) predates rate limiting,
+ * and requiring this field would force every one of them to state a
+ * value it has no opinion about. Omitted entirely, this deployment gets
+ * DEFAULT_EXECUTE_PER_MINUTE/DEFAULT_HEALTH_PER_MINUTE below -- the same
+ * numbers packages/shared/src/config/Config.ts falls back to when
+ * RATE_LIMIT_EXECUTE_PER_MINUTE/RATE_LIMIT_HEALTH_PER_MINUTE are unset,
+ * so server.ts's real wiring and a bare createApp(application, {
+ * callerAuth, razorpayWebhook }) call behave identically unless a test
+ * deliberately overrides one to exercise 429 behavior.
+ */
+export interface RateLimitOption {
+  readonly executePerMinute: number;
+  readonly healthPerMinute: number;
+}
+
+const DEFAULT_EXECUTE_PER_MINUTE = 30;
+const DEFAULT_HEALTH_PER_MINUTE = 300;
+
 export interface CreateAppOptions {
   readonly callerAuth: CallerAuthOption;
   readonly razorpayWebhook: RazorpayWebhookOption;
+  readonly rateLimit?: RateLimitOption;
 }
 
 export function createApp(
@@ -82,6 +104,9 @@ export function createApp(
  * original client's.
  */
 app.set("trust proxy", 1);
+
+const executePerMinute = options.rateLimit?.executePerMinute ?? DEFAULT_EXECUTE_PER_MINUTE;
+const healthPerMinute = options.rateLimit?.healthPerMinute ?? DEFAULT_HEALTH_PER_MINUTE;
 
 /**
  * Razorpay webhooks
@@ -118,8 +143,10 @@ app.use(express.json());
  * all). Everything below this line, including "/" and "/version",
  * sits behind the middleware when it is provided.
  */
-app.use("/health", healthRoutes);
-app.use("/ready", createReadyRouter());
+const healthReadyRateLimiter = createHealthReadyRateLimiter(healthPerMinute);
+
+app.use("/health", healthReadyRateLimiter, healthRoutes);
+app.use("/ready", healthReadyRateLimiter, createReadyRouter());
 app.use("/openapi.yaml", openapiRoutes);
 app.use("/documentation", documentationRoutes);
 
@@ -167,8 +194,18 @@ app.use("/version", versionRoutes);
 
 
 
+/**
+ * Rate limiting on /execute is keyed by authenticated caller identity
+ * (req.callerId), so it is only meaningful -- and only mounted -- when
+ * caller-auth itself is enabled. When callerAuth is "disabled" (local
+ * development/tutorials only, never a real deployment), there is no
+ * caller identity to key off, so this is skipped entirely rather than
+ * silently falling back to an IP-keyed limit that would defeat the
+ * whole point of keying by caller in the first place.
+ */
 app.use(
   "/execute",
+  ...(options.callerAuth !== "disabled" ? [createExecuteRateLimiter(executePerMinute)] : []),
   createExecuteRouter(application),
 );
 
