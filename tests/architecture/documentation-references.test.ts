@@ -55,10 +55,15 @@ const HYPOTHETICAL_EXAMPLE_PATHS = new Set([
  * would falsify that record. `payments:execute`/vendor-payment was
  * removed outright, not independently verified (docs/VERIFICATION-GAPS.md
  * G-27) — `createVendorPaymentConnector.ts` and its dedicated credential
- * provider no longer exist anywhere in this repository.
+ * provider no longer exist anywhere in this repository. The same applies
+ * to the Razorpay connector, deliberately removed in full (see the
+ * removal commit and docs/CLAIMS.md's historical §3.4-3.9/3.8/3.9).
  */
 const HISTORICALLY_REAL_NOW_REMOVED_PATHS = new Set([
   "packages/api/src/bootstrap/createVendorPaymentConnector.ts",
+  "packages/api/src/webhooks/RazorpaySettlementProcessor.ts",
+  "packages/api/src/bootstrap/createRazorpaySignalStateVerifier.ts",
+  "packages/connector-sdk/src/connectors/razorpay/RazorpayCapabilities.ts",
 ]);
 
 function extractReferencedPaths(content: string): string[] {

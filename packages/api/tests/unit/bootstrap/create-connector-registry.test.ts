@@ -8,7 +8,7 @@ import {
 import { createConnectorRegistry } from "../../../src/bootstrap/createConnectorRegistry.js";
 import { createConnectorAuthenticator } from "../../../src/bootstrap/createConnectorAuthenticator.js";
 
-const ENV_KEYS = ["NODE_ENV", "RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET"] as const;
+const ENV_KEYS = ["NODE_ENV", "HUBSPOT_PRIVATE_APP_TOKEN"] as const;
 
 function buildRegistry() {
   const authenticator = createConnectorAuthenticator();
@@ -17,7 +17,7 @@ function buildRegistry() {
   return createConnectorRegistry(authenticator, sessions, audit, Object.freeze({ token: "test" }));
 }
 
-describe("createConnectorRegistry — razorpay capability availability", () => {
+describe("createConnectorRegistry — hubspot capability availability", () => {
   const original = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
 
   afterEach(() => {
@@ -30,24 +30,23 @@ describe("createConnectorRegistry — razorpay capability availability", () => {
     }
   });
 
-  it("registers the razorpay connector and resolves both capabilities when NODE_ENV=test", () => {
+  it("registers the hubspot connector and resolves both capabilities when NODE_ENV=test", () => {
     process.env.NODE_ENV = "test";
 
     const registry = buildRegistry();
 
-    expect(registry.resolveCapability("razorpay:refund-create").connectorId).toBe("razorpay");
-    expect(registry.resolveCapability("razorpay:payment-fetch").connectorId).toBe("razorpay");
+    expect(registry.resolveCapability("hubspot:deal-update").connectorId).toBe("hubspot");
+    expect(registry.resolveCapability("hubspot:deal-fetch").connectorId).toBe("hubspot");
   });
 
-  it("(fail-closed) does not register razorpay, and resolveCapability throws, when credentials are unconfigured outside test mode", () => {
+  it("(fail-closed) does not register hubspot, and resolveCapability throws, when credentials are unconfigured outside test mode", () => {
     process.env.NODE_ENV = "production";
-    delete process.env.RAZORPAY_KEY_ID;
-    delete process.env.RAZORPAY_KEY_SECRET;
+    delete process.env.HUBSPOT_PRIVATE_APP_TOKEN;
 
     const registry = buildRegistry();
 
-    expect(() => registry.resolveCapability("razorpay:refund-create")).toThrow(
-      /No connector registered for capability 'razorpay:refund-create'/,
+    expect(() => registry.resolveCapability("hubspot:deal-update")).toThrow(
+      /No connector registered for capability 'hubspot:deal-update'/,
     );
   });
 
@@ -63,13 +62,12 @@ describe("createConnectorRegistry — razorpay capability availability", () => {
     }
   });
 
-  it("registers razorpay when credentials are fully configured outside test mode", () => {
+  it("registers hubspot when credentials are fully configured outside test mode", () => {
     process.env.NODE_ENV = "production";
-    process.env.RAZORPAY_KEY_ID = "rzp_live_real_id";
-    process.env.RAZORPAY_KEY_SECRET = "rzp_live_real_secret";
+    process.env.HUBSPOT_PRIVATE_APP_TOKEN = "pat-na1-real-token";
 
     const registry = buildRegistry();
 
-    expect(registry.resolveCapability("razorpay:refund-create").connectorId).toBe("razorpay");
+    expect(registry.resolveCapability("hubspot:deal-update").connectorId).toBe("hubspot");
   });
 });

@@ -2,50 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.parmana.ai/responses/verification-response.schema.json",
   "title": "Verification Response",
-  "description": "Response returned by POST /verify and GET /verification/{businessTransactionId}. A Verification, plus an optional settlement field: present only on the GET route's response (see routes/verify-get.ts), and only once a Settlement Confirmation exists for this Business Transaction (M4b — a refund's lifecycle closed via fetch-verified webhook processing). Never silent: a settled or settlement-failed refund is always visible here, not only by separately fetching the whole Trust Record.",
+  "description": "Response returned by POST /verify and GET /verification/{businessTransactionId}: a Verification.",
   "allOf": [
-    { "$ref": "../common/verification.schema.json" },
-    {
-      "type": "object",
-      "properties": {
-        "settlement": {
-          "type": "object",
-          "description": "Present only when at least one Settlement Confirmation exists for this Business Transaction. Reflects the LATEST confirmation.",
-          "additionalProperties": false,
-          "required": [
-            "status",
-            "confirmationId",
-            "fetchedRefundStatus",
-            "razorpayRefundId",
-            "issuedAt"
-          ],
-          "properties": {
-            "status": {
-              "type": "string",
-              "description": "SETTLED when the fetch-verified refund status was \"processed\"; SETTLEMENT_FAILED otherwise. Derived exclusively from the fetched state, never from a webhook's own claimed event type.",
-              "enum": ["SETTLED", "SETTLEMENT_FAILED"]
-            },
-            "confirmationId": {
-              "type": "string",
-              "description": "Unique Settlement Confirmation identifier."
-            },
-            "fetchedRefundStatus": {
-              "type": "string",
-              "description": "The refund's status exactly as fetched from Razorpay's API at confirmation time (e.g. \"processed\", \"failed\")."
-            },
-            "razorpayRefundId": {
-              "type": "string",
-              "description": "The Razorpay refund id this confirmation is about."
-            },
-            "issuedAt": {
-              "type": "string",
-              "format": "date-time",
-              "description": "UTC timestamp when this Settlement Confirmation was issued."
-            }
-          }
-        }
-      }
-    }
+    { "$ref": "../common/verification.schema.json" }
   ],
   "examples": [
     {
@@ -55,21 +14,6 @@
       "message": "Execution Trust Record verified successfully.",
       "verifiedAt": "2026-07-07T16:38:59.344Z",
       "trustRecordHash": "989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25"
-    },
-    {
-      "verificationId": "1bd79e40-8fe1-5618-bc49-f497257868bf",
-      "businessTransactionId": "fed3b083-2cg6-5277-9583-872g87gcg2c3",
-      "status": "VERIFIED",
-      "message": "Execution Trust Record verified successfully.",
-      "verifiedAt": "2026-07-18T20:00:00.000Z",
-      "trustRecordHash": "aa9aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b26",
-      "settlement": {
-        "status": "SETTLED",
-        "confirmationId": "2ce80f51-9002-6729-cd50-508868979c00",
-        "fetchedRefundStatus": "processed",
-        "razorpayRefundId": "rfnd_ABC123",
-        "issuedAt": "2026-07-18T20:05:00.000Z"
-      }
     }
   ]
 }

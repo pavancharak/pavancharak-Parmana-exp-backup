@@ -5,7 +5,6 @@ import {
   ExecutionTrustRecordRepository,
   Override,
   Receipt,
-  SettlementConfirmation,
   Verification,
 } from "@parmana/shared";
 
@@ -115,24 +114,6 @@ export class MemoryExecutionTrustRecordRepository implements ExecutionTrustRecor
     const updated: ExecutionTrustRecord = {
       ...record,
       receipts: [...record.receipts, receipt],
-    };
-
-    this.records.set(businessTransactionId, updated);
-  }
-
-  async appendSettlementConfirmation(
-    businessTransactionId: string,
-    confirmation: SettlementConfirmation,
-  ): Promise<void> {
-    const record = this.records.get(businessTransactionId);
-
-    if (!record) {
-      return;
-    }
-
-    const updated: ExecutionTrustRecord = {
-      ...record,
-      settlementConfirmations: [...(record.settlementConfirmations ?? []), confirmation],
     };
 
     this.records.set(businessTransactionId, updated);

@@ -23,15 +23,12 @@ import { createVerifyRouter } from "./routes/verify.js";
 import { createRefusalVerifyRouter } from "./routes/refusal-verify.js";
 import { createRefusalGetRouter } from "./routes/refusal-get.js";
 import { createAuditVerifyRouter } from "./routes/audit-verify.js";
-import { createRazorpayWebhookRouter } from "./routes/webhooks-razorpay.js";
 import { createReadyRouter } from "./routes/ready.js";
 
 import versionRoutes from "./routes/version.js";
 
 import type { CallerAuthenticator } from "./auth/CallerAuthenticator.js";
 import type { CallerAuditSink } from "./auth/CallerAuditSink.js";
-import type { RazorpayWebhookEventStore } from "./webhooks/RazorpayWebhookEventStore.js";
-import type { RazorpayWebhookAuditSink } from "./webhooks/RazorpayWebhookAuditSink.js";
 
 /**
  * Every call site must state its caller-auth choice explicitly:
@@ -49,32 +46,16 @@ export type CallerAuthOption =
     };
 
 /**
- * Same explicit-choice discipline as CallerAuthOption, for the same
- * reason: "disabled" mounts no /webhooks/razorpay route at all (a
- * request to it 404s); the object form requires the secret plus both
- * stores the route needs (resolveRazorpayWebhookSecret.ts,
- * createRazorpayWebhookEventStore.ts, createRazorpayWebhookAuditSink.ts
- * build these — server.ts is the reference call site). No default.
- */
-export type RazorpayWebhookOption =
-  | "disabled"
-  | {
-      readonly secret: string;
-      readonly eventStore: RazorpayWebhookEventStore;
-      readonly auditSink: RazorpayWebhookAuditSink;
-    };
-
-/**
- * Optional, unlike callerAuth/razorpayWebhook: every existing call site
- * (roughly twenty test files, plus server.ts) predates rate limiting,
- * and requiring this field would force every one of them to state a
- * value it has no opinion about. Omitted entirely, this deployment gets
+ * Optional, unlike callerAuth: every existing call site (roughly twenty
+ * test files, plus server.ts) predates rate limiting, and requiring
+ * this field would force every one of them to state a value it has no
+ * opinion about. Omitted entirely, this deployment gets
  * DEFAULT_EXECUTE_PER_MINUTE/DEFAULT_HEALTH_PER_MINUTE below -- the same
  * numbers packages/shared/src/config/Config.ts falls back to when
  * RATE_LIMIT_EXECUTE_PER_MINUTE/RATE_LIMIT_HEALTH_PER_MINUTE are unset,
  * so server.ts's real wiring and a bare createApp(application, {
- * callerAuth, razorpayWebhook }) call behave identically unless a test
- * deliberately overrides one to exercise 429 behavior.
+ * callerAuth }) call behave identically unless a test deliberately
+ * overrides one to exercise 429 behavior.
  */
 export interface RateLimitOption {
   readonly executePerMinute: number;
@@ -86,7 +67,6 @@ const DEFAULT_HEALTH_PER_MINUTE = 300;
 
 export interface CreateAppOptions {
   readonly callerAuth: CallerAuthOption;
-  readonly razorpayWebhook: RazorpayWebhookOption;
   readonly rateLimit?: RateLimitOption;
 }
 
@@ -108,28 +88,6 @@ app.set("trust proxy", 1);
 
 const executePerMinute = options.rateLimit?.executePerMinute ?? DEFAULT_EXECUTE_PER_MINUTE;
 const healthPerMinute = options.rateLimit?.healthPerMinute ?? DEFAULT_HEALTH_PER_MINUTE;
-
-/**
- * Razorpay webhooks
- *
- * Mounted before the global express.json() below, and with its own
- * express.raw() (see routes/webhooks-razorpay.ts), so signature
- * verification runs over the exact wire bytes Razorpay signed — never
- * a re-serialized req.body. "disabled" mounts no route at all, so a
- * request to it 404s — mirroring createConnectorRegistry.ts's
- * fail-closed "capability simply absent" shape for the Razorpay
- * connector itself.
- */
-if (options.razorpayWebhook !== "disabled") {
-  app.use(
-    "/webhooks/razorpay",
-    createRazorpayWebhookRouter({
-      secret: options.razorpayWebhook.secret,
-      eventStore: options.razorpayWebhook.eventStore,
-      auditSink: options.razorpayWebhook.auditSink,
-    }),
-  );
-}
 
 app.use(express.json());
 
@@ -166,10 +124,10 @@ app.use(
 /**
  * Audit-sink signing milestone: the same unauthenticated,
  * third-party-verifiable capability as POST /refusal/verify above,
- * over the two durable audit trails (caller_audit_events,
- * razorpay_webhook_audit_events) instead of Refusal Records. No
- * ExecutionTrustApplication dependency -- verification here is pure
- * signature-over-bytes, with no database lookup involved.
+ * over the durable caller_audit_events audit trail instead of Refusal
+ * Records. No ExecutionTrustApplication dependency -- verification
+ * here is pure signature-over-bytes, with no database lookup
+ * involved.
  */
 app.use(
   "/audit/verify",

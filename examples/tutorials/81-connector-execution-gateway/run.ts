@@ -4,8 +4,8 @@ import { InMemoryGatewaySessionStore, MemoryExecutionAuditSink } from "@parmana/
 // Tutorials 57-59 show the credential-isolation and secure-connector
 // session mechanics generically, with one hand-built "sap" connector.
 // This tutorial shows the layer above that: GatewayConnectorRegistry,
-// the real production registry every capability (razorpay:refund-create,
-// hubspot:deal-update, test:fixture-execute) actually resolves through --
+// the real production registry every capability (hubspot:deal-update,
+// hubspot:deal-fetch, test:fixture-execute) actually resolves through --
 // the exact class createConnectorRegistry.ts wires up, exercised the
 // same way its own unit test suite does.
 //
@@ -35,31 +35,29 @@ console.log("Scenario 1: NODE_ENV=test -- every connector's capabilities resolve
 console.log("--------------------------------------------------");
 
 const registry1 = buildRegistry();
-console.log(`razorpay:refund-create -> connector "${registry1.resolveCapability("razorpay:refund-create").connectorId}"`);
-console.log(`razorpay:payment-fetch -> connector "${registry1.resolveCapability("razorpay:payment-fetch").connectorId}"`);
+console.log(`hubspot:deal-update    -> connector "${registry1.resolveCapability("hubspot:deal-update").connectorId}"`);
+console.log(`hubspot:deal-fetch     -> connector "${registry1.resolveCapability("hubspot:deal-fetch").connectorId}"`);
 console.log(`test:fixture-execute   -> connector "${registry1.resolveCapability("test:fixture-execute").connectorId}"`);
 console.log();
 
-console.log("Scenario 2: Outside test mode, with no Razorpay credentials configured -- fails closed, per capability");
+console.log("Scenario 2: Outside test mode, with no HubSpot credentials configured -- fails closed, per capability");
 console.log("--------------------------------------------------");
 
 const previousNodeEnv = process.env.NODE_ENV;
-const previousKeyId = process.env.RAZORPAY_KEY_ID;
-const previousKeySecret = process.env.RAZORPAY_KEY_SECRET;
+const previousToken = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
 
 process.env.NODE_ENV = "production";
-delete process.env.RAZORPAY_KEY_ID;
-delete process.env.RAZORPAY_KEY_SECRET;
+delete process.env.HUBSPOT_PRIVATE_APP_TOKEN;
 
 const registry2 = buildRegistry();
 
-let razorpayError: string | undefined;
+let hubspotError: string | undefined;
 try {
-  registry2.resolveCapability("razorpay:refund-create");
+  registry2.resolveCapability("hubspot:deal-update");
 } catch (error) {
-  razorpayError = error instanceof Error ? error.message : String(error);
+  hubspotError = error instanceof Error ? error.message : String(error);
 }
-console.log(`razorpay:refund-create -> throws: ${razorpayError}`);
+console.log(`hubspot:deal-update    -> throws: ${hubspotError}`);
 
 // test-fixture (a NODE_ENV=test-only MockConnector) is ALSO absent
 // outside test mode -- one missing connector's credentials never take
@@ -75,30 +73,27 @@ console.log(`test:fixture-execute   -> throws: ${testFixtureError}`);
 console.log();
 
 process.env.NODE_ENV = previousNodeEnv;
-if (previousKeyId !== undefined) process.env.RAZORPAY_KEY_ID = previousKeyId;
-if (previousKeySecret !== undefined) process.env.RAZORPAY_KEY_SECRET = previousKeySecret;
+if (previousToken !== undefined) process.env.HUBSPOT_PRIVATE_APP_TOKEN = previousToken;
 
-console.log("Scenario 3: Outside test mode, WITH real-looking Razorpay credentials configured");
+console.log("Scenario 3: Outside test mode, WITH a real-looking HubSpot credential configured");
 console.log("--------------------------------------------------");
 
 process.env.NODE_ENV = "production";
-process.env.RAZORPAY_KEY_ID = "rzp_live_tutorial_id";
-process.env.RAZORPAY_KEY_SECRET = "rzp_live_tutorial_secret";
+process.env.HUBSPOT_PRIVATE_APP_TOKEN = "pat-na1-tutorial-token";
 
 const registry3 = buildRegistry();
-console.log(`razorpay:refund-create -> connector "${registry3.resolveCapability("razorpay:refund-create").connectorId}"`);
+console.log(`hubspot:deal-update    -> connector "${registry3.resolveCapability("hubspot:deal-update").connectorId}"`);
 
-delete process.env.RAZORPAY_KEY_ID;
-delete process.env.RAZORPAY_KEY_SECRET;
+delete process.env.HUBSPOT_PRIVATE_APP_TOKEN;
 process.env.NODE_ENV = previousNodeEnv;
 console.log();
 
 const allPassed =
-  registry1.resolveCapability("razorpay:refund-create").connectorId === "razorpay" &&
+  registry1.resolveCapability("hubspot:deal-update").connectorId === "hubspot" &&
   registry1.resolveCapability("test:fixture-execute").connectorId === "test-fixture" &&
-  razorpayError?.includes("razorpay:refund-create") === true &&
+  hubspotError?.includes("hubspot:deal-update") === true &&
   testFixtureError?.includes("test:fixture-execute") === true &&
-  registry3.resolveCapability("razorpay:refund-create").connectorId === "razorpay";
+  registry3.resolveCapability("hubspot:deal-update").connectorId === "hubspot";
 
 if (allPassed) {
   console.log(

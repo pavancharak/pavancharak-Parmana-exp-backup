@@ -82,7 +82,6 @@ async function startServer(authenticator: InstanceType<typeof StaticKeyAuthentic
   const application = createApplication(executionSystem);
   const app = createApp(application, {
     callerAuth: { authenticator, auditSink },
-    razorpayWebhook: "disabled",
   });
 
   return new Promise<{ baseUrl: string; close: () => Promise<void> }>((resolve) => {

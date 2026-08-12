@@ -5,14 +5,15 @@ import { CANONICAL_CAPABILITY_POLICY_BINDINGS, CapabilityPolicyBinder } from "@p
 // boundSignals/SignalStateVerifier protections are declared per-POLICY
 // and per-ACTION respectively -- but nothing cross-checked that the
 // policy paired with a given capability was actually the right one.
-// A caller could submit razorpay:refund-create (a fund-moving
-// capability whose amount/payment-state protections are scoped to
-// razorpay-refund/1.0.0's own boundSignals) paired with an unrelated,
-// unprotected policy that declares no boundSignals at all -- entirely
-// bypassing those protections, since PolicyEngine.evaluate takes no
-// action parameter and nothing else enforced capability<->policy
-// identity. CapabilityPolicyBinder is the fix: a canonical, one-to-one
-// binding table, checked before policy evaluation.
+// A caller could submit hubspot:deal-update (a data-mutating
+// capability whose stage/amount protections are scoped to
+// hubspot-deal-update/1.0.0's own boundSignals) paired with an
+// unrelated, unprotected policy that declares no boundSignals for it
+// at all -- entirely bypassing those protections, since
+// PolicyEngine.evaluate takes no action parameter and nothing else
+// enforced capability<->policy identity. CapabilityPolicyBinder is the
+// fix: a canonical, one-to-one binding table, checked before policy
+// evaluation.
 //
 console.log();
 console.log("==================================================");
@@ -30,33 +31,34 @@ console.log();
 
 console.log("Scenario 2: A real capability paired with its own correct, canonical policy");
 console.log("--------------------------------------------------");
-const violation2 = binder.findViolation("razorpay:refund-create", {
-  name: "razorpay-refund",
+const violation2 = binder.findViolation("hubspot:deal-update", {
+  name: "hubspot-deal-update",
   version: "1.0.0",
   schemaVersion: "1.0.0",
 });
 console.log(`Violation : ${violation2 === undefined ? "none" : JSON.stringify(violation2)}`);
 console.log();
 
-console.log("Scenario 3: The exact live-shaped exploit -- razorpay:refund-create paired with an unrelated, unprotected policy");
+console.log("Scenario 3: The exact live-shaped exploit -- hubspot:deal-update paired with an unrelated, unprotected policy");
 console.log("--------------------------------------------------");
-// customer-refund/1.0.0 is a real, production-loadable policy that
-// declares no boundSignals at all -- its own approve rule is trivially
-// satisfiable by caller-declared signals alone, entirely decoupled
-// from the real amount that would actually execute.
-const violation3 = binder.findViolation("razorpay:refund-create", {
-  name: "customer-refund",
-  version: "1.0.0",
+// vendor-payment/2.0.0 is a real, production-loadable policy that
+// declares no boundSignals for hubspot:deal-update -- its own approve
+// rule is trivially satisfiable by caller-declared signals alone,
+// entirely decoupled from the real deal state that would actually be
+// mutated.
+const violation3 = binder.findViolation("hubspot:deal-update", {
+  name: "vendor-payment",
+  version: "2.0.0",
   schemaVersion: "1.0.0",
 });
 console.log(`Violation : ${JSON.stringify(violation3)}`);
 console.log();
 
-console.log("Scenario 4: The same substitution shape against hubspot:deal-update");
+console.log("Scenario 4: The same substitution shape against hubspot:deal-fetch");
 console.log("--------------------------------------------------");
-const violation4 = binder.findViolation("hubspot:deal-update", {
-  name: "vendor-payment",
-  version: "2.0.0",
+const violation4 = binder.findViolation("hubspot:deal-fetch", {
+  name: "customer-refund",
+  version: "1.0.0",
   schemaVersion: "1.0.0",
 });
 console.log(`Violation : ${JSON.stringify(violation4)}`);
@@ -64,8 +66,8 @@ console.log();
 
 console.log("Scenario 5: Correct policy NAME, but the wrong VERSION");
 console.log("--------------------------------------------------");
-const violation5 = binder.findViolation("razorpay:refund-create", {
-  name: "razorpay-refund",
+const violation5 = binder.findViolation("hubspot:deal-update", {
+  name: "hubspot-deal-update",
   version: "9.9.9",
   schemaVersion: "1.0.0",
 });
@@ -82,9 +84,9 @@ console.log();
 const allPassed =
   violation1 === undefined &&
   violation2 === undefined &&
-  violation3?.action === "razorpay:refund-create" &&
-  violation3.expected.name === "razorpay-refund" &&
-  violation3.declared.name === "customer-refund" &&
+  violation3?.action === "hubspot:deal-update" &&
+  violation3.expected.name === "hubspot-deal-update" &&
+  violation3.declared.name === "vendor-payment" &&
   violation4?.expected.name === "hubspot-deal-update" &&
   violation5 !== undefined;
 

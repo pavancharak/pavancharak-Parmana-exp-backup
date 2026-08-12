@@ -48,21 +48,18 @@ function isPlausibleSignature(
 /**
  * POST /audit/verify
  *
- * Verifies a signed caller-authentication or Razorpay-webhook audit
- * event's signature (audit-sink signing milestone, following
- * RFC-0021's POST /refusal/verify exactly). Deliberately mounted
- * before this app's caller-auth middleware (see app.ts) -- no caller
- * authentication or API key is required, by design: this is the
- * capability that makes a stored `caller_audit_events` /
- * `razorpay_webhook_audit_events` row independently third-party
+ * Verifies a signed caller-authentication audit event's signature
+ * (audit-sink signing milestone, following RFC-0021's POST
+ * /refusal/verify exactly). Deliberately mounted before this app's
+ * caller-auth middleware (see app.ts) -- no caller authentication or
+ * API key is required, by design: this is the capability that makes a
+ * stored `caller_audit_events` row independently third-party
  * verifiable. Takes the event and its stored signature directly, not
  * a lookup by id -- no database access, nothing but the artifact and
  * Parmana's public key.
  *
- * One route for both audit event shapes: AuditEventCrypto.verify()
- * operates on canonical bytes and a signature alone, never on the
- * event's own `type`, so CallerAuditEvent and RazorpayWebhookAuditEvent
- * both verify through the same path.
+ * AuditEventCrypto.verify() operates on canonical bytes and a
+ * signature alone, never on the event's own `type`.
  */
 export function createAuditVerifyRouter(): Router {
   const router = Router();

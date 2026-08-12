@@ -18,7 +18,7 @@ const { createApp } = await import("../../../packages/api/src/app.js");
 function buildApp() {
   const executionSystem = createExecutionSystem();
   const application = createApplication(executionSystem);
-  return createApp(application, { callerAuth: "disabled", razorpayWebhook: "disabled" });
+  return createApp(application, { callerAuth: "disabled" });
 }
 
 async function startServer(app: ReturnType<typeof buildApp>) {

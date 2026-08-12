@@ -65,27 +65,7 @@ router.get(
         return;
       }
 
-      // Settlement status (M4b) is never silent: a verifier checking
-      // this response for a settled/settlement-failed refund must see
-      // that state alongside the verification result, not have to
-      // separately know to fetch the whole Trust Record.
-      const settlementConfirmation =
-        record.settlementConfirmations?.at(-1);
-
-      res.json({
-        ...verification,
-        ...(settlementConfirmation
-          ? {
-              settlement: {
-                status: settlementConfirmation.status,
-                confirmationId: settlementConfirmation.confirmationId,
-                fetchedRefundStatus: settlementConfirmation.fetchedRefundStatus,
-                razorpayRefundId: settlementConfirmation.razorpayRefundId,
-                issuedAt: settlementConfirmation.issuedAt,
-              },
-            }
-          : {}),
-      });
+      res.json(verification);
       return;
     } catch (error) {
       next(error);

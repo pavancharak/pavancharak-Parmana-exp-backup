@@ -22,10 +22,8 @@ import { NonceAlreadyConsumedError } from "@parmana/shared";
  * True for the two body-parser (express.json()) failure shapes every
  * route mounted after the global express.json() middleware can hit
  * before any route handler ever runs: an oversized body
- * ("entity.too.large") and malformed JSON ("entity.parse.failed").
- * Mirrors the dedicated handling routes/webhooks-razorpay.ts already
- * has for its own express.raw() body parser, applied here so every
- * other route gets the same clean 413/400 instead of falling through
+ * ("entity.too.large") and malformed JSON ("entity.parse.failed"),
+ * so every route gets the same clean 413/400 instead of falling through
  * to the generic 500 below.
  */
 function bodyParserErrorStatus(error: unknown): number | undefined {

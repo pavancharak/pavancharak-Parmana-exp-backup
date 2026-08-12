@@ -34,7 +34,7 @@ console.log();
 
 const executionSystem = createExecutionSystem();
 const application = createApplication(executionSystem);
-const app = createApp(application, { callerAuth: "disabled", razorpayWebhook: "disabled" });
+const app = createApp(application, { callerAuth: "disabled" });
 
 const server = app.listen(0);
 const address = server.address();

@@ -15,7 +15,6 @@ from .business_transaction import BusinessTransaction
 from .execution import Execution
 from .override import Override
 from .receipt import Receipt
-from .settlement_confirmation import SettlementConfirmation
 from .signature import Signature, SignatureEntry
 from .verification import Verification
 
@@ -43,8 +42,6 @@ class ExecutionTrustRecord:
     created_at: datetime
 
     updated_at: datetime
-
-    settlement_confirmations: list[SettlementConfirmation] | None = None
 
     schema_version: float | None = None
 

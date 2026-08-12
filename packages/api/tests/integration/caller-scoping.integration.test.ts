@@ -50,7 +50,6 @@ describe("Caller scoping (HTTP boundary, IDOR regression)", () => {
 
     const app = createApp(application, {
       callerAuth: { authenticator, auditSink: new InMemoryCallerAuditSink() },
-      razorpayWebhook: "disabled",
     });
 
     return app;

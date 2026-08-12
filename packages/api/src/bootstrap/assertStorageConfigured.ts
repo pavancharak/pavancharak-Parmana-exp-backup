@@ -17,9 +17,8 @@ import { assertDatabaseUrlConfigured } from "./assertDatabaseUrlConfigured.js";
  * is unreachable by construction. This reuses the exact same
  * `assertDatabaseUrlConfigured` precondition every other durable-store
  * bootstrap factory already relies on (`createNonceStore.ts`,
- * `createCallerAuditSink.ts`, `createRazorpayWebhookEventStore.ts`,
- * `createRazorpayWebhookAuditSink.ts`), just run once, up front, for
- * the trust-record/business-transaction storage those factories don't
+ * `createCallerAuditSink.ts`), just run once, up front, for the
+ * trust-record/business-transaction storage those factories don't
  * cover.
  *
  * Wired to DATABASE_URL, not SUPABASE_URL — SupabaseStorageProvider's

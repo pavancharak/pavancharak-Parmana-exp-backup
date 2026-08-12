@@ -16,4 +16,3 @@ export * from "./ConnectorMetadata.js";
 export * from "./ConnectorFactory.js";
 export * from "./CredentialProvider.js";
 export * from "./MockConnector.js";
-export * from "./connectors/razorpay/index.js";

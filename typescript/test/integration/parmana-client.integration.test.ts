@@ -189,7 +189,6 @@ beforeAll(async () => {
       authenticator,
       auditSink: new InMemoryCallerAuditSink(),
     },
-    razorpayWebhook: "disabled",
   });
 
   server = await new Promise<Server>((resolve) => {

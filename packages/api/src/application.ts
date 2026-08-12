@@ -31,7 +31,6 @@ import {
   refusalRecordRepository,
 } from "./repositories.js";
 
-import { createRazorpaySignalStateVerifier } from "./bootstrap/createRazorpaySignalStateVerifier.js";
 import { createHubSpotSignalStateVerifier } from "./bootstrap/createHubSpotSignalStateVerifier.js";
 
 const config =
@@ -47,7 +46,6 @@ export function createApplication(
 ) {
   const signalStateVerifier =
     new CompositeSignalStateVerifier([
-      createRazorpaySignalStateVerifier(executionSystem),
       createHubSpotSignalStateVerifier(executionSystem),
     ]);
 

@@ -4,7 +4,6 @@ import type {
   ExecutionTrustRecordRepository,
   Override,
   Receipt,
-  SettlementConfirmation,
   Verification,
 } from "@parmana/shared";
 
@@ -26,9 +25,8 @@ import type { Pool } from "pg";
  * packages/storage/tests/integration/
  * supabase-execution-trust-record-ordering.integration.test.ts -- seq
  * is a BIGSERIAL populated by Postgres itself on insert
- * (supabase/migrations/20260711120000_add_trust_record_sequence_columns.sql,
- * and settlement_confirmations' own seq column at table creation), so
- * this class never assigns it explicitly, only reads it back.
+ * (supabase/migrations/20260711120000_add_trust_record_sequence_columns.sql),
+ * so this class never assigns it explicitly, only reads it back.
  */
 export class SupabaseExecutionTrustRecordRepository
   implements ExecutionTrustRecordRepository
@@ -72,13 +70,12 @@ export class SupabaseExecutionTrustRecordRepository
       return null;
     }
 
-    const [executionRows, overrideRows, verificationRows, receiptRows, settlementRows] =
+    const [executionRows, overrideRows, verificationRows, receiptRows] =
       await Promise.all([
         this.pool.query(SELECT_EXECUTIONS_SQL, [businessTransactionId]),
         this.pool.query(SELECT_OVERRIDES_SQL, [businessTransactionId]),
         this.pool.query(SELECT_VERIFICATIONS_SQL, [businessTransactionId]),
         this.pool.query(SELECT_RECEIPTS_SQL, [businessTransactionId]),
-        this.pool.query(SELECT_SETTLEMENT_CONFIRMATIONS_SQL, [businessTransactionId]),
       ]);
 
     return {
@@ -101,10 +98,6 @@ export class SupabaseExecutionTrustRecordRepository
       receipts: (receiptRows.rows as { receipt_json: Receipt }[]).map(
         (row) => row.receipt_json,
       ),
-
-      settlementConfirmations: (
-        settlementRows.rows as { confirmation_json: SettlementConfirmation }[]
-      ).map((row) => row.confirmation_json),
 
       trustRecordHash: header.trust_record_hash,
       signature: header.signature_json,
@@ -198,23 +191,6 @@ export class SupabaseExecutionTrustRecordRepository
   }
 
   /**
-   * Appends a Settlement Confirmation.
-   */
-  async appendSettlementConfirmation(
-    businessTransactionId: string,
-    confirmation: SettlementConfirmation,
-  ): Promise<void> {
-    await this.pool.query(INSERT_SETTLEMENT_CONFIRMATION_SQL, [
-      confirmation.confirmationId,
-      businessTransactionId,
-      JSON.stringify(confirmation),
-      confirmation.issuedAt.toISOString(),
-    ]);
-
-    await this.touch(businessTransactionId);
-  }
-
-  /**
    * Updates the Trust Record timestamp.
    */
   private async touch(
@@ -284,12 +260,6 @@ const SELECT_RECEIPTS_SQL = `
   ORDER BY issued_at ASC, seq ASC
 `;
 
-const SELECT_SETTLEMENT_CONFIRMATIONS_SQL = `
-  SELECT confirmation_json FROM settlement_confirmations
-  WHERE business_transaction_id = $1
-  ORDER BY issued_at ASC, seq ASC
-`;
-
 const INSERT_EXECUTION_SQL = `
   INSERT INTO executions (execution_id, business_transaction_id, execution_json, created_at)
   VALUES ($1, $2, $3::jsonb, $4)
@@ -311,11 +281,6 @@ const INSERT_VERIFICATION_SQL = `
 
 const INSERT_RECEIPT_SQL = `
   INSERT INTO receipts (receipt_id, business_transaction_id, receipt_json, issued_at)
-  VALUES ($1, $2, $3::jsonb, $4)
-`;
-
-const INSERT_SETTLEMENT_CONFIRMATION_SQL = `
-  INSERT INTO settlement_confirmations (confirmation_id, business_transaction_id, confirmation_json, issued_at)
   VALUES ($1, $2, $3::jsonb, $4)
 `;
 

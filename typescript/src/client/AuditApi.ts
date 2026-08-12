@@ -17,8 +17,8 @@ export class AuditApi {
   ) {}
 
   /**
-   * Verifies a signed caller-authentication or Razorpay-webhook audit
-   * event's signature. Maps to POST /audit/verify -- takes the event
+   * Verifies a signed caller-authentication audit event's signature.
+   * Maps to POST /audit/verify -- takes the event
    * and its stored signature directly, not a lookup by id. No caller
    * authentication is required by this route, mirroring
    * RefusalApi.verify()'s independent third-party verifiability.

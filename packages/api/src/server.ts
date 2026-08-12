@@ -8,9 +8,6 @@ import { createGracefulShutdown } from "./bootstrap/createGracefulShutdown.js";
 import { createExecutionSystem } from "./bootstrap/createExecutionSystem.js";
 import { createApplication } from "./application.js";
 import { createCallerAuthenticator } from "./bootstrap/createCallerAuthenticator.js";
-import { resolveRazorpayWebhookSecret } from "./bootstrap/resolveRazorpayWebhookSecret.js";
-import { createRazorpayWebhookEventStore } from "./bootstrap/createRazorpayWebhookEventStore.js";
-import { createRazorpayWebhookAuditSink } from "./bootstrap/createRazorpayWebhookAuditSink.js";
 import { createApp } from "./app.js";
 
 /**
@@ -42,15 +39,6 @@ const application =
 const callerAuth =
   createCallerAuthenticator();
 
-const razorpayWebhookSecret = resolveRazorpayWebhookSecret();
-
-if (razorpayWebhookSecret === undefined) {
-  console.warn({
-    event: "razorpay_webhook_unavailable",
-    reason: "RAZORPAY_WEBHOOK_SECRET is not configured.",
-  });
-}
-
 const app =
   createApp(
     application,
@@ -60,13 +48,6 @@ const app =
         : {
             authenticator: callerAuth.authenticator,
             auditSink: callerAuth.auditSink,
-          },
-      razorpayWebhook: razorpayWebhookSecret === undefined
-        ? "disabled"
-        : {
-            secret: razorpayWebhookSecret,
-            eventStore: createRazorpayWebhookEventStore(),
-            auditSink: createRazorpayWebhookAuditSink(),
           },
       rateLimit: loadConfig().rateLimit,
     },

@@ -1,9 +1,9 @@
 /**
- * Fail-closed precondition for the two audit sinks that currently
- * bypass supabase-js and write via a direct Postgres connection
- * (SupabaseCallerAuditSink, SupabaseRazorpayWebhookAuditSink — see
- * those files for why: PostgREST's schema cache is stuck, Supabase
- * ticket SU-437429). Mirrors assertSupabaseConfigured.ts's shape:
+ * Fail-closed precondition for the audit sink that currently bypasses
+ * supabase-js and writes via a direct Postgres connection
+ * (SupabaseCallerAuditSink — see that file for why: PostgREST's
+ * schema cache is stuck, Supabase ticket SU-437429). Mirrors
+ * assertSupabaseConfigured.ts's shape:
  * throws a clear, actionable error naming the missing environment
  * variable rather than letting PostgresPoolFactory.create() fail
  * later with its generic "DATABASE_URL environment variable is

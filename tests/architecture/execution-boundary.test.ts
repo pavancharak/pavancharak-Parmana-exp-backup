@@ -81,7 +81,6 @@ describe("execution boundary — exactly one production execution pipeline", () 
     // point (HttpConnector, the connector-runtime subsystem) — also gateway-owned.
     const allowedImplementors = new Set<string>([
       "packages/execution-gateway/src/HttpConnector.ts",
-      "packages/execution-gateway/src/connector-execution/GatewayRazorpayAdapter.ts",
       "packages/execution-gateway/src/connector-execution/GatewayHubSpotAdapter.ts",
       "packages/execution-gateway/src/connector-execution/GatewayHttpAdapter.ts",
       // Explicit, intentional test double — never executes a real vendor
@@ -129,23 +128,9 @@ describe("execution boundary — exactly one production execution pipeline", () 
       // Canonical dispatch, stage 2: after policy/authorization/credential
       // checks pass, SdkConnectorExecutor calls the raw vendor Connector.
       "packages/execution-gateway/src/connector-execution/SdkConnectorExecutor.ts",
-      // Approved gateway-owned verification infrastructure (not business-action
-      // execution): a read-only fetch-verify call confirming a webhook's claimed
-      // settlement state against the vendor, documented at length in
-      // RazorpaySettlementProcessor.ts's own class comment ("the webhook is a
-      // doorbell, not a delivery"). Pre-dates Phase 1C/1D/1E; not a bypass of
-      // authorized business-action execution, which still only ever happens
-      // through ExecutionGateway.execute().
-      "packages/api/src/webhooks/RazorpaySettlementProcessor.ts",
     ]);
 
-    const allSrcFiles = new Map<string, string>([
-      ...srcFiles,
-      // RazorpaySettlementProcessor lives in packages/api/src/webhooks, already
-      // covered by allPackageSrcFiles() — included here for clarity only.
-    ]);
-
-    const callers = [...allSrcFiles.entries()]
+    const callers = [...srcFiles.entries()]
       .filter(([, content]) => callSitePattern.test(content))
       .map(([path]) => path);
 
@@ -170,7 +155,7 @@ describe("execution boundary — exactly one production execution pipeline", () 
     });
 
     it("does not construct a Gateway/Connector/Http adapter or call fetch() directly", () => {
-      expect(content).not.toMatch(/new (Gateway|Connector|Http|Razorpay|HubSpot)\w*\(/);
+      expect(content).not.toMatch(/new (Gateway|Connector|Http|HubSpot)\w*\(/);
       expect(content).not.toMatch(/\bfetch\(/);
     });
   });
@@ -190,7 +175,7 @@ describe("execution boundary — exactly one production execution pipeline", () 
     });
 
     it("does not construct a Gateway/Connector/Http adapter or call fetch() directly", () => {
-      expect(content).not.toMatch(/new (Gateway|Connector|Http|Razorpay|HubSpot)\w*\(/);
+      expect(content).not.toMatch(/new (Gateway|Connector|Http|HubSpot)\w*\(/);
       expect(content).not.toMatch(/\bfetch\(/);
     });
   });
@@ -204,25 +189,7 @@ describe("execution boundary — exactly one production execution pipeline", () 
 
     it.each(routeFiles)("%s does not import or construct an adapter", (path, content) => {
       expect(content).not.toMatch(/from ["']@parmana\/execution-gateway["']/);
-      expect(content).not.toMatch(/new (Gateway|Razorpay|HubSpot)\w*Adapter\(/);
-      expect(content).not.toMatch(/\bfetch\(/);
-    });
-  });
-
-  describe("workers never execute adapters directly unless named as gateway-owned verification infrastructure", () => {
-    // Task 4/6's "worker" carve-out: RazorpaySettlementProcessor (driven by
-    // scripts/process-razorpay-settlements.ts) is the one named, approved
-    // exception — see the call-site allowlist above for why. This block
-    // confirms no *other* file under packages/api/src/webhooks constructs an
-    // adapter or calls fetch() directly.
-    const webhookFiles = [...srcFiles.entries()].filter(([path]) => path.startsWith("packages/api/src/webhooks/"));
-
-    const approvedWorkerExceptions = new Set<string>(["packages/api/src/webhooks/RazorpaySettlementProcessor.ts"]);
-
-    it.each(webhookFiles)("%s does not call fetch() directly unless it is the approved exception", (path, content) => {
-      if (approvedWorkerExceptions.has(path)) {
-        return;
-      }
+      expect(content).not.toMatch(/new (Gateway|HubSpot)\w*Adapter\(/);
       expect(content).not.toMatch(/\bfetch\(/);
     });
   });
@@ -266,7 +233,7 @@ describe("execution boundary — exactly one production execution pipeline", () 
     it("binds ExecutionSystem to createExecutionGateway() and nothing else", () => {
       expect(content).toMatch(/return createExecutionGateway\(\)/);
       // No other execution-system-shaped factory or adapter constructed here.
-      expect(content).not.toMatch(/new (Gateway|Connector|Http|Razorpay|HubSpot)\w*\(/);
+      expect(content).not.toMatch(/new (Gateway|Connector|Http|HubSpot)\w*\(/);
     });
   });
 
@@ -350,7 +317,6 @@ describe("execution boundary — exactly one production execution pipeline", () 
 
     const publicFactoryFiles = new Set([
       "createGatewayConnectorRegistry",
-      "createGatewayRazorpayConnector",
       "createGatewayHubSpotConnector",
     ]);
 

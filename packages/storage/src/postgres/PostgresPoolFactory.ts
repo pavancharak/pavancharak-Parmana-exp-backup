@@ -7,9 +7,9 @@ import { Pool } from "pg";
  * supabase-js's REST-based client.
  *
  * Introduced as the stopgap direct-Postgres path for
- * SupabaseCallerAuditSink / SupabaseRazorpayWebhookAuditSink (see
- * those files for why) — not itself tied to that workaround, so any
- * other call site needing a raw Postgres connection to the same
+ * SupabaseCallerAuditSink (see that file for why) — not itself tied
+ * to that workaround, so any other call site needing a raw Postgres
+ * connection to the same
  * database should reuse this factory rather than opening its own
  * pool.
  *

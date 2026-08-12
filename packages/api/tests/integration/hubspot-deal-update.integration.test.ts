@@ -76,7 +76,7 @@ describe("HubSpot deal update (HTTP boundary)", () => {
 
     const executionSystem = createExecutionSystem();
     const application = createApplication(executionSystem);
-    const app = createApp(application, { callerAuth: "disabled", razorpayWebhook: "disabled" });
+    const app = createApp(application, { callerAuth: "disabled" });
 
     return { app, server: mockServer };
   }

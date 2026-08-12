@@ -28,7 +28,6 @@ describe("Audit event signature verification (HTTP boundary)", () => {
 
     return createApp(application, {
       callerAuth: "disabled",
-      razorpayWebhook: "disabled",
     });
   }
 
@@ -124,7 +123,6 @@ describe("Audit event signature verification (HTTP boundary)", () => {
 
     const app = createApp(application, {
       callerAuth: { authenticator, auditSink: new InMemoryCallerAuditSink() },
-      razorpayWebhook: "disabled",
     });
 
     const crypto = new AuditEventCrypto();

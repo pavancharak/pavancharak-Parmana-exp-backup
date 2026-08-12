@@ -9,7 +9,6 @@ export * from "./metadata.js";
 export * from "./override.js";
 export * from "./verification.js";
 export * from "./receipt.js";
-export * from "./settlement-confirmation.js";
 export * from "./execution-trust-record.js";
 export * from "./refusal-record.js";
 export * from "./challenge-record.js";

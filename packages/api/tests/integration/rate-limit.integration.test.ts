@@ -36,7 +36,6 @@ describe("Rate limiting (HTTP boundary)", () => {
 
     const app = createApp(application, {
       callerAuth: { authenticator, auditSink: callerAuditSink },
-      razorpayWebhook: "disabled",
       rateLimit,
     });
 
@@ -182,7 +181,6 @@ describe("Rate limiting (HTTP boundary)", () => {
 
       const app = createApp(application, {
         callerAuth: "disabled",
-        razorpayWebhook: "disabled",
         rateLimit: { executePerMinute: 1, healthPerMinute: 300 },
       });
 
@@ -205,7 +203,6 @@ describe("Rate limiting (HTTP boundary)", () => {
 
       const app = createApp(application, {
         callerAuth: { authenticator, auditSink: new InMemoryCallerAuditSink() },
-        razorpayWebhook: "disabled",
         // rateLimit intentionally omitted.
       });
 

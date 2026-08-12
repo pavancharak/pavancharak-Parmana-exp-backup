@@ -372,8 +372,7 @@ export class ParmanaClient {
   }
 
   /**
-   * Verifies a signed caller-authentication or Razorpay-webhook audit
-   * event's signature.
+   * Verifies a signed caller-authentication audit event's signature.
    */
   public verifyAuditEvent(
     event: AuditEvent,

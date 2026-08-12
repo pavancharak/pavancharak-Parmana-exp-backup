@@ -69,7 +69,6 @@ describe("Caller capability scoping (HTTP boundary)", () => {
 
     const app = createApp(application, {
       callerAuth: { authenticator, auditSink: callerAuditSink },
-      razorpayWebhook: "disabled",
     });
 
     return { app, executionAuditSink, callerAuditSink };
@@ -235,7 +234,6 @@ describe("GET /callers/me (proof artifact)", () => {
 
     return createApp(application, {
       callerAuth: { authenticator, auditSink: new InMemoryCallerAuditSink() },
-      razorpayWebhook: "disabled",
     });
   }
 

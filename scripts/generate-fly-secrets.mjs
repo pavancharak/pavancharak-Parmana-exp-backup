@@ -54,8 +54,6 @@ const rawApiKey = randomBytes(32).toString("base64url");
 const keyHash = createHash("sha256").update(rawApiKey, "utf8").digest("hex");
 const apiKeys = [{ callerId: "smoke-test", keyHash }];
 
-const razorpayWebhookSecret = randomBytes(32).toString("hex");
-
 // fly secrets import reads plain KEY=VALUE lines, not shell/dotenv
 // syntax -- no quoting here, since flyctl would take literal quote
 // characters as part of the value. JSON.stringify keeps each value on
@@ -64,11 +62,9 @@ const razorpayWebhookSecret = randomBytes(32).toString("hex");
 const secretsEnvLines = [
   `PARMANA_KEY_MATERIAL_JSON=${JSON.stringify(keyMaterial)}`,
   `PARMANA_API_KEYS=${JSON.stringify(apiKeys)}`,
-  `RAZORPAY_WEBHOOK_SECRET=${razorpayWebhookSecret}`,
   `SUPABASE_URL=FILL_ME_IN`,
   `SUPABASE_SERVICE_ROLE_KEY=FILL_ME_IN`,
-  `RAZORPAY_KEY_ID=FILL_ME_IN`,
-  `RAZORPAY_KEY_SECRET=FILL_ME_IN`,
+  `HUBSPOT_PRIVATE_APP_TOKEN=FILL_ME_IN`,
 ];
 
 writeFileSync(SECRETS_FILE, secretsEnvLines.join("\n") + "\n", { mode: 0o600 });
@@ -78,10 +74,8 @@ console.log("Generated (no values printed):");
 console.log(`  ${SECRETS_FILE}`);
 console.log(`    PARMANA_KEY_MATERIAL_JSON   generated (default + gateway Ed25519 keypairs)`);
 console.log(`    PARMANA_API_KEYS            generated (callerId "smoke-test")`);
-console.log(`    RAZORPAY_WEBHOOK_SECRET     generated`);
 console.log(`    SUPABASE_URL                FILL_ME_IN`);
 console.log(`    SUPABASE_SERVICE_ROLE_KEY   FILL_ME_IN`);
-console.log(`    RAZORPAY_KEY_ID             FILL_ME_IN`);
-console.log(`    RAZORPAY_KEY_SECRET         FILL_ME_IN`);
+console.log(`    HUBSPOT_PRIVATE_APP_TOKEN   FILL_ME_IN`);
 console.log(`  ${SMOKE_KEY_FILE}`);
 console.log(`    plaintext caller key for callerId "smoke-test" (SMOKE_TEST_API_KEY)`);

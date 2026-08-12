@@ -11,7 +11,7 @@ import * as publicApi from "../../src/index.js";
  * implementation classes" guarantee depends on staying true.
  *
  * ExecutionGateway remains the sole public execution entry point;
- * connector-execution's public surface is limited to the three
+ * connector-execution's public surface is limited to the
  * createGateway*() factories, which return stable interface types
  * (Connector, ConnectorRegistry) rather than the concrete classes below.
  */
@@ -21,7 +21,6 @@ describe("execution-gateway public API boundary", () => {
     "GatewayCapabilityConnectorPolicy",
     "SdkConnectorExecutor",
     "CredentialVaultAdapter",
-    "GatewayRazorpayAdapter",
     "GatewayHubSpotAdapter",
     "GatewayHttpAdapter",
     "buildConnectorEvidence",
@@ -39,7 +38,6 @@ describe("execution-gateway public API boundary", () => {
 
   it("exports the connector-execution factories, not the classes they construct", () => {
     expect(publicApi.createGatewayConnectorRegistry).toBeTypeOf("function");
-    expect(publicApi.createGatewayRazorpayConnector).toBeTypeOf("function");
     expect(publicApi.createGatewayHubSpotConnector).toBeTypeOf("function");
   });
 });

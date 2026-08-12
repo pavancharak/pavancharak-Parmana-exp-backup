@@ -27,18 +27,6 @@ export interface CapabilityPolicyBindingViolation {
  */
 export const CANONICAL_CAPABILITY_POLICY_BINDINGS: ReadonlyMap<string, PolicyReference> = new Map([
   [
-    "razorpay:payment-fetch",
-    { name: "razorpay-refund", version: "1.0.0", schemaVersion: "1.0.0" },
-  ],
-  [
-    "razorpay:refund-create",
-    { name: "razorpay-refund", version: "1.0.0", schemaVersion: "1.0.0" },
-  ],
-  [
-    "razorpay:refund-fetch",
-    { name: "razorpay-refund", version: "1.0.0", schemaVersion: "1.0.0" },
-  ],
-  [
     "hubspot:deal-fetch",
     { name: "hubspot-deal-update", version: "1.0.0", schemaVersion: "1.0.0" },
   ],
@@ -60,7 +48,7 @@ export const CANONICAL_CAPABILITY_POLICY_BINDINGS: ReadonlyMap<string, PolicyRef
  * `DefaultConnectorPolicy.assertAllowed` checks only that the resolved
  * connector declares the capability, never which policy authorized it.
  * A caller could therefore pair a real capability (e.g.
- * `razorpay:refund-create`) with an unrelated, unprotected policy that
+ * `hubspot:deal-update`) with an unrelated, unprotected policy that
  * has no `boundSignals` for it, evaluate that policy's own (looser)
  * rules against self-declared signals, and have the real, unrelated
  * `intent.parameters` executed -- bypassing the capability's intended

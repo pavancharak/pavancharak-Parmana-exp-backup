@@ -47,7 +47,6 @@ describe("Caller authentication (HTTP boundary)", () => {
 
     const app = createApp(application, {
       callerAuth: { authenticator, auditSink: callerAuditSink },
-      razorpayWebhook: "disabled",
     });
 
     return { app, executionAuditSink, callerAuditSink };
@@ -171,7 +170,6 @@ describe("Caller authentication (HTTP boundary)", () => {
           authenticator: duringRotation,
           auditSink: new InMemoryCallerAuditSink(),
         },
-        razorpayWebhook: "disabled",
       });
 
       const stillWorks = await request(appDuringRotation)
@@ -197,7 +195,6 @@ describe("Caller authentication (HTTP boundary)", () => {
           authenticator: afterRevocation,
           auditSink: new InMemoryCallerAuditSink(),
         },
-        razorpayWebhook: "disabled",
       });
 
       const revokedKeyRejected = await request(appAfterRevocation)

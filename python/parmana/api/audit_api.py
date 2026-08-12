@@ -17,8 +17,7 @@ class AuditApi:
 
     Responsibilities
     ----------------
-    - Verify a signed caller-authentication or Razorpay-webhook audit
-      event's signature
+    - Verify a signed caller-authentication audit event's signature
 
     This API does NOT:
     - execute Business Transactions
@@ -40,9 +39,9 @@ class AuditApi:
         """
         Verify a signed audit event's signature.
 
-        Maps to POST /audit/verify. Takes the event (a CallerAuditEvent
-        or RazorpayWebhookAuditEvent, as recorded by the Runtime's audit
-        sinks) and its stored signature directly, not a lookup by id.
+        Maps to POST /audit/verify. Takes the event (a CallerAuditEvent,
+        as recorded by the Runtime's audit sinks) and its stored
+        signature directly, not a lookup by id.
         No caller authentication is required by this route -- the same
         independent, third-party verifiability as
         RefusalApi.verify().

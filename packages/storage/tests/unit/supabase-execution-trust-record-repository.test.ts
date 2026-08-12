@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import type { Pool } from "pg";
 
-import { SettlementStatus, type SettlementConfirmation } from "@parmana/shared";
-
 import { SupabaseExecutionTrustRecordRepository } from "../../src/supabase/SupabaseExecutionTrustRecordRepository.js";
 
 import {
@@ -17,12 +15,11 @@ import {
  * Fake pg.Pool backing every table
  * SupabaseExecutionTrustRecordRepository touches
  * (execution_trust_records, executions, overrides, verifications,
- * receipts, settlement_confirmations), with an auto-incrementing
- * `seq` per sub-table -- mirrors the real BIGSERIAL columns
- * (supabase/migrations/20260711120000_add_trust_record_sequence_columns.sql,
- * settlement_confirmations' own seq at table creation) closely enough
- * to prove ORDER BY <timestamp> ASC, seq ASC round-trips insertion
- * order.
+ * receipts), with an auto-incrementing `seq` per sub-table -- mirrors
+ * the real BIGSERIAL columns
+ * (supabase/migrations/20260711120000_add_trust_record_sequence_columns.sql)
+ * closely enough to prove ORDER BY <timestamp> ASC, seq ASC round-trips
+ * insertion order.
  */
 function createFakePool() {
   const header: { row?: Record<string, unknown> } = {};
@@ -30,7 +27,6 @@ function createFakePool() {
   const overrides: Record<string, unknown>[] = [];
   const verifications: Record<string, unknown>[] = [];
   const receipts: Record<string, unknown>[] = [];
-  const settlementConfirmations: Record<string, unknown>[] = [];
   let seq = 0;
 
   function selectOrdered(
@@ -187,33 +183,6 @@ function createFakePool() {
         return Promise.resolve({ rows: [] });
       }
 
-      if (sql.includes("SELECT confirmation_json FROM settlement_confirmations")) {
-        const [businessTransactionId] = values as [string];
-        return Promise.resolve({
-          rows: selectOrdered(
-            settlementConfirmations,
-            "confirmation_json",
-            "issued_at",
-            businessTransactionId,
-          ),
-        });
-      }
-
-      if (sql.includes("INSERT INTO settlement_confirmations")) {
-        const [confirmationId, businessTransactionId, confirmationJson, issuedAt] =
-          values as readonly unknown[];
-
-        settlementConfirmations.push({
-          confirmation_id: confirmationId,
-          business_transaction_id: businessTransactionId,
-          confirmation_json: JSON.parse(confirmationJson as string),
-          issued_at: issuedAt,
-          seq: seq++,
-        });
-
-        return Promise.resolve({ rows: [] });
-      }
-
       throw new Error(`test fake: unexpected SQL: ${sql}`);
     },
   };
@@ -221,26 +190,8 @@ function createFakePool() {
   return pool as unknown as Pool;
 }
 
-function buildSettlementConfirmation(
-  businessTransactionId: string,
-  issuedAt: string,
-): SettlementConfirmation {
-  return {
-    confirmationId: `conf-${issuedAt}`,
-    businessTransactionId,
-    webhookEventId: "evt-1",
-    razorpayRefundId: "rfnd_1",
-    status: SettlementStatus.SETTLED,
-    fetchedRefundStatus: "processed",
-    confirmationHash: "hash-1",
-    signature: "sig-1",
-    algorithm: "Ed25519",
-    issuedAt: new Date(issuedAt),
-  };
-}
-
 describe("SupabaseExecutionTrustRecordRepository", () => {
-  it("creates a Trust Record header and reads back appended executions/overrides in order, with empty verifications/receipts/settlements", async () => {
+  it("creates a Trust Record header and reads back appended executions/overrides in order, with empty verifications/receipts", async () => {
     const repository = new SupabaseExecutionTrustRecordRepository(createFakePool());
     const transaction = buildBusinessTransaction("txn-1");
     const signedRecord = await buildSignedMultiExecutionOverrideRecord(transaction);
@@ -271,7 +222,6 @@ describe("SupabaseExecutionTrustRecordRepository", () => {
     );
     expect(found!.verifications).toEqual([]);
     expect(found!.receipts).toEqual([]);
-    expect(found!.settlementConfirmations).toEqual([]);
   });
 
   it("returns null for a transaction with no Trust Record", async () => {
@@ -280,7 +230,7 @@ describe("SupabaseExecutionTrustRecordRepository", () => {
     await expect(repository.findByTransactionId("does-not-exist")).resolves.toBeNull();
   });
 
-  it("appendVerification/appendReceipt/appendSettlementConfirmation each persist in insertion order and bump updatedAt", async () => {
+  it("appendVerification/appendReceipt each persist in insertion order and bump updatedAt", async () => {
     const repository = new SupabaseExecutionTrustRecordRepository(createFakePool());
     const transaction = buildBusinessTransaction("txn-2");
     const signedRecord = await buildSignedMultiExecutionOverrideRecord(transaction);
@@ -298,11 +248,6 @@ describe("SupabaseExecutionTrustRecordRepository", () => {
     await repository.appendReceipt("txn-2", receipt1);
     await repository.appendReceipt("txn-2", receipt2);
 
-    const confirmation1 = buildSettlementConfirmation("txn-2", "2026-07-11T00:00:10.000Z");
-    const confirmation2 = buildSettlementConfirmation("txn-2", "2026-07-11T00:00:11.000Z");
-    await repository.appendSettlementConfirmation("txn-2", confirmation1);
-    await repository.appendSettlementConfirmation("txn-2", confirmation2);
-
     const found = await repository.findByTransactionId("txn-2");
 
     expect(found!.verifications.map((v) => v.verificationId)).toEqual([
@@ -312,10 +257,6 @@ describe("SupabaseExecutionTrustRecordRepository", () => {
     expect(found!.receipts.map((r) => r.receiptId)).toEqual([
       receipt1.receiptId,
       receipt2.receiptId,
-    ]);
-    expect(found!.settlementConfirmations!.map((c) => c.confirmationId)).toEqual([
-      confirmation1.confirmationId,
-      confirmation2.confirmationId,
     ]);
 
     // touch() ran on every append -- updatedAt must have moved forward

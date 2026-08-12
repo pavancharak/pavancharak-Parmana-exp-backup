@@ -55,7 +55,6 @@ beforeAll(async () => {
   // is the real, documented way to run this example locally.
   const app = createApp(application, {
     callerAuth: "disabled",
-    razorpayWebhook: "disabled",
   });
 
   server = await new Promise<Server>((resolve) => {

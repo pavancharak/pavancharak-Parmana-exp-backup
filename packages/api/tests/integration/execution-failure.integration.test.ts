@@ -53,7 +53,7 @@ describe("Execution Failure", () => {
     });
 
     const application = createApplication(executionSystem);
-    const app = createApp(application, { callerAuth: "disabled", razorpayWebhook: "disabled" });
+    const app = createApp(application, { callerAuth: "disabled" });
 
     const transaction = createBusinessTransaction();
 
@@ -139,7 +139,7 @@ describe("Execution Failure", () => {
     });
 
     const application = createApplication(executionSystem);
-    const app = createApp(application, { callerAuth: "disabled", razorpayWebhook: "disabled" });
+    const app = createApp(application, { callerAuth: "disabled" });
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const response = await request(app)

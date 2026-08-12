@@ -8,7 +8,6 @@ import {
 } from "@parmana/execution-gateway";
 
 import {
-  RazorpayMetadata,
   StaticCredentialProvider,
 } from "@parmana/connector-sdk";
 
@@ -23,8 +22,6 @@ import {
   InMemoryGatewaySessionStore,
 } from "@parmana/execution-control";
 
-import { createRazorpayConnector } from "./createRazorpayConnector.js";
-import { createRazorpayCredentialProvider } from "./createRazorpayCredentialProvider.js";
 import { HubSpotMetadata } from "@parmana/connector-hubspot";
 import { createHubSpotConnector } from "./createHubSpotConnector.js";
 import { createHubSpotCredentialProvider } from "./createHubSpotCredentialProvider.js";
@@ -78,37 +75,6 @@ export function createConnectorRegistry(
       credentialProvider: new StaticCredentialProvider({
         "test-fixture": { token: "test-fixture-token" },
       }),
-
-      policy: new DefaultConnectorPolicy(authenticator, sessions),
-
-      gatewayAuthentication,
-
-      crypto,
-
-      audit,
-    });
-  }
-
-  const razorpayCredentialProvider = createRazorpayCredentialProvider();
-
-  if (razorpayCredentialProvider === undefined) {
-    console.warn({
-      event: "razorpay_connector_unavailable",
-      reason: "RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are not configured.",
-    });
-  } else {
-    registrations.push({
-      connector: createRazorpayConnector(),
-
-      metadata: RazorpayMetadata,
-
-      connectorIdentity: {
-        connectorId: "razorpay",
-        publicIdentity: "spiffe://parmana/connectors/razorpay",
-        authenticationMetadata: {},
-      },
-
-      credentialProvider: razorpayCredentialProvider,
 
       policy: new DefaultConnectorPolicy(authenticator, sessions),
 

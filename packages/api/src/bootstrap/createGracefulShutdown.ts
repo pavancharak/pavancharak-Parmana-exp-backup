@@ -22,7 +22,7 @@ export interface GracefulShutdownOptions {
  * then exit — the standard "drain, don't drop" shape a PaaS
  * orchestrator expects before it force-kills the container. A hard
  * timeout guards against a request that never completes (e.g. a hung
- * downstream call to Razorpay or Supabase) blocking shutdown forever;
+ * downstream call to Supabase) blocking shutdown forever;
  * the platform's own kill timeout (usually longer) would eventually
  * SIGKILL the process anyway, but exiting cleanly on our own terms
  * first avoids depending on that.

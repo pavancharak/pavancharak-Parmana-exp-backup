@@ -570,3 +570,313 @@ ON razorpay_webhook_audit_events (
     severity
 )
 WHERE severity IS NOT NULL;
+
+
+-- =============================================================================
+-- Source: supabase/migrations/20260802120000_add_refusal_records.sql
+-- RFC-0021
+-- Refusal Records: durable, signed, third-party-verifiable evidence
+-- of a policy REJECT.
+-- =============================================================================
+--
+-- Scope is deliberately narrow: this table holds evidence for
+-- PolicyEngine.evaluate REJECTs and SignalIntentBinder
+-- binding-violation REJECTs only (see RuntimeEngine.execute()'s
+-- writeRefusalRecord() call site) -- not caller-auth failures or
+-- webhook signature failures (a separate, unsigned audit-sink
+-- milestone: caller_audit_events / razorpay_webhook_audit_events).
+--
+-- signature_json is NOT NULL, unlike execution_trust_records'
+-- (added later, nullable, via a retrofit migration) -- Refusal
+-- Records ship signed from the start, no retrofit period.
+
+CREATE TABLE IF NOT EXISTS refusal_records (
+
+    refusal_record_id TEXT PRIMARY KEY,
+
+    business_transaction_id TEXT NOT NULL UNIQUE,
+
+    decision_json JSONB NOT NULL,
+
+    evaluated_intent_json JSONB NOT NULL,
+
+    binding_violations_json JSONB,
+
+    submitted_by TEXT,
+
+    refusal_record_hash TEXT NOT NULL,
+
+    signature_json JSONB NOT NULL,
+
+    -- Retention: currently indefinite, same policy as
+    -- execution_trust_records. Revisit if REJECT volume ever grows
+    -- significantly (RFC-0021 Open Question 3) -- not addressed by
+    -- this migration.
+    created_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT fk_refusal_transaction
+        FOREIGN KEY (
+            business_transaction_id
+        )
+        REFERENCES business_transactions(
+            business_transaction_id
+        )
+        ON DELETE RESTRICT
+
+);
+
+CREATE INDEX IF NOT EXISTS idx_refusal_records_created_at
+ON refusal_records (
+    created_at
+);
+
+ALTER TABLE refusal_records ENABLE ROW LEVEL SECURITY;
+
+
+-- =============================================================================
+-- Source: supabase/migrations/20260802130000_sign_audit_events.sql
+-- Audit-sink signing milestone (follows RFC-0021's Refusal Records)
+-- =============================================================================
+--
+-- Adds a signature to the two existing durable audit trails
+-- (caller_audit_events, razorpay_webhook_audit_events). Previously
+-- these were plain rows: durable, but anyone with database access
+-- could alter one with no way to detect it. SupabaseCallerAuditSink
+-- and SupabaseRazorpayWebhookAuditSink now sign every event at write
+-- time with the same key (DEFAULT_KEY_ID) ExecutionTrustRecord and
+-- RefusalRecord already use — see @parmana/crypto's AuditEventCrypto.
+--
+-- Nullable, matching execution_trust_records.signature_json's own
+-- precedent: both tables already had rows before this migration, and
+-- this is additive, not a backfill. Existing rows remain unsigned,
+-- honestly — every row written from here forward is signed.
+--
+-- Scope note: this does NOT cover policy/binding REJECTs
+-- (PolicyEngine.evaluate, SignalIntentBinder) — those are
+-- refusal_records (RFC-0021), a separate table and milestone.
+
+ALTER TABLE caller_audit_events
+ADD COLUMN IF NOT EXISTS signature_json JSONB;
+
+ALTER TABLE razorpay_webhook_audit_events
+ADD COLUMN IF NOT EXISTS signature_json JSONB;
+
+
+-- =============================================================================
+-- Source: supabase/migrations/20260803150000_add_challenge_records.sql
+-- RFC-0022
+-- Challenge Records: a durable, structured trace from "an assumption
+-- was questioned" to "what changed because of it."
+-- =============================================================================
+--
+-- Deliberately NOT signed (RFC-0022 § Proposal 3 -- no signature_json
+-- column here, unlike refusal_records/execution_trust_records). A
+-- ChallengeRecord is evidence of an organizational process, not a
+-- runtime transaction outcome; the party who could misrepresent it is
+-- the same party who writes it, so a signature would prove
+-- tamper-evidence of bytes-on-disk while leaving the actual trust
+-- question (was the investigation honest) unaddressed. Trustworthy
+-- instead through citation discipline and, where applicable, public
+-- disclosure -- see the domain type's own doc comment
+-- (packages/shared/src/domain/challenge-record.ts).
+--
+-- Unlike refusal_records (a single terminal row per transaction), a
+-- Challenge Record is investigated over real time: investigation_
+-- steps_json accumulates and status/finding/outcome/disclosure are
+-- set via UPDATE as the investigation proceeds
+-- (PostgresChallengeRecordRepository.append), enforced append-only at
+-- the application layer (applyChallengeRecordAppend), not by any
+-- database-level trigger or constraint -- this table has no unique
+-- business-transaction relationship to key off of the way
+-- refusal_records does, since a challenge need not be about any one
+-- transaction at all.
+--
+-- No PostgREST/supabase-js dependency for this table's application
+-- code (PostgresChallengeRecordRepository writes via a direct
+-- Postgres connection, per the audit-sink signing milestone's own
+-- workaround) -- this migration itself is still applied the normal
+-- way, through the Supabase project's own Postgres, identically to
+-- every other table in this directory.
+
+CREATE TABLE IF NOT EXISTS challenge_records (
+
+    challenge_record_id TEXT PRIMARY KEY,
+
+    status TEXT NOT NULL
+        CHECK (status IN ('open', 'investigating', 'resolved')),
+
+    claim_challenged TEXT NOT NULL,
+
+    source_json JSONB NOT NULL,
+
+    investigation_steps_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+
+    finding_json JSONB,
+
+    outcome_json JSONB,
+
+    disclosure_json JSONB,
+
+    -- The prior challenge_record_id this one supersedes/follows up
+    -- on. No FK constraint: deliberately tolerant of a superseded
+    -- record being pruned independently in the future (retention
+    -- policy is an open question, RFC-0022 Open Question 2), and a
+    -- forward reference would otherwise have to be nullable/deferred
+    -- anyway for the common "no prior record" case.
+    supersedes TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL,
+
+    updated_at TIMESTAMPTZ NOT NULL
+
+);
+
+CREATE INDEX IF NOT EXISTS idx_challenge_records_status
+ON challenge_records (
+    status
+);
+
+CREATE INDEX IF NOT EXISTS idx_challenge_records_created_at
+ON challenge_records (
+    created_at
+);
+
+ALTER TABLE challenge_records ENABLE ROW LEVEL SECURITY;
+
+
+-- =============================================================================
+-- Source: supabase/migrations/20260805170000_add_razorpay_daily_refund_reservations.sql
+-- Razorpay daily cumulative refund reservation ledger (TD-23 closure, Phase 3B)
+-- =============================================================================
+--
+-- Backs RazorpayDailyRefundLedger's atomic reserve()/release() operations
+-- (packages/storage/src/supabase/SupabaseRazorpayDailyRefundLedger.ts).
+--
+-- Closes an independently-verified gap (Phase 2L, Phase 3A): the
+-- razorpay-refund/1.0.0 policy's daily cumulative cap was previously
+-- enforced against a caller-declared signal
+-- (dailyCumulativeAfterThisRefundPaise) with no independent verification --
+-- a caller could declare any value regardless of real refund history.
+--
+-- This is a single-row-per-day atomic counter, not a transaction ledger or a
+-- duplicate of Trust Record history: it stores nothing about individual
+-- refunds, only a running total per UTC calendar day. The authoritative
+-- record of what actually executed remains the existing executions table
+-- (see ExecutionTrustRecordRepository.sumSuccessfulExecutionAmounts, added
+-- alongside this migration for reconciliation/observability) -- this table
+-- exists solely to make "read the current total, then decide, then commit"
+-- atomic across concurrent requests, which a SELECT-then-write over the
+-- executions table cannot be, since a real Razorpay API call (which cannot
+-- be wrapped in a database transaction) sits between the decision and the
+-- executions row that would eventually record it.
+--
+-- Atomicity: reserve() is a single INSERT ... ON CONFLICT (refund_day) DO
+-- UPDATE ... RETURNING statement. Two concurrent reservations for the same
+-- day are serialized by Postgres's own row lock on that day's row -- the
+-- same class of atomicity consumed_nonces's and razorpay_webhook_events's
+-- primary keys already provide for uniqueness checks, applied here to an
+-- additive counter instead.
+
+CREATE TABLE IF NOT EXISTS razorpay_daily_refund_reservations (
+
+    refund_day DATE PRIMARY KEY,
+
+    reserved_paise BIGINT NOT NULL DEFAULT 0,
+
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT chk_reserved_paise_non_negative CHECK (reserved_paise >= 0)
+
+);
+
+ALTER TABLE razorpay_daily_refund_reservations ENABLE ROW LEVEL SECURITY;
+
+
+-- =============================================================================
+-- Source: supabase/migrations/20260805180000_add_consumed_approval_nonces.sql
+-- Approval Artifact replay protection (TD-23 closure, Phase 3C)
+-- =============================================================================
+--
+-- Backs SupabaseApprovalNonceStore's atomic checkAndRecord()
+-- (packages/storage/src/supabase/SupabaseApprovalNonceStore.ts), the
+-- durable NonceStore ApprovalVerifier uses to enforce that a Signed
+-- Approval Artifact is consumed at most once.
+--
+-- Deliberately a separate table from consumed_nonces
+-- (20260718090000_add_nonce_and_caller_audit_tables.sql), not a shared
+-- one: an Approval Artifact's nonce and a Gateway Authorization
+-- envelope's nonce are distinct trust domains issued by distinct
+-- parties (an external business approver vs. Parmana's own runtime).
+-- Sharing one table would let a coincidental nonce collision between
+-- the two unrelated namespaces falsely report "already consumed" for
+-- one because of the other.
+--
+-- Same shape, same atomicity mechanism, same reasoning as
+-- consumed_nonces: append-only, the PRIMARY KEY on nonce IS the
+-- atomic-consumption mechanism (two concurrent inserts of the same
+-- nonce race at the database; exactly one succeeds, the other fails
+-- with a 23505 unique_violation, mapped to "already consumed"). No
+-- PII: a nonce is an opaque, single-use token chosen by the artifact's
+-- issuer, not an identifier.
+
+CREATE TABLE IF NOT EXISTS consumed_approval_nonces (
+
+    nonce TEXT PRIMARY KEY,
+
+    -- From the artifact's own expiresAt (NonceStore.checkAndRecord's
+    -- second argument). Not currently read back by application code;
+    -- kept for a future retention/cleanup job, mirroring
+    -- consumed_nonces.expires_at's own residual note.
+    expires_at TIMESTAMPTZ NOT NULL,
+
+    consumed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+
+);
+
+CREATE INDEX IF NOT EXISTS idx_consumed_approval_nonces_expires_at
+ON consumed_approval_nonces (
+    expires_at
+);
+
+ALTER TABLE consumed_approval_nonces ENABLE ROW LEVEL SECURITY;
+
+
+-- =============================================================================
+-- Source: supabase/migrations/20260812120000_add_capability_to_caller_audit_events.sql
+-- Caller-capability-scoping audit trail (caller-to-capability scoping)
+-- =============================================================================
+--
+-- Backs CallerAuditEvent's new "caller.capability_denied" type and
+-- `capability` field (packages/api/src/auth/CallerAuditSink.ts,
+-- packages/api/src/routes/execute.ts / transactions.ts): an
+-- authenticated caller attempting a capability outside its
+-- ApiKeyEntry.allowedCapabilities is denied, and that denial is
+-- audited the same way a missing/invalid credential already is.
+--
+-- Widens the type CHECK constraint from 20260718090000 to add the
+-- new event type, mirroring 20260718190412's DROP/ADD CONSTRAINT
+-- pattern for razorpay_webhook_audit_events. Adds `capability`,
+-- nullable and additive like every prior column addition to this
+-- table (signature_json, 20260802130000) -- existing rows are
+-- unaffected, every row written from here forward that concerns a
+-- specific capability carries it.
+
+ALTER TABLE caller_audit_events
+DROP CONSTRAINT IF EXISTS caller_audit_events_type_check;
+
+ALTER TABLE caller_audit_events
+ADD CONSTRAINT caller_audit_events_type_check
+CHECK (type IN (
+    'caller.authenticated',
+    'caller.rejected',
+    'caller.capability_denied'
+));
+
+ALTER TABLE caller_audit_events
+ADD COLUMN IF NOT EXISTS capability TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_caller_audit_events_capability
+ON caller_audit_events (
+    capability
+)
+WHERE capability IS NOT NULL;

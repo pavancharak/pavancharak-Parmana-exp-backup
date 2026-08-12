@@ -10,7 +10,7 @@ const ENV_KEYS = ["NODE_ENV", "PARMANA_STORAGE", "DATABASE_URL"] as const;
 function buildApp() {
   const executionSystem = createExecutionSystem();
   const application = createApplication(executionSystem);
-  return createApp(application, { callerAuth: "disabled", razorpayWebhook: "disabled" });
+  return createApp(application, { callerAuth: "disabled" });
 }
 
 describe("GET /ready", () => {

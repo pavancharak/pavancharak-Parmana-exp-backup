@@ -24,7 +24,6 @@ const internalSymbols = [
   "GatewayCapabilityConnectorPolicy",
   "SdkConnectorExecutor",
   "CredentialVaultAdapter",
-  "GatewayRazorpayAdapter",
   "GatewayHubSpotAdapter",
   "GatewayHttpAdapter",
   "buildConnectorEvidence",
@@ -47,7 +46,6 @@ console.log("Public execution entry point and connector factories -- these SHOUL
 console.log("--------------------------------------------------");
 console.log(`ExecutionGateway                  -> ${typeof publicApi.ExecutionGateway}`);
 console.log(`createGatewayConnectorRegistry     -> ${typeof publicApi.createGatewayConnectorRegistry}`);
-console.log(`createGatewayRazorpayConnector      -> ${typeof publicApi.createGatewayRazorpayConnector}`);
 console.log(`createGatewayHubSpotConnector       -> ${typeof publicApi.createGatewayHubSpotConnector}`);
 console.log();
 
@@ -55,7 +53,6 @@ const allPassed =
   leaked.length === 0 &&
   typeof publicApi.ExecutionGateway === "function" &&
   typeof publicApi.createGatewayConnectorRegistry === "function" &&
-  typeof publicApi.createGatewayRazorpayConnector === "function" &&
   typeof publicApi.createGatewayHubSpotConnector === "function";
 
 if (allPassed) {

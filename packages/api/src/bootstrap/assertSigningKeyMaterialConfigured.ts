@@ -12,10 +12,10 @@ import { DEFAULT_KEY_ID } from "@parmana/crypto";
  *
  * Without this, `FileKeyProvider` only throws lazily, the first time a
  * request actually needs to sign or verify something
- * (`RuntimeAuthorizationSigner`, `ReceiptCrypto`, `VerificationCrypto`,
- * and `SettlementConfirmationCrypto` all sign/verify unconditionally
- * with `DEFAULT_KEY_ID` — see each file's own `KEY_ID`/`DEFAULT_KEY_ID`
- * usage). A production process could otherwise boot "successfully",
+ * (`RuntimeAuthorizationSigner`, `ReceiptCrypto`, and `VerificationCrypto`
+ * all sign/verify unconditionally with `DEFAULT_KEY_ID` — see each
+ * file's own `KEY_ID`/`DEFAULT_KEY_ID` usage). A production process
+ * could otherwise boot "successfully",
  * pass `/health`, and only fail on its very first real request.
  *
  * `PARMANA_KEY_MATERIAL_JSON`, if set, is a JSON object of

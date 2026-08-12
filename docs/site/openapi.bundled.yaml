@@ -47,8 +47,6 @@ tags:
     description: Deterministic replay of a recorded Execution Trust Record
   - name: Policies
     description: Policy existence/readability check
-  - name: Webhooks
-    description: Inbound webhook receipt from external connectors (Razorpay)
   - name: System
     description: Operational endpoints
 paths:
@@ -186,17 +184,14 @@ paths:
         documented here because the spec must describe the API as implemented.
 
 
-        `razorpay:refund-create` and `razorpay:payment-fetch` are the real,
+        `hubspot:deal-update` and `hubspot:deal-fetch` are the real,
         currently-registered capabilities reachable through this same endpoint
-        by this capability-based routing mechanism today — see the
-        razorpay-refund-flow example below. Registration is conditional: if
-        `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are not configured, the
-        connector is never registered and this action falls into the "no
-        Connector registered" case documented under 500 below. `hubspot`'s
-        capabilities are reachable the same way, conditional on
-        `HUBSPOT_PRIVATE_APP_TOKEN`. See
-        packages/api/tests/integration/razorpay-refund.integration.test.ts for
-        the executable, real-request proof of the razorpay flow.
+        by this capability-based routing mechanism today. Registration is
+        conditional on `HUBSPOT_PRIVATE_APP_TOKEN` being configured; if it is
+        not, the connector is never registered and this action falls into the
+        "no Connector registered" case documented under 500 below. See
+        packages/api/tests/integration/hubspot-deal-update.integration.test.ts
+        for the executable, real-request proof of the hubspot flow.
 
 
         **`payments:execute` (`vendor-payment`), shown in the
@@ -259,48 +254,6 @@ paths:
                     sufficientFunds: true
                     paymentAmount: 5000
                     riskScore: 12
-              razorpay-refund-flow:
-                summary: Real request shape (razorpay-refund 1.0.0, APPROVED), verbatim from
-                  packages/api/tests/integration/razorpay-refund.integration.test.ts
-                value:
-                  businessTransactionId: 8f14e45f-ceea-467e-8b39-8f14e45fceea
-                  metadata:
-                    businessTransactionId: 8f14e45f-ceea-467e-8b39-8f14e45fceea
-                    correlationId: 3f2504e0-4f89-11d3-9a0c-0305e82c3301
-                    createdBy: integration-test
-                    createdAt: 2026-07-18T18:00:00.000Z
-                  authority:
-                    authorityId: c4a76083-7d40-4e5f-9e3a-9c1b9e6f0d21
-                    authorityType: USER
-                    principalId: integration-test
-                    displayName: Integration Test
-                    issuedAt: 2026-07-18T18:00:00.000Z
-                  authorization:
-                    authorizationId: 6c1c1f2e-6c8a-4a34-9e2a-1c2a3e4f5a6b
-                    authorityId: c4a76083-7d40-4e5f-9e3a-9c1b9e6f0d21
-                    purpose: Integration Test
-                    authorizedAt: 2026-07-18T18:00:00.000Z
-                  intent:
-                    intentId: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
-                    authorizationId: 6c1c1f2e-6c8a-4a34-9e2a-1c2a3e4f5a6b
-                    action: razorpay:refund-create
-                    target: razorpay://payments/pay_HTTP001/refund
-                    parameters:
-                      paymentId: pay_HTTP001
-                      amountPaise: 250000
-                      reason: customer requested refund
-                    createdAt: 2026-07-18T18:00:00.000Z
-                  policy:
-                    name: razorpay-refund
-                    version: 1.0.0
-                    schemaVersion: 1.0.0
-                  signals:
-                    paymentStatus: captured
-                    paymentCurrency: INR
-                    refundableRemainingPaise: 1000000
-                    requestedRefundAmountPaise: 250000
-                    requestedExceedsRemainder: false
-                    dailyCumulativeAfterThisRefundPaise: 250000
       responses:
         "200":
           description: Execution Trust pipeline completed. The Execution Trust Record
@@ -1562,81 +1515,6 @@ paths:
                   value:
                     error: Execution Trust Record not found.
                     code: VERIFICATION_FAILED
-  /webhooks/razorpay:
-    post:
-      tags:
-        - Webhooks
-      summary: Receive a Razorpay webhook delivery
-      operationId: receiveRazorpayWebhook
-      description: >
-        Verifies the HMAC-SHA256 signature (X-Razorpay-Signature) over the raw
-        request body against RAZORPAY_WEBHOOK_SECRET, timing-safe. A valid,
-        fresh event (deduplicated on X-Razorpay-Event-Id) is persisted to a
-        pending-events store and acknowledged; nothing is processed inline —
-        settlement/lifecycle processing is a future milestone (M4b, see
-        docs/CLAIMS.md). Not registered at all (404) when
-        RAZORPAY_WEBHOOK_SECRET is not configured.
-      parameters:
-        - name: X-Razorpay-Signature
-          in: header
-          required: true
-          schema:
-            type: string
-          description: hex(HMAC-SHA256(rawBody, RAZORPAY_WEBHOOK_SECRET))
-        - name: X-Razorpay-Event-Id
-          in: header
-          required: true
-          schema:
-            type: string
-          description: Required once the signature has verified; a request missing it is
-            rejected even with a valid signature.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/razorpay-webhook-event.schema"
-      responses:
-        "200":
-          description: Verified event accepted (fresh) or acknowledged (duplicate).
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/razorpay-webhook-response.schema"
-              examples:
-                accepted:
-                  summary: Fresh event, persisted
-                  value:
-                    status: accepted
-                acknowledged:
-                  summary: Replayed event id, not reprocessed
-                  value:
-                    status: acknowledged
-        "401":
-          description: Missing/invalid signature, or a validly-signed request missing
-            X-Razorpay-Event-Id.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/error.schema"
-              examples:
-                invalidSignature:
-                  summary: Bad signature
-                  value:
-                    error: Invalid signature.
-        "404":
-          description: Route not registered — RAZORPAY_WEBHOOK_SECRET is not configured.
-        "413":
-          description: Request body exceeded the size cap.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/error.schema"
-              examples:
-                tooLarge:
-                  summary: Oversized body
-                  value:
-                    error: Payload too large.
   /policies/validate:
     post:
       tags:
@@ -2533,87 +2411,6 @@ components:
           issuedAt: 2026-07-07T16:38:59.350Z
           algorithm: ed25519
           signature: 2Z49nDSXubFNTpy0ovPwguGW3IpgvdJuiusCAadMNPS4cqmjRUthZmrfN3kZUO5m7Ku5v/poeLxtjsFKvXe9DA==
-    settlement-confirmation.schema:
-      title: Settlement Confirmation
-      description: "A second, independently signed trust artifact (M4b) closing a
-        connector-mediated action's lifecycle (e.g. a Razorpay refund) once its
-        externally-reported outcome has been independently fetch-verified
-        against the connector's own API — never inferred from an inbound webhook
-        claim alone. Append-only: creating one never mutates the original
-        Receipt, the Trust Record's own trustRecordHash/signature, or any other
-        artifact."
-      type: object
-      additionalProperties: true
-      required:
-        - confirmationId
-        - businessTransactionId
-        - webhookEventId
-        - razorpayRefundId
-        - status
-        - fetchedRefundStatus
-        - confirmationHash
-        - signature
-        - algorithm
-        - issuedAt
-      properties:
-        confirmationId:
-          type: string
-          description: Unique Settlement Confirmation identifier.
-        businessTransactionId:
-          type: string
-          description: Business Transaction this confirmation closes the lifecycle for.
-        receiptId:
-          type: string
-          description: The Receipt this confirmation references, when one existed on the
-            Trust Record at confirmation time. Absent when no Receipt had been
-            generated yet.
-        webhookEventId:
-          type: string
-          description: "The webhook event id (X-Razorpay-Event-Id) that triggered
-            processing. The webhook is only ever a doorbell: this records what
-            prompted the fetch-verify, not evidence of the outcome."
-        razorpayRefundId:
-          type: string
-          description: The Razorpay refund id this confirmation is about.
-        status:
-          type: string
-          description: SETTLED when the fetched refund status was "processed";
-            SETTLEMENT_FAILED otherwise. Derived exclusively from
-            fetchedRefundStatus, never from the webhook's own claimed event
-            type.
-          enum:
-            - SETTLED
-            - SETTLEMENT_FAILED
-        fetchedRefundStatus:
-          type: string
-          description: The refund's status exactly as fetched from Razorpay's API at
-            confirmation time — the authoritative state this confirmation
-            records.
-        confirmationHash:
-          type: string
-          description: Hash of this Settlement Confirmation.
-        signature:
-          type: string
-          description: Digital signature over the Settlement Confirmation.
-        algorithm:
-          type: string
-          examples:
-            - ed25519
-        issuedAt:
-          type: string
-          format: date-time
-      examples:
-        - confirmationId: 2ce80f51-9002-6729-cd50-508868979c00
-          businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
-          receiptId: 3073a598-f927-4caf-8bb8-4f083f62b7e9
-          webhookEventId: evt_JXyz1234567890
-          razorpayRefundId: rfnd_ABC123
-          status: SETTLED
-          fetchedRefundStatus: processed
-          confirmationHash: bb9aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b27
-          algorithm: ed25519
-          signature: cD8xkBuJhoy/2BdiR1x02KYZqMtKJu39olRJdzM5veSo9nYmoNSYQnt9HELlb2jlGWf07jPhP8ZXlrQnN4KQBA==
-          issuedAt: 2026-07-18T20:05:00.000Z
     execution-trust-record.schema:
       title: Execution Trust Record
       description: "Canonical immutable record representing everything Parmana knows
@@ -2666,15 +2463,6 @@ components:
           description: Receipt history. Append-only.
           items:
             $ref: "#/components/schemas/receipt.schema"
-        settlementConfirmations:
-          type: array
-          description: "Settlement Confirmation history (M4b). Append-only. Optional
-            (unlike overrides/executions/verifications/receipts): absent on
-            every Trust Record created before M4b, and on any record no webhook
-            has ever closed the lifecycle for. An absent array means exactly the
-            same as an empty one."
-          items:
-            $ref: "#/components/schemas/settlement-confirmation.schema"
         trustRecordHash:
           type: string
           description: Canonical hash of the Execution Trust Record, computed over its
@@ -2865,52 +2653,9 @@ components:
     verification-response.schema:
       title: Verification Response
       description: "Response returned by POST /verify and GET
-        /verification/{businessTransactionId}. A Verification, plus an optional
-        settlement field: present only on the GET route's response (see
-        routes/verify-get.ts), and only once a Settlement Confirmation exists
-        for this Business Transaction (M4b — a refund's lifecycle closed via
-        fetch-verified webhook processing). Never silent: a settled or
-        settlement-failed refund is always visible here, not only by separately
-        fetching the whole Trust Record."
+        /verification/{businessTransactionId}: a Verification."
       allOf:
         - $ref: "#/components/schemas/verification.schema"
-        - type: object
-          properties:
-            settlement:
-              type: object
-              description: Present only when at least one Settlement Confirmation exists for
-                this Business Transaction. Reflects the LATEST confirmation.
-              additionalProperties: false
-              required:
-                - status
-                - confirmationId
-                - fetchedRefundStatus
-                - razorpayRefundId
-                - issuedAt
-              properties:
-                status:
-                  type: string
-                  description: SETTLED when the fetch-verified refund status was "processed";
-                    SETTLEMENT_FAILED otherwise. Derived exclusively from the
-                    fetched state, never from a webhook's own claimed event
-                    type.
-                  enum:
-                    - SETTLED
-                    - SETTLEMENT_FAILED
-                confirmationId:
-                  type: string
-                  description: Unique Settlement Confirmation identifier.
-                fetchedRefundStatus:
-                  type: string
-                  description: The refund's status exactly as fetched from Razorpay's API at
-                    confirmation time (e.g. "processed", "failed").
-                razorpayRefundId:
-                  type: string
-                  description: The Razorpay refund id this confirmation is about.
-                issuedAt:
-                  type: string
-                  format: date-time
-                  description: UTC timestamp when this Settlement Confirmation was issued.
       examples:
         - verificationId: 0ad69d3f-7fd0-4507-ab38-e386146757ae
           businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
@@ -2918,18 +2663,6 @@ components:
           message: Execution Trust Record verified successfully.
           verifiedAt: 2026-07-07T16:38:59.344Z
           trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
-        - verificationId: 1bd79e40-8fe1-5618-bc49-f497257868bf
-          businessTransactionId: fed3b083-2cg6-5277-9583-872g87gcg2c3
-          status: VERIFIED
-          message: Execution Trust Record verified successfully.
-          verifiedAt: 2026-07-18T20:00:00.000Z
-          trustRecordHash: aa9aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b26
-          settlement:
-            status: SETTLED
-            confirmationId: 2ce80f51-9002-6729-cd50-508868979c00
-            fetchedRefundStatus: processed
-            razorpayRefundId: rfnd_ABC123
-            issuedAt: 2026-07-18T20:05:00.000Z
     receipt-request.schema:
       title: Receipt Request
       description: Request payload for POST /receipt. businessTransactionId is
@@ -2990,98 +2723,6 @@ components:
         - businessTransactionId: eed2a972-1bf5-4166-8472-761f76fbf1b2
           trustRecordHash: 989aef83d595202ec02bb338ac00461abec0541098ea065f965b5cde342d3b25
           verified: true
-    razorpay-webhook-event.schema:
-      title: Razorpay Webhook Event
-      description: Request payload for POST /webhooks/razorpay — Razorpay's own
-        webhook envelope, forwarded verbatim. Shape and fields vary by event
-        type; this schema only documents the fields this route itself reads
-        (event, payload.payment.entity.id, payload.refund.entity.id) for audit
-        metadata extraction. The full payload is persisted as-is for later
-        processing (M4b) and is not otherwise validated against this schema at
-        runtime — signature verification (X-Razorpay-Signature) is what actually
-        authenticates a request, not payload shape.
-      type: object
-      additionalProperties: true
-      properties:
-        entity:
-          type: string
-          description: Always "event" for a Razorpay webhook delivery.
-          examples:
-            - event
-        event:
-          type: string
-          description: Razorpay event type. Extracted into the pending-events store and
-            audit trail when present.
-          examples:
-            - refund.processed
-            - payment.captured
-        contains:
-          type: array
-          items:
-            type: string
-        payload:
-          type: object
-          additionalProperties: true
-          properties:
-            payment:
-              type: object
-              properties:
-                entity:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                      examples:
-                        - pay_ABC123
-            refund:
-              type: object
-              properties:
-                entity:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                      examples:
-                        - rfnd_ABC123
-        created_at:
-          type: integer
-          description: Unix timestamp.
-      examples:
-        - entity: event
-          event: refund.processed
-          contains:
-            - refund
-          payload:
-            refund:
-              entity:
-                id: rfnd_ABC123
-                payment_id: pay_XYZ789
-                amount: 100
-                status: processed
-            payment:
-              entity:
-                id: pay_XYZ789
-          created_at: 1752800000
-    razorpay-webhook-response.schema:
-      title: Razorpay Webhook Response
-      description: Response body for POST /webhooks/razorpay on a 200. "accepted"
-        means this event id was fresh and has been persisted to the
-        pending-events store. "acknowledged" means this event id had already
-        been recorded (a replay/duplicate delivery) — it was not persisted or
-        reprocessed again.
-      type: object
-      additionalProperties: false
-      required:
-        - status
-      properties:
-        status:
-          type: string
-          enum:
-            - accepted
-            - acknowledged
-      examples:
-        - status: accepted
-        - status: acknowledged
     policy-validate-request.schema:
       title: Policy Validate Request
       description: Request payload for POST /policies/validate. policyId and

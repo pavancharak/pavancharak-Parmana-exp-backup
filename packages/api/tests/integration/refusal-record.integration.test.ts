@@ -25,7 +25,6 @@ describe("Refusal Record (RFC-0021, HTTP boundary)", () => {
     const application = createApplication(executionSystem);
     const app = createApp(application, {
       callerAuth: "disabled",
-      razorpayWebhook: "disabled",
     });
 
     return app;
@@ -213,7 +212,6 @@ describe("Refusal Record ownership scoping (RFC-0021, IDOR regression)", () => {
 
     return createApp(application, {
       callerAuth: { authenticator, auditSink: new InMemoryCallerAuditSink() },
-      razorpayWebhook: "disabled",
     });
   }
 

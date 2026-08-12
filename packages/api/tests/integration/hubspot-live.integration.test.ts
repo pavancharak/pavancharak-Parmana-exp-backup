@@ -80,7 +80,7 @@ describe.skipIf(!hubspotLiveConfigured)("HubSpot live (through the real @parmana
 
     const executionSystem = createExecutionSystem();
     const application = createApplication(executionSystem);
-    const app = createApp(application, { callerAuth: "disabled", razorpayWebhook: "disabled" });
+    const app = createApp(application, { callerAuth: "disabled" });
 
     server = await new Promise<Server>((resolve) => {
       const httpServer = app.listen(0, "127.0.0.1", () => resolve(httpServer));
