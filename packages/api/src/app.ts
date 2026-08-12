@@ -16,6 +16,7 @@ import { createReceiptRouter } from "./routes/receipt.js";
 import { createReplayRouter } from "./routes/replay.js";
 import { createReceiptGetRouter } from "./routes/receipt-get.js";
 import { createTransactionsRouter } from "./routes/transactions.js";
+import { createCallersMeRouter } from "./routes/callers-me.js";
 import { createTrustRecordsRouter } from "./routes/trust-records.js";
 import { createVerifyGetRouter } from "./routes/verify-get.js";
 import { createVerifyRouter } from "./routes/verify.js";
@@ -192,7 +193,14 @@ app.get("/", (_req, res) => {
 
 app.use("/version", versionRoutes);
 
-
+/**
+ * Caller identity/scope self-lookup ("show me this agent's identity
+ * and exactly what it's authorized to do").
+ */
+app.use(
+  "/callers/me",
+  createCallersMeRouter(),
+);
 
 /**
  * Rate limiting on /execute is keyed by authenticated caller identity
@@ -206,7 +214,10 @@ app.use("/version", versionRoutes);
 app.use(
   "/execute",
   ...(options.callerAuth !== "disabled" ? [createExecuteRateLimiter(executePerMinute)] : []),
-  createExecuteRouter(application),
+  createExecuteRouter(
+    application,
+    options.callerAuth !== "disabled" ? options.callerAuth.auditSink : undefined,
+  ),
 );
 
 /**
@@ -249,7 +260,10 @@ app.use(
  */
 app.use(
   "/transactions",
-  createTransactionsRouter(application),
+  createTransactionsRouter(
+    application,
+    options.callerAuth !== "disabled" ? options.callerAuth.auditSink : undefined,
+  ),
 );
 
 /**

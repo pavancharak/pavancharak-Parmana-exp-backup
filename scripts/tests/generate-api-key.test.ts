@@ -10,6 +10,7 @@ import {
   appendApiKeyEntry,
   formatApiKeysValue,
   generateApiKey,
+  parseAllowedCapabilities,
   parseAllowedPrincipalIds,
 } from "../generate-api-key.js";
 
@@ -53,6 +54,20 @@ describe("generateApiKey", () => {
     expect(() => generateApiKey({ callerId: "   " })).toThrow(
       "--caller-id must be a non-empty string.",
     );
+  });
+
+  it("includes allowedCapabilities only when provided", () => {
+    const withCapabilities = generateApiKey({
+      callerId: "caller-1",
+      allowedCapabilities: ["razorpay:refund-create", "razorpay:refund-fetch"],
+    });
+    const withoutCapabilities = generateApiKey({ callerId: "caller-1" });
+
+    expect(withCapabilities.entry.allowedCapabilities).toEqual([
+      "razorpay:refund-create",
+      "razorpay:refund-fetch",
+    ]);
+    expect(withoutCapabilities.entry.allowedCapabilities).toBeUndefined();
   });
 
   it("produces an entry that parseApiKeys accepts, matching the generated callerId", () => {
@@ -99,6 +114,30 @@ describe("parseAllowedPrincipalIds", () => {
 
   it("throws when given but every value is empty", () => {
     expect(() => parseAllowedPrincipalIds(" , ,")).toThrow(
+      "contained no non-empty values",
+    );
+  });
+});
+
+describe("parseAllowedCapabilities", () => {
+  it("returns undefined when not provided", () => {
+    expect(parseAllowedCapabilities(undefined)).toBeUndefined();
+  });
+
+  it("splits, trims, and drops empty values", () => {
+    expect(parseAllowedCapabilities(" razorpay:refund-create , razorpay:refund-fetch ,,hubspot:deal-update")).toEqual([
+      "razorpay:refund-create",
+      "razorpay:refund-fetch",
+      "hubspot:deal-update",
+    ]);
+  });
+
+  it("accepts the \"*\" wildcard as an ordinary value", () => {
+    expect(parseAllowedCapabilities("*")).toEqual(["*"]);
+  });
+
+  it("throws when given but every value is empty", () => {
+    expect(() => parseAllowedCapabilities(" , ,")).toThrow(
       "contained no non-empty values",
     );
   });

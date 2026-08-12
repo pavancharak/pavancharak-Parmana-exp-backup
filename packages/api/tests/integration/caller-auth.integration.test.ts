@@ -33,11 +33,13 @@ describe("Caller authentication (HTTP boundary)", () => {
         callerId: "caller-a",
         keyHash: hashApiKey(CALLER_A_KEY),
         allowedPrincipalIds: ["integration-test"],
+        allowedCapabilities: ["test:fixture-execute"],
       },
       {
         callerId: "caller-b",
         keyHash: hashApiKey(CALLER_B_KEY),
         allowedPrincipalIds: ["integration-test"],
+        allowedCapabilities: ["test:fixture-execute"],
       },
     ]);
 
@@ -154,11 +156,13 @@ describe("Caller authentication (HTTP boundary)", () => {
           callerId: "orchestrator-1",
           keyHash: hashApiKey(oldKey),
           allowedPrincipalIds: ["integration-test"],
+          allowedCapabilities: ["test:fixture-execute"],
         },
         {
           callerId: "orchestrator-1",
           keyHash: hashApiKey(newKey),
           allowedPrincipalIds: ["integration-test"],
+          allowedCapabilities: ["test:fixture-execute"],
         },
       ]);
 
@@ -184,6 +188,7 @@ describe("Caller authentication (HTTP boundary)", () => {
           callerId: "orchestrator-1",
           keyHash: hashApiKey(newKey),
           allowedPrincipalIds: ["integration-test"],
+          allowedCapabilities: ["test:fixture-execute"],
         },
       ]);
 
@@ -342,7 +347,7 @@ describe("Caller authentication (HTTP boundary)", () => {
       expect(response.status).toBe(200);
     });
 
-    it.each(["/", "/version", "/policies", "/transactions", "/trust-records", "/replay", "/receipt", "/receipt/latest", "/verify", "/verification"])(
+    it.each(["/", "/version", "/policies", "/transactions", "/trust-records", "/replay", "/receipt", "/receipt/latest", "/verify", "/verification", "/callers/me"])(
       "%s requires a credential",
       async (route) => {
         const { app } = buildApp();

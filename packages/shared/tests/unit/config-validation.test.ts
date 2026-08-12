@@ -114,5 +114,65 @@ describe("parseApiKeys", () => {
       parseApiKeys(JSON.stringify([{ callerId: "", keyHash: validHash }])),
     ).toThrow("PARMANA_API_KEYS[0] is invalid");
   });
+
+  it("parses allowedCapabilities when present", () => {
+    expect(
+      parseApiKeys(
+        JSON.stringify([
+          {
+            callerId: "caller-1",
+            keyHash: validHash,
+            allowedCapabilities: ["razorpay:refund-create", "razorpay:refund-fetch"],
+          },
+        ]),
+      ),
+    ).toEqual([
+      {
+        callerId: "caller-1",
+        keyHash: validHash,
+        allowedCapabilities: ["razorpay:refund-create", "razorpay:refund-fetch"],
+      },
+    ]);
+  });
+
+  it("accepts the \"*\" wildcard as an ordinary allowedCapabilities entry", () => {
+    expect(
+      parseApiKeys(
+        JSON.stringify([
+          { callerId: "caller-1", keyHash: validHash, allowedCapabilities: ["*"] },
+        ]),
+      ),
+    ).toEqual([
+      { callerId: "caller-1", keyHash: validHash, allowedCapabilities: ["*"] },
+    ]);
+  });
+
+  it("omits allowedCapabilities from the parsed entry when absent", () => {
+    const [parsed] = parseApiKeys(
+      JSON.stringify([{ callerId: "caller-1", keyHash: validHash }]),
+    );
+
+    expect(parsed.allowedCapabilities).toBeUndefined();
+  });
+
+  it("throws naming the index of an entry with a non-array allowedCapabilities", () => {
+    expect(() =>
+      parseApiKeys(
+        JSON.stringify([
+          { callerId: "caller-1", keyHash: validHash, allowedCapabilities: "razorpay:refund-create" },
+        ]),
+      ),
+    ).toThrow("PARMANA_API_KEYS[0].allowedCapabilities must be an array");
+  });
+
+  it("throws naming the index of an entry with an empty-string allowedCapabilities entry", () => {
+    expect(() =>
+      parseApiKeys(
+        JSON.stringify([
+          { callerId: "caller-1", keyHash: validHash, allowedCapabilities: ["razorpay:refund-create", ""] },
+        ]),
+      ),
+    ).toThrow("PARMANA_API_KEYS[0].allowedCapabilities must be an array");
+  });
 });
 

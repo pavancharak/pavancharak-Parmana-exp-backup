@@ -105,8 +105,8 @@ console.log();
 
 const auditSink = new InMemoryCallerAuditSink();
 const authenticator = new StaticKeyAuthenticator([
-  { callerId: "caller-a", keyHash: hashApiKey(CALLER_A_KEY), allowedPrincipalIds: ["tutorial-84"] },
-  { callerId: "caller-b", keyHash: hashApiKey(CALLER_B_KEY), allowedPrincipalIds: ["tutorial-84"] },
+  { callerId: "caller-a", keyHash: hashApiKey(CALLER_A_KEY), allowedPrincipalIds: ["tutorial-84"], allowedCapabilities: ["test:fixture-execute"] },
+  { callerId: "caller-b", keyHash: hashApiKey(CALLER_B_KEY), allowedPrincipalIds: ["tutorial-84"], allowedCapabilities: ["test:fixture-execute"] },
 ]);
 
 const { baseUrl, close } = await startServer(authenticator, auditSink);
@@ -156,8 +156,8 @@ try {
   const newKey = "tutorial-84-orchestrator-new-key";
 
   const duringRotation = new StaticKeyAuthenticator([
-    { callerId: "orchestrator-1", keyHash: hashApiKey(oldKey), allowedPrincipalIds: ["tutorial-84"] },
-    { callerId: "orchestrator-1", keyHash: hashApiKey(newKey), allowedPrincipalIds: ["tutorial-84"] },
+    { callerId: "orchestrator-1", keyHash: hashApiKey(oldKey), allowedPrincipalIds: ["tutorial-84"], allowedCapabilities: ["test:fixture-execute"] },
+    { callerId: "orchestrator-1", keyHash: hashApiKey(newKey), allowedPrincipalIds: ["tutorial-84"], allowedCapabilities: ["test:fixture-execute"] },
   ]);
   const rotationServer = await startServer(duringRotation, new InMemoryCallerAuditSink());
   const stillWorks = await fetch(`${rotationServer.baseUrl}/execute`, {
@@ -169,7 +169,7 @@ try {
   await rotationServer.close();
 
   const afterRevocation = new StaticKeyAuthenticator([
-    { callerId: "orchestrator-1", keyHash: hashApiKey(newKey), allowedPrincipalIds: ["tutorial-84"] },
+    { callerId: "orchestrator-1", keyHash: hashApiKey(newKey), allowedPrincipalIds: ["tutorial-84"], allowedCapabilities: ["test:fixture-execute"] },
   ]);
   const revokedServer = await startServer(afterRevocation, new InMemoryCallerAuditSink());
   const revokedRejected = await fetch(`${revokedServer.baseUrl}/execute`, {

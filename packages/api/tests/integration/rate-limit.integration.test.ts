@@ -28,8 +28,8 @@ describe("Rate limiting (HTTP boundary)", () => {
     const application = createApplication(executionSystem);
 
     const authenticator = new StaticKeyAuthenticator([
-      { callerId: "caller-a", keyHash: hashApiKey(CALLER_A_KEY), allowedPrincipalIds: ["integration-test"] },
-      { callerId: "caller-b", keyHash: hashApiKey(CALLER_B_KEY), allowedPrincipalIds: ["integration-test"] },
+      { callerId: "caller-a", keyHash: hashApiKey(CALLER_A_KEY), allowedPrincipalIds: ["integration-test"], allowedCapabilities: ["test:fixture-execute"] },
+      { callerId: "caller-b", keyHash: hashApiKey(CALLER_B_KEY), allowedPrincipalIds: ["integration-test"], allowedCapabilities: ["test:fixture-execute"] },
     ]);
 
     const callerAuditSink = new InMemoryCallerAuditSink();
@@ -200,7 +200,7 @@ describe("Rate limiting (HTTP boundary)", () => {
       const application = createApplication(executionSystem);
 
       const authenticator = new StaticKeyAuthenticator([
-        { callerId: "caller-a", keyHash: hashApiKey(CALLER_A_KEY), allowedPrincipalIds: ["integration-test"] },
+        { callerId: "caller-a", keyHash: hashApiKey(CALLER_A_KEY), allowedPrincipalIds: ["integration-test"], allowedCapabilities: ["test:fixture-execute"] },
       ]);
 
       const app = createApp(application, {

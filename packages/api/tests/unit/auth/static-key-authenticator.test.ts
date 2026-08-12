@@ -116,4 +116,27 @@ describe("StaticKeyAuthenticator", () => {
       callerId: "orchestrator-1",
     });
   });
+
+  it("propagates allowedCapabilities onto the returned identity when configured", () => {
+    const authenticator = new StaticKeyAuthenticator([
+      {
+        callerId: "orchestrator-1",
+        keyHash: hashApiKey("the-real-key"),
+        allowedCapabilities: ["razorpay:refund-create"],
+      },
+    ]);
+
+    expect(authenticator.authenticate("the-real-key")).toEqual({
+      callerId: "orchestrator-1",
+      allowedCapabilities: ["razorpay:refund-create"],
+    });
+  });
+
+  it("omits allowedCapabilities from the returned identity when not configured", () => {
+    const authenticator = new StaticKeyAuthenticator([
+      { callerId: "orchestrator-1", keyHash: hashApiKey("the-real-key") },
+    ]);
+
+    expect(authenticator.authenticate("the-real-key")?.allowedCapabilities).toBeUndefined();
+  });
 });

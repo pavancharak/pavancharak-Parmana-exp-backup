@@ -12,15 +12,29 @@
  * two layers this one sits in front of.
  */
 export interface CallerAuditEvent {
-  readonly type: "caller.authenticated" | "caller.rejected";
+  readonly type: "caller.authenticated" | "caller.rejected" | "caller.capability_denied";
   readonly occurredAt: string;
   readonly route: string;
 
-  /** Present only on "caller.authenticated". */
+  /** Present on "caller.authenticated" and "caller.capability_denied". */
   readonly callerId?: string;
 
-  /** Present only on "caller.rejected". Never the credential itself. */
+  /**
+   * Present on "caller.rejected" and "caller.capability_denied".
+   * Never the credential itself.
+   */
   readonly reason?: string;
+
+  /**
+   * The capability (Business Transaction intent.action) this event
+   * concerns. Present only on "caller.capability_denied" — the
+   * generic "caller.authenticated" event fires at the caller-auth
+   * middleware layer, before any route-specific body is interpreted,
+   * so it deliberately stays capability-agnostic; see
+   * isCapabilityAllowed.ts and its call sites for where the
+   * capability is actually known and checked.
+   */
+  readonly capability?: string;
 }
 
 export interface CallerAuditSink {

@@ -8,9 +8,13 @@ import type {
 import type { ExecutionTrustApplication } from "@parmana/runtime";
 import { BusinessTransactionMapper } from "../mappers/BusinessTransactionMapper.js";
 import { isPrincipalAllowed } from "../auth/isPrincipalAllowed.js";
+import { isCapabilityAllowed } from "../auth/isCapabilityAllowed.js";
+import type { CallerAuditSink } from "../auth/CallerAuditSink.js";
+import { recordCallerAuditEvent } from "../auth/recordCallerAuditEvent.js";
 
 export function createTransactionsRouter(
   application: ExecutionTrustApplication,
+  auditSink?: CallerAuditSink,
 ): Router {
   const router = Router();
 
@@ -165,6 +169,40 @@ router.post(
           res.status(403).json({
             error:
               "Caller is not permitted to assert this authority.principalId.",
+          });
+          return;
+        }
+
+        //
+        // Caller capability binding: see execute.ts's identical check
+        // for the full rationale. Runs before application.execute()
+        // is reached, mirroring the principal check immediately
+        // above.
+        //
+        const action = transaction.intent?.action;
+
+        if (!isCapabilityAllowed(action, req.callerAllowedCapabilities)) {
+          if (auditSink) {
+            const recorded = await recordCallerAuditEvent(
+              auditSink,
+              {
+                type: "caller.capability_denied",
+                occurredAt: new Date().toISOString(),
+                route: req.originalUrl,
+                callerId: req.callerId,
+                ...(action !== undefined ? { capability: action } : {}),
+                reason: "capability not allowed",
+              },
+              req,
+              next,
+            );
+
+            if (!recorded) return;
+          }
+
+          res.status(403).json({
+            error: "Caller is not permitted to invoke this capability.",
+            code: "CAPABILITY_NOT_ALLOWED",
           });
           return;
         }

@@ -12,7 +12,7 @@ import { resolveDatabaseGate } from "../helpers/database-availability.js";
 const databaseConfigured = resolveDatabaseGate("Supabase Caller Audit Sink");
 
 const SELECT_CALLER_AUDIT_EVENT_BY_ROUTE_SQL = `
-  SELECT type, route, caller_id, reason
+  SELECT type, route, caller_id, reason, capability
   FROM caller_audit_events
   WHERE route = $1
 `;
@@ -32,6 +32,12 @@ const SELECT_CALLER_AUDIT_EVENT_BY_ROUTE_SQL = `
  * SupabaseClientFactory (SUPABASE_URL) — see SupabaseCallerAuditSink
  * for why the writer moved off supabase-js (PostgREST schema-cache
  * workaround, Supabase ticket SU-437429).
+ *
+ * Also requires supabase/migrations/20260812120000_add_capability_
+ * to_caller_audit_events.sql (caller-capability-scoping) to have been
+ * applied — the "records a capability_denied event whose capability
+ * survives the round trip" case below is the proof that migration
+ * actually landed, not just that the code compiles against it.
  */
 describe.skipIf(!databaseConfigured)("SupabaseCallerAuditSink (live)", () => {
   it("records an event that a fresh pool against the same backing can read back", async () => {
@@ -89,5 +95,36 @@ describe.skipIf(!databaseConfigured)("SupabaseCallerAuditSink (live)", () => {
     expect(rows[0].type).toBe("caller.rejected");
     expect(rows[0].caller_id).toBeNull();
     expect(rows[0].reason).toBe("missing credential");
+    expect(rows[0].capability).toBeNull();
+  });
+
+  it("records a capability_denied event whose capability survives the round trip", async () => {
+    const route = `/test-${crypto.randomUUID()}`;
+
+    const event: CallerAuditEvent = {
+      type: "caller.capability_denied",
+      occurredAt: new Date().toISOString(),
+      route,
+      callerId: "integration-test-caller",
+      capability: "razorpay:refund-create",
+      reason: "capability not allowed",
+    };
+
+    const sink = new SupabaseCallerAuditSink(PostgresPoolFactory.create());
+
+    await sink.record(event);
+
+    const readingPool = PostgresPoolFactory.create();
+
+    const { rows } = await readingPool.query(
+      SELECT_CALLER_AUDIT_EVENT_BY_ROUTE_SQL,
+      [route],
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].type).toBe("caller.capability_denied");
+    expect(rows[0].caller_id).toBe("integration-test-caller");
+    expect(rows[0].capability).toBe("razorpay:refund-create");
+    expect(rows[0].reason).toBe("capability not allowed");
   });
 });

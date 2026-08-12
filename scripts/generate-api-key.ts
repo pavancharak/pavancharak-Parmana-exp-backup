@@ -9,6 +9,7 @@ export interface ApiKeyEntry {
   callerId: string;
   keyHash: string;
   allowedPrincipalIds?: string[];
+  allowedCapabilities?: string[];
 }
 
 export interface GeneratedApiKey {
@@ -19,6 +20,7 @@ export interface GeneratedApiKey {
 export interface GenerateApiKeyOptions {
   callerId: string;
   allowedPrincipalIds?: string[];
+  allowedCapabilities?: string[];
 }
 
 export interface AppendApiKeyOptions {
@@ -34,6 +36,7 @@ const API_KEY_HASH_PATTERN = /^[0-9a-f]{64}$/;
 export function generateApiKey({
   callerId,
   allowedPrincipalIds,
+  allowedCapabilities,
 }: GenerateApiKeyOptions): GeneratedApiKey {
   const normalizedCallerId = callerId.trim();
 
@@ -43,6 +46,10 @@ export function generateApiKey({
 
   const normalizedPrincipalIds = allowedPrincipalIds
     ?.map((id) => id.trim())
+    .filter(Boolean);
+
+  const normalizedCapabilities = allowedCapabilities
+    ?.map((capability) => capability.trim())
     .filter(Boolean);
 
   const rawKey = randomBytes(32).toString("base64url");
@@ -62,6 +69,10 @@ export function generateApiKey({
 
   if (normalizedPrincipalIds && normalizedPrincipalIds.length > 0) {
     entry.allowedPrincipalIds = normalizedPrincipalIds;
+  }
+
+  if (normalizedCapabilities && normalizedCapabilities.length > 0) {
+    entry.allowedCapabilities = normalizedCapabilities;
   }
 
   return {
@@ -85,6 +96,34 @@ export function parseAllowedPrincipalIds(
   if (values.length === 0) {
     throw new Error(
       "--allowed-principal-ids contained no non-empty values.",
+    );
+  }
+
+  return values;
+}
+
+/**
+ * Parses --allowed-capabilities the same way
+ * parseAllowedPrincipalIds parses --allowed-principal-ids. No
+ * special-case handling for "*": it is just one more non-empty
+ * string value, whose wildcard meaning is interpreted downstream by
+ * isCapabilityAllowed.ts, not here.
+ */
+export function parseAllowedCapabilities(
+  value: string | undefined,
+): string[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const values = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (values.length === 0) {
+    throw new Error(
+      "--allowed-capabilities contained no non-empty values.",
     );
   }
 
@@ -187,9 +226,16 @@ function main(args = process.argv.slice(2)): void {
       : undefined,
   );
 
+  const allowedCapabilities = parseAllowedCapabilities(
+    args.includes("--allowed-capabilities")
+      ? argument(args, "--allowed-capabilities")
+      : undefined,
+  );
+
   const { rawKey, entry } = generateApiKey({
     callerId,
     allowedPrincipalIds,
+    allowedCapabilities,
   });
 
   console.log();

@@ -1548,6 +1548,26 @@ Evidence
 
 ---
 
+## 3.16 Caller-to-Capability Scoping (Scoped)
+
+Extends `ApiKeyEntry` with an optional `allowedCapabilities` field: the set of capabilities (`Intent.action` values, e.g. `razorpay:refund-create`) a given key may invoke. Checked in `execute.ts`/`transactions.ts` before the transaction ever reaches `application.execute()` — i.e. before `CapabilityPolicyBinder`/`PolicyEngine.evaluate` are reached, neither of which is caller-aware by design (2.24, 2.16's own G-28 note). A caller attempting a capability outside its grant is rejected `403 CAPABILITY_NOT_ALLOWED` and the denial is audited (`caller.capability_denied`, `CallerAuditSink`), never silently. The default is fail-closed and deliberately the opposite of `allowedPrincipalIds`' own default: an unset or empty `allowedCapabilities` denies every capability — there is no "may invoke its own capability" fallback the way there is a "may only assert itself" fallback for principals. The literal string `"*"` is an explicit, auditable wildcard grant, never an implicit default. `GET /callers/me` returns an authenticated caller's own resolved identity and scope (`callerId`, `allowedPrincipalIds`, `allowedCapabilities`, `unrestrictedCapabilities`) — self-lookup only, no key material — as the proof artifact a security review can point to.
+
+**Scope, precisely — this is the load-bearing caveat for this claim:** this mechanism is implemented, tested, and enforced for every caller that authenticates through a caller-auth-enabled path. It does **not** currently apply to either capability actually reachable in production. Both `razorpay-refund.integration.test.ts`/`razorpay-live.integration.test.ts` and `hubspot-deal-update.integration.test.ts`/`hubspot-live.integration.test.ts` construct their app with `callerAuth: "disabled"` — no `ApiKeyEntry` exists for either connector path at all, so there is no caller identity for `allowedCapabilities` to scope in the first place. Concretely: **do not read this claim as "Parmana's live money-moving (Razorpay) or CRM-moving (HubSpot) capabilities are now scope-restricted" — they are not, yet.** Today this protects only callers that go through caller-auth-enabled paths, which at present are test and tutorial callers scoped to the single generic `test:fixture-execute` capability (`NODE_ENV=test`-only). Enabling caller-auth on the Razorpay and HubSpot connector integration paths themselves is the follow-on work that would make this mechanism meaningful for the two capabilities that actually move money or CRM state; that work has not been started (see Future Claims, §4).
+
+Evidence
+
+* `packages/shared/src/config/ApiKeyEntry.ts` (`allowedCapabilities`, fail-closed-by-default doc comment, `"*"` wildcard convention)
+* `packages/shared/src/config/ConfigValidation.ts` (`parseApiKeys` validates `allowedCapabilities` the same way as `allowedPrincipalIds`)
+* `packages/api/src/auth/isCapabilityAllowed.ts` (fail-closed check, wildcard handling)
+* `packages/api/src/routes/execute.ts` / `transactions.ts` (enforced before `application.execute()`; `403 CAPABILITY_NOT_ALLOWED`; denial audited via `recordCallerAuditEvent`)
+* `packages/api/src/auth/CallerAuditSink.ts` (`caller.capability_denied` event type, `capability` field)
+* `packages/api/src/routes/callers-me.ts` (`GET /callers/me`, resolved identity/scope, no key material)
+* `supabase/migrations/20260812120000_add_capability_to_caller_audit_events.sql` (additive `capability` column, widened `type` CHECK constraint; not yet applied to any live project)
+* `packages/api/tests/unit/isCapabilityAllowed.test.ts`, `packages/api/tests/integration/caller-capability-scoping.integration.test.ts` (allow/deny/fail-closed-default/wildcard, denial precedes policy evaluation, audit content, `/callers/me` self-lookup and resolved-defaults)
+* Repo-wide check confirming zero caller-auth-enabled test or production wiring exists for either `razorpay:refund-create` or `hubspot:deal-update`: `packages/api/tests/integration/razorpay-refund.integration.test.ts`, `razorpay-live.integration.test.ts`, `hubspot-deal-update.integration.test.ts`, `hubspot-live.integration.test.ts` all construct their app with `callerAuth: "disabled"`
+
+---
+
 
 
 # Maturity Assessment (TRL)
@@ -1585,6 +1605,8 @@ The following claims are planned but are intentionally withheld until supported 
 * [FUTURE] HubSpot deal delete/archive: no implementation exists; deny-by-default this milestone touches only `dealstage`/`amount` on existing deals.
 
 * [FUTURE] HubSpot webhook/event-driven trigger: no implementation exists. This milestone is request-response only (`POST /execute` → connector PATCH); there is no asynchronous confirmation loop analogous to the Razorpay refund connector's webhook receipt (3.5) and settlement closure (3.6/3.7/3.8/3.9) — those took four scoped milestones to build for Razorpay, and none of that has been started for HubSpot.
+
+* [FUTURE] Caller-auth enabled on the Razorpay and HubSpot connector integration paths: not started. 3.16's caller-to-capability scoping mechanism is implemented and tested, but both connector paths currently run with `callerAuth: "disabled"` and no `ApiKeyEntry`, so neither `razorpay:refund-create` nor `hubspot:deal-update` — the only two capabilities actually reachable in production — is scoped by caller today. This is the specific follow-on work that would make 3.16 meaningful for real money-moving/CRM-moving traffic, not merely test fixtures.
 
 * [FUTURE] HubSpot multi-object transactions: no implementation exists; each `hubspot:deal-update` call is a single Deal PATCH, not a coordinated multi-object write.
 

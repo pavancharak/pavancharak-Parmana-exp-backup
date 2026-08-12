@@ -7,6 +7,14 @@ export interface CallerIdentity {
    * callerId itself" — see ApiKeyEntry.allowedPrincipalIds.
    */
   readonly allowedPrincipalIds?: readonly string[];
+
+  /**
+   * The set of capabilities (Intent.action values) this caller may
+   * invoke. Undefined or empty means the caller-auth layer denies
+   * every capability — see ApiKeyEntry.allowedCapabilities for the
+   * fail-closed default and the "*" wildcard convention.
+   */
+  readonly allowedCapabilities?: readonly string[];
 }
 
 /**

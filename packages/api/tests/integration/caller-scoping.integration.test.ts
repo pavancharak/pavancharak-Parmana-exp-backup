@@ -38,11 +38,13 @@ describe("Caller scoping (HTTP boundary, IDOR regression)", () => {
         callerId: "caller-a",
         keyHash: hashApiKey(CALLER_A_KEY),
         allowedPrincipalIds: ["integration-test"],
+        allowedCapabilities: ["test:fixture-execute"],
       },
       {
         callerId: "caller-b",
         keyHash: hashApiKey(CALLER_B_KEY),
         allowedPrincipalIds: ["integration-test"],
+        allowedCapabilities: ["test:fixture-execute"],
       },
     ]);
 

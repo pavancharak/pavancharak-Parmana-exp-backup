@@ -7,6 +7,9 @@ import type {
 
 import { BusinessTransactionMapper } from "../mappers/BusinessTransactionMapper.js";
 import { isPrincipalAllowed } from "../auth/isPrincipalAllowed.js";
+import { isCapabilityAllowed } from "../auth/isCapabilityAllowed.js";
+import type { CallerAuditSink } from "../auth/CallerAuditSink.js";
+import { recordCallerAuditEvent } from "../auth/recordCallerAuditEvent.js";
 import type {
   ExecutionTrustApplication,
 } from "@parmana/runtime";
@@ -30,6 +33,7 @@ function isValidBusinessTransactionId(
  */
 export function createExecuteRouter(
   application: ExecutionTrustApplication,
+  auditSink?: CallerAuditSink,
 ): Router {
   const router = Router();
 
@@ -83,6 +87,47 @@ export function createExecuteRouter(
             res.status(403).json({
               error:
                 "Caller is not permitted to assert this authority.principalId.",
+            });
+            return;
+          }
+        }
+
+        //
+        // Caller capability binding: an authenticated caller may only
+        // invoke a capability (intent.action) it is explicitly
+        // permitted to invoke (see isCapabilityAllowed.ts). Runs
+        // before the transaction ever reaches application.execute()
+        // -- i.e. before CapabilityPolicyBinder/PolicyEngine.evaluate
+        // are reached -- since neither of those is caller-aware by
+        // design. Skipped only when caller-auth itself is disabled
+        // (no req.callerId at all), matching isPrincipalAllowed's own
+        // no-caller-identity posture above.
+        //
+        if (req.callerId !== undefined) {
+          const action = transaction.intent?.action;
+
+          if (!isCapabilityAllowed(action, req.callerAllowedCapabilities)) {
+            if (auditSink) {
+              const recorded = await recordCallerAuditEvent(
+                auditSink,
+                {
+                  type: "caller.capability_denied",
+                  occurredAt: new Date().toISOString(),
+                  route: req.originalUrl,
+                  callerId: req.callerId,
+                  ...(action !== undefined ? { capability: action } : {}),
+                  reason: "capability not allowed",
+                },
+                req,
+                next,
+              );
+
+              if (!recorded) return;
+            }
+
+            res.status(403).json({
+              error: "Caller is not permitted to invoke this capability.",
+              code: "CAPABILITY_NOT_ALLOWED",
             });
             return;
           }

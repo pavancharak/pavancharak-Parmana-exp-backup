@@ -129,11 +129,32 @@ export function parseApiKeys(value?: string): ApiKeyEntry[] {
       }
     }
 
+    const allowedCapabilities = record.allowedCapabilities;
+
+    if (allowedCapabilities !== undefined) {
+      const validAllowedCapabilities =
+        Array.isArray(allowedCapabilities) &&
+        allowedCapabilities.every(
+          (capability) => typeof capability === "string" && capability !== "",
+        );
+
+      if (!validAllowedCapabilities) {
+        throw new Error(
+          `PARMANA_API_KEYS[${index}].allowedCapabilities must be an array ` +
+            "of non-empty strings when present. Use \"*\" as an entry to " +
+            "grant every capability.",
+        );
+      }
+    }
+
     return {
       callerId: record.callerId as string,
       keyHash: record.keyHash as string,
       ...(allowedPrincipalIds !== undefined
         ? { allowedPrincipalIds: allowedPrincipalIds as readonly string[] }
+        : {}),
+      ...(allowedCapabilities !== undefined
+        ? { allowedCapabilities: allowedCapabilities as readonly string[] }
         : {}),
     };
   });

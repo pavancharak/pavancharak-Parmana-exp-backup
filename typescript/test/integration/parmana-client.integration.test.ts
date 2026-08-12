@@ -180,6 +180,7 @@ beforeAll(async () => {
       callerId: "typescript-sdk-integration-test",
       keyHash: hashApiKey(RAW_API_KEY),
       allowedPrincipalIds: ["typescript-sdk-integration-test"],
+      allowedCapabilities: ["test:fixture-execute"],
     },
   ]);
 
