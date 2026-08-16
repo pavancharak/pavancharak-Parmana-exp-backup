@@ -60,8 +60,8 @@ Records are stored, two other components, the Execution Gateway's replay-nonce s
 will fail closed against this repo's demo Supabase credentials otherwise. With
 `NODE_ENV=test`, a generic, test-only connector (`test-fixture`,
 `packages/api/src/bootstrap/createTestFixtureConnector.ts`) registers automatically, no
-credential environment variable required — unlike the two real connectors this server can
-also register (`razorpay`, `hubspot`), which need real API credentials and are not this
+credential environment variable required — unlike the one real connector this server can
+also register (`hubspot`), which needs real API credentials and is not this
 walkthrough's subject:
 
 ```bash

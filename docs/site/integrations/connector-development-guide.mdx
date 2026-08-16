@@ -188,22 +188,22 @@ connector's own [FUTURE] section on its page ([Razorpay](/integrations/razorpay)
   call.* Don't rely on the vendor happening to reject it, that's an accident of their
   behavior, not something this codebase controls. `RazorpayConnector` didn't have this
   check originally, it survived only because Razorpay's real API happened to reject an
-  unrecognized key, see `docs/CLAIMS.md` §3.4's "defense-in-depth fix" paragraph for what
-  was added after the fact. `HubSpotConnector` refuses its own placeholder token against
+  unrecognized key — a defense-in-depth fix was added after the fact.
+  `HubSpotConnector` refuses its own placeholder token against
   `https://api.hubapi.com` from its first commit, see [HubSpot](/integrations/hubspot) and
   `packages/connector-hubspot/src/HubSpotConnector.ts`.
 - *Read the documented test-credential environment variable name directly, never through a
   bridge variable.* `createRazorpayCredentialProvider.ts`'s test-mode branch originally read
   a word-order-swapped bridge variable instead of the name `.env.example` actually
-  documented, fixed only after it drifted out of sync, see `docs/CLAIMS.md` §3.4.
+  documented, fixed only after it drifted out of sync.
   `createHubSpotCredentialProvider.ts` reads `TEST_HUBSPOT_PRIVATE_APP_TOKEN`, the exact
   documented name, with no bridge to get wrong.
 
 **Apply `boundSignals` hardening from the policy's first version, don't wait for an
 adversarial-testing session to find the gap.** `razorpay-refund/1.0.0` didn't declare
 `boundSignals` until a live demonstration showed a caller could declare small, verified
-signals while `intent` executed something else, see `docs/CLAIMS.md` §3.4's
-"adversarial-testing hardening session" update. `hubspot-deal-update/1.0.0` declares
+signals while `intent` executed something else, closed in an adversarial-testing
+hardening session. `hubspot-deal-update/1.0.0` declares
 `boundSignals` binding `proposedDealStage`/`proposedAmount` to their `intent.parameters`
 fields from its first commit, closing the same class of gap before any live demonstration
 of it existed. See [Policies and the decision](/concepts/policies-and-the-decision).
@@ -226,7 +226,7 @@ apply a small reversible change, verify independently, revert, in the same run. 
 live suite nudges a real test deal's `amount` by a small within-threshold delta and reverts
 it before finishing, safe to rerun indefinitely. Razorpay's refund is irreversible by
 construction, its captured test payment's refundable remainder depletes by a fixed amount
-on every live run, see `docs/CLAIMS.md` §3.4 for what that costs in practice.
+on every live run — a real operational cost of testing against a real endpoint.
 
 **Disclose what actually happened, including when the mechanism catches your own mistake.**
 HubSpot's first live amount-change test run failed with a policy denial the test author

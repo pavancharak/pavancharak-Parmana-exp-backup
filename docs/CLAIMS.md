@@ -686,7 +686,7 @@ A policy `REJECTED` decision surfaces as `HTTP 403` with `code: "POLICY_DENIED"`
 
 
 
-Scope, precisely: the `409` path is reachable today only by a receiving system calling `@parmana/execution-gateway`'s `ExecutionGateway.execute()` directly with an already-consumed authorization (the library-level guarantee this closes). It is not reachable through Parmana's own default `POST /execute` / `POST /transactions` routes, because a resubmitted `businessTransactionId` is rejected with the existing `409` `DuplicateBusinessTransactionError` (2.20) before `RuntimeEngine`, policy evaluation, or the Gateway are ever reached; the same admission-time layer that already made `docs/CLAIMS.md` 3.4's live idempotency proof.
+Scope, precisely: the `409` path is reachable today only by a receiving system calling `@parmana/execution-gateway`'s `ExecutionGateway.execute()` directly with an already-consumed authorization (the library-level guarantee this closes). It is not reachable through Parmana's own default `POST /execute` / `POST /transactions` routes, because a resubmitted `businessTransactionId` is rejected with the existing `409` `DuplicateBusinessTransactionError` (2.20) before `RuntimeEngine`, policy evaluation, or the Gateway are ever reached — the same admission-time layer this repository's now-removed Razorpay connector relied on for its own live idempotency proof, documented in this file until the connector's removal on 2026-08-12; see `docs/site/changelog.mdx` for the dated record.
 
 
 

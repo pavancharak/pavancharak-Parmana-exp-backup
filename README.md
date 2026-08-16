@@ -51,10 +51,8 @@ What's actually been demonstrated, not just built:
   a small, fully-verified action while `intent` executed something else entirely. See
   [docs/VERIFICATION-GAPS.md](docs/VERIFICATION-GAPS.md) G-24 for the full incident, including
   the live proof-of-concept figures, and what's deliberately still open.
-- **Full chain against a real payment provider**: Razorpay refunds, authorized by policy, executed through the signed gateway pipeline, confirmed by a genuine Razorpay-initiated webhook, not one constructed by this codebase's own tests ([CLAIMS.md 3.6](docs/CLAIMS.md), [3.7](docs/CLAIMS.md)).
-- **Deployed on public infrastructure**, reachable, with caller authentication enforced at every route except health checks ([CLAIMS.md 3.8](docs/CLAIMS.md)).
-- **A live-mode, real-money refund**, created, delivered by Razorpay's own webhook infrastructure, fetch-verified, and settled into a signed confirmation in about 43 seconds end to end ([CLAIMS.md 3.9](docs/CLAIMS.md)).
-- Assessed at **Technology Readiness Level 7**, system prototype demonstration in an operational environment, on the strength of the two points above ([CLAIMS.md, Maturity Assessment](docs/CLAIMS.md)).
+- **A real external system, not a mock**: HubSpot deal-stage/amount updates, authorized by policy, executed through the signed gateway pipeline, proven against HubSpot's actual production API, including a real, non-destructive read-nudge-revert mutation on a real account ([CLAIMS.md 3.10](docs/CLAIMS.md)).
+- Assessed at **Technology Readiness Level 6**, system/subsystem model or prototype demonstration in a relevant environment, on the strength of the point above ([CLAIMS.md, Maturity Assessment](docs/CLAIMS.md)). A prior deployment briefly reached TRL 7 on Razorpay evidence before that connector was deliberately removed 2026-08-12 — see CLAIMS.md's Maturity Assessment for the full history.
 - **Independently source-code-validated**, not merely documented: a from-scratch audit checked whether an action can become real-world execution without satisfying institutional authorization, for every capability this system exposes and regardless of what kind of system requests it (AI agent, human, or otherwise) — tracing the actual execution path rather than trusting function names or comments. Verdict: **directly validated**, for the capabilities currently registered in production, with precisely scoped caveats stated alongside the result, not smoothed over ([docs/architecture/strategic-positioning-validation.md](docs/architecture/strategic-positioning-validation.md)).
 
 ## Architecture
@@ -89,7 +87,7 @@ Authority --> Authorization --> Intent --> Business Transaction
 | `@parmana/policy` | Deterministic policy evaluation, sequential rules, first-match semantics |
 | `@parmana/execution-gateway` | The sole boundary that releases an approved request to a connector |
 | `@parmana/execution-control` | Credential-isolating, single-use execution release |
-| `@parmana/connector-sdk` | Connector authoring contract; ships the Razorpay refund connector |
+| `@parmana/connector-sdk` | Connector authoring contract: capability definitions, schemas, and the Connector/CredentialProvider interfaces |
 | `@parmana/envelope-verifier` | Verifies a Parmana authorization independently, no trust in Parmana's runtime or database required |
 | `@parmana/crypto` | Signing and verification, Ed25519 by default, ML-DSA-65 (post-quantum) configurable |
 | `@parmana/receipt` | Signed, portable proof of execution |
@@ -127,20 +125,20 @@ For a real deployment, see [DEPLOYMENT.md](DEPLOYMENT.md). It covers
 required configuration, fail-closed startup validation, and what was
 verified against two real Fly.io deployments (test mode and live mode).
 
-A further tier of integration tests exercises Razorpay's real API and is
+A further tier of integration tests exercises HubSpot's real API and is
 opt-in, skipped by default so `npm test` never needs live credentials.
 The env vars involved (names only, see the test files for what each
-gates): `ALLOW_LIVE_RAZORPAY`, `RAZORPAY_TEST_KEY_ID`, `RAZORPAY_TEST_KEY_SECRET`,
-`RAZORPAY_TEST_WEBHOOK_SECRET`, `TEST_RAZORPAY_CAPTURED_PAYMENT_ID`, and
-separately `ALLOW_LIVE_SUPABASE` for the Supabase-gated storage suite.
+gates): `ALLOW_LIVE_HUBSPOT`, `TEST_HUBSPOT_PRIVATE_APP_TOKEN`,
+`TEST_HUBSPOT_DEAL_ID`, and separately `ALLOW_LIVE_SUPABASE` for the
+Supabase-gated storage suite.
 
 ## Status and scope
 
-Assessed at TRL 7 on the evidence in [docs/CLAIMS.md](docs/CLAIMS.md).
+Assessed at TRL 6 on the evidence in [docs/CLAIMS.md](docs/CLAIMS.md).
 Explicitly not claimed: sustained volume, load-bearing traffic, high
 availability, or multi-tenant production operation. The claims file also
-tracks what has no implementation yet, RazorpayX payouts and every
-non-Razorpay connector among them.
+tracks what has no implementation yet, every connector beyond HubSpot
+among them.
 
 We're looking for a small number of design partners to run Parmana
 against a real integration under real constraints. If that's you, or
