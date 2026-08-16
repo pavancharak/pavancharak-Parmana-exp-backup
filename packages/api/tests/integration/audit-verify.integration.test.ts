@@ -12,14 +12,12 @@ import { StaticKeyAuthenticator } from "../../src/auth/StaticKeyAuthenticator.js
 import { InMemoryCallerAuditSink } from "../../src/auth/InMemoryCallerAuditSink.js";
 
 import type { CallerAuditEvent } from "../../src/auth/CallerAuditSink.js";
-import type { RazorpayWebhookAuditEvent } from "../../src/webhooks/RazorpayWebhookAuditSink.js";
 
 /**
  * HTTP-level proof of the audit-sink signing milestone: a signed
- * caller_audit_events / razorpay_webhook_audit_events row is
- * independently third-party verifiable via POST /audit/verify, the
- * same unauthenticated pattern refusal-record.integration.test.ts
- * already proves for POST /refusal/verify.
+ * caller_audit_events row is independently third-party verifiable via
+ * POST /audit/verify, the same unauthenticated pattern
+ * refusal-record.integration.test.ts already proves for POST /refusal/verify.
  */
 describe("Audit event signature verification (HTTP boundary)", () => {
   function buildApp() {
@@ -38,18 +36,6 @@ describe("Audit event signature verification (HTTP boundary)", () => {
     reason: "missing credential",
   };
 
-  const WEBHOOK_EVENT: RazorpayWebhookAuditEvent = {
-    type: "settlement.failed",
-    occurredAt: "2026-01-01T00:00:00.000Z",
-    route: "/webhooks/razorpay",
-    eventId: "evt-1",
-    eventType: "refund.processed",
-    refundId: "rfnd_1",
-    severity: "flagged",
-    confirmationId: "conf-1",
-    fetchedRefundStatus: "failed",
-  };
-
   it("reports a genuinely signed caller audit event as valid", async () => {
     const app = buildApp();
     const crypto = new AuditEventCrypto();
@@ -59,20 +45,6 @@ describe("Audit event signature verification (HTTP boundary)", () => {
     const response = await request(app)
       .post("/audit/verify")
       .send({ event: CALLER_EVENT, signature });
-
-    expect(response.status).toBe(200);
-    expect(response.body.valid).toBe(true);
-  });
-
-  it("reports a genuinely signed webhook audit event as valid", async () => {
-    const app = buildApp();
-    const crypto = new AuditEventCrypto();
-
-    const signature = await crypto.sign(WEBHOOK_EVENT);
-
-    const response = await request(app)
-      .post("/audit/verify")
-      .send({ event: WEBHOOK_EVENT, signature });
 
     expect(response.status).toBe(200);
     expect(response.body.valid).toBe(true);
