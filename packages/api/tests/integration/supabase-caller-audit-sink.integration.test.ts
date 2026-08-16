@@ -12,7 +12,7 @@ import { resolveDatabaseGate } from "../helpers/database-availability.js";
 const databaseConfigured = resolveDatabaseGate("Supabase Caller Audit Sink");
 
 const SELECT_CALLER_AUDIT_EVENT_BY_ROUTE_SQL = `
-  SELECT type, route, caller_id, reason, capability
+  SELECT type, route, caller_id, reason, capability, principal_id
   FROM caller_audit_events
   WHERE route = $1
 `;
@@ -38,6 +38,11 @@ const SELECT_CALLER_AUDIT_EVENT_BY_ROUTE_SQL = `
  * applied — the "records a capability_denied event whose capability
  * survives the round trip" case below is the proof that migration
  * actually landed, not just that the code compiles against it.
+ *
+ * Also requires supabase/migrations/20260816120000_add_principal_
+ * to_caller_audit_events.sql (caller-principal-scoping) to have been
+ * applied — the "records a principal_denied event whose principalId
+ * survives the round trip" case below is that migration's own proof.
  */
 describe.skipIf(!databaseConfigured)("SupabaseCallerAuditSink (live)", () => {
   it("records an event that a fresh pool against the same backing can read back", async () => {
@@ -126,5 +131,35 @@ describe.skipIf(!databaseConfigured)("SupabaseCallerAuditSink (live)", () => {
     expect(rows[0].caller_id).toBe("integration-test-caller");
     expect(rows[0].capability).toBe("razorpay:refund-create");
     expect(rows[0].reason).toBe("capability not allowed");
+  });
+
+  it("records a principal_denied event whose principalId survives the round trip", async () => {
+    const route = `/test-${crypto.randomUUID()}`;
+
+    const event: CallerAuditEvent = {
+      type: "caller.principal_denied",
+      occurredAt: new Date().toISOString(),
+      route,
+      callerId: "integration-test-caller",
+      principalId: "someone-else",
+      reason: "principal not allowed",
+    };
+
+    const sink = new SupabaseCallerAuditSink(PostgresPoolFactory.create());
+
+    await sink.record(event);
+
+    const readingPool = PostgresPoolFactory.create();
+
+    const { rows } = await readingPool.query(
+      SELECT_CALLER_AUDIT_EVENT_BY_ROUTE_SQL,
+      [route],
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].type).toBe("caller.principal_denied");
+    expect(rows[0].caller_id).toBe("integration-test-caller");
+    expect(rows[0].principal_id).toBe("someone-else");
+    expect(rows[0].reason).toBe("principal not allowed");
   });
 });

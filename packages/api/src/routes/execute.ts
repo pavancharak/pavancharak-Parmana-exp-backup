@@ -72,7 +72,9 @@ export function createExecuteRouter(
         // actually permitted to assert (see isPrincipalAllowed.ts).
         // Skipped only when caller-auth itself is disabled (no
         // req.callerId at all), matching that mode's existing
-        // no-caller-identity posture.
+        // no-caller-identity posture. Audited the same way
+        // isCapabilityAllowed's own check just below is: a signed
+        // caller.principal_denied record, not just an HTTP response.
         //
         if (req.callerId !== undefined) {
           const principalId = transaction.authority?.principalId;
@@ -84,6 +86,24 @@ export function createExecuteRouter(
               req.callerAllowedPrincipalIds,
             )
           ) {
+            if (auditSink) {
+              const recorded = await recordCallerAuditEvent(
+                auditSink,
+                {
+                  type: "caller.principal_denied",
+                  occurredAt: new Date().toISOString(),
+                  route: req.originalUrl,
+                  callerId: req.callerId,
+                  ...(principalId !== undefined ? { principalId } : {}),
+                  reason: "principal not allowed",
+                },
+                req,
+                next,
+              );
+
+              if (!recorded) return;
+            }
+
             res.status(403).json({
               error:
                 "Caller is not permitted to assert this authority.principalId.",

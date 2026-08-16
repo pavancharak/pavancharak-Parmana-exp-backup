@@ -880,3 +880,29 @@ ON caller_audit_events (
     capability
 )
 WHERE capability IS NOT NULL;
+
+-- =============================================================================
+-- Source: supabase/migrations/20260816120000_add_principal_to_caller_audit_events.sql
+-- Caller-principal-binding audit trail (caller-to-principal scoping)
+-- =============================================================================
+
+ALTER TABLE caller_audit_events
+DROP CONSTRAINT IF EXISTS caller_audit_events_type_check;
+
+ALTER TABLE caller_audit_events
+ADD CONSTRAINT caller_audit_events_type_check
+CHECK (type IN (
+    'caller.authenticated',
+    'caller.rejected',
+    'caller.capability_denied',
+    'caller.principal_denied'
+));
+
+ALTER TABLE caller_audit_events
+ADD COLUMN IF NOT EXISTS principal_id TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_caller_audit_events_principal_id
+ON caller_audit_events (
+    principal_id
+)
+WHERE principal_id IS NOT NULL;

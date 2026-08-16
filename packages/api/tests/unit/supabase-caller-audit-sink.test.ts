@@ -75,8 +75,16 @@ function createFakePool(options?: {
  * INSERT_CALLER_AUDIT_EVENT_SQL, for readable assertions.
  */
 function toRow(values: readonly unknown[]): Record<string, unknown> {
-  const [type, occurred_at, route, caller_id, reason, capability, signature_json_raw] =
-    values;
+  const [
+    type,
+    occurred_at,
+    route,
+    caller_id,
+    reason,
+    capability,
+    principal_id,
+    signature_json_raw,
+  ] = values;
 
   return {
     type,
@@ -85,6 +93,7 @@ function toRow(values: readonly unknown[]): Record<string, unknown> {
     caller_id,
     reason,
     capability,
+    principal_id,
     signature_json: JSON.parse(signature_json_raw as string),
   };
 }
@@ -110,6 +119,15 @@ const CAPABILITY_DENIED_EVENT: CallerAuditEvent = {
   callerId: "caller-1",
   capability: "razorpay:refund-create",
   reason: "capability not allowed",
+};
+
+const PRINCIPAL_DENIED_EVENT: CallerAuditEvent = {
+  type: "caller.principal_denied",
+  occurredAt: "2026-01-01T00:00:00.000Z",
+  route: "/execute",
+  callerId: "caller-1",
+  principalId: "someone-else",
+  reason: "principal not allowed",
 };
 
 describe("SupabaseCallerAuditSink", () => {
@@ -139,6 +157,7 @@ describe("SupabaseCallerAuditSink", () => {
       caller_id: "caller-1",
       reason: null,
       capability: null,
+      principal_id: null,
       signature_json: {
         algorithm: "ed25519",
         keyId: "default",
@@ -168,6 +187,7 @@ describe("SupabaseCallerAuditSink", () => {
       caller_id: null,
       reason: "missing credential",
       capability: null,
+      principal_id: null,
       signature_json: {
         algorithm: "ed25519",
         keyId: "default",
@@ -197,6 +217,37 @@ describe("SupabaseCallerAuditSink", () => {
       caller_id: "caller-1",
       reason: "capability not allowed",
       capability: "razorpay:refund-create",
+      principal_id: null,
+      signature_json: {
+        algorithm: "ed25519",
+        keyId: "default",
+        value: expect.any(String),
+        signedAt: expect.any(String),
+      },
+    });
+  });
+
+  it("maps a principal_denied event's principalId and reason", async () => {
+    let capturedRow: Record<string, unknown> | undefined;
+
+    const sink = new SupabaseCallerAuditSink(
+      createFakePool({
+        onInsert: (values) => {
+          capturedRow = toRow(values);
+        },
+      }),
+    );
+
+    await sink.record(PRINCIPAL_DENIED_EVENT);
+
+    expect(capturedRow).toEqual({
+      type: "caller.principal_denied",
+      occurred_at: "2026-01-01T00:00:00.000Z",
+      route: "/execute",
+      caller_id: "caller-1",
+      reason: "principal not allowed",
+      capability: null,
+      principal_id: "someone-else",
       signature_json: {
         algorithm: "ed25519",
         keyId: "default",

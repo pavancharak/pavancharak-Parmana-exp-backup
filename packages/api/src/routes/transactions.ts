@@ -166,6 +166,24 @@ router.post(
             req.callerAllowedPrincipalIds,
           )
         ) {
+          if (auditSink) {
+            const recorded = await recordCallerAuditEvent(
+              auditSink,
+              {
+                type: "caller.principal_denied",
+                occurredAt: new Date().toISOString(),
+                route: req.originalUrl,
+                callerId: req.callerId,
+                ...(principalId !== undefined ? { principalId } : {}),
+                reason: "principal not allowed",
+              },
+              req,
+              next,
+            );
+
+            if (!recorded) return;
+          }
+
           res.status(403).json({
             error:
               "Caller is not permitted to assert this authority.principalId.",

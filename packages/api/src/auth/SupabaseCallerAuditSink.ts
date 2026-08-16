@@ -34,11 +34,13 @@ import type { CallerAuditEvent, CallerAuditSink } from "./CallerAuditSink.js";
  *
  * CallerAuditEvent.capability (caller-capability-scoping milestone,
  * supabase/migrations/20260812120000_add_capability_to_caller_audit_
- * events.sql) is signed as part of the event
+ * events.sql) and CallerAuditEvent.principalId (caller-principal-
+ * scoping milestone, supabase/migrations/20260816120000_add_principal_
+ * to_caller_audit_events.sql) are each signed as part of the event
  * (this.crypto.sign(event) below covers the full object) and written
- * to its own nullable column here, the same as every other optional
- * field — null on events that don't concern a specific capability
- * (caller.authenticated, caller.rejected).
+ * to their own nullable column here, the same as every other optional
+ * field — null on events that don't concern a specific capability or
+ * principal (caller.authenticated, caller.rejected).
  *
  * TEMPORARY WORKAROUND: writes via a direct Postgres connection (see
  * PostgresPoolFactory), not supabase-js — PostgREST's schema cache is
@@ -51,9 +53,9 @@ import type { CallerAuditEvent, CallerAuditSink } from "./CallerAuditSink.js";
  */
 const INSERT_CALLER_AUDIT_EVENT_SQL = `
   INSERT INTO caller_audit_events
-    (type, occurred_at, route, caller_id, reason, capability, signature_json)
+    (type, occurred_at, route, caller_id, reason, capability, principal_id, signature_json)
   VALUES
-    ($1, $2, $3, $4, $5, $6, $7::jsonb)
+    ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
 `;
 
 export class SupabaseCallerAuditSink implements CallerAuditSink {
@@ -71,6 +73,7 @@ export class SupabaseCallerAuditSink implements CallerAuditSink {
       event.callerId ?? null,
       event.reason ?? null,
       event.capability ?? null,
+      event.principalId ?? null,
       JSON.stringify(signature),
     ]);
   }
