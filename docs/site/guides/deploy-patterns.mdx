@@ -79,8 +79,6 @@ PARMANA_STORAGE=memory                        # or: supabase
 PARMANA_POLICY_DIR=/absolute/path/to/policies
 PARMANA_KEY_DIR=/absolute/path/to/keys
 PARMANA_GATEWAY_KEY_ID=gateway                 # optional, defaults to "gateway"
-RAZORPAY_KEY_ID=...                            # credential for the razorpay connector, omit to leave it unregistered
-RAZORPAY_KEY_SECRET=...
 HUBSPOT_PRIVATE_APP_TOKEN=...                  # credential for the hubspot connector, omit to leave it unregistered
 PRIMARY_SIGNATURE_PROVIDER=ed25519             # or: dilithium3, needs Node >= 24
 HASH_PROVIDER=sha256
@@ -197,10 +195,9 @@ environment-variable toggle for this today, it's a code change.
 - **Single process, single instance.** No shared `NonceStore` across replicas, a fleet of
   these processes would each accept the same authorization once, not once fleet-wide
   (CLAIMS.md 3.2).
-- **Zero connectors registered by default.** `razorpay` and `hubspot` each register only
-  when their respective credentials are configured
-  (`RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET`, `HUBSPOT_PRIVATE_APP_TOKEN`); with neither set,
-  every capability fails closed with "No connector registered for capability." See [Add a
+- **Zero connectors registered by default.** `hubspot` registers only when its
+  credentials are configured (`HUBSPOT_PRIVATE_APP_TOKEN`); with it unset, every
+  capability fails closed with "No connector registered for capability." See [Add a
   connector with the Connector SDK](/guides/add-a-connector) for what adding another
   requires today.
 

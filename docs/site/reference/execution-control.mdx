@@ -71,7 +71,7 @@ import { InMemorySessionCredentialVault, RandomIdGenerator, SystemClock } from "
 const vault = new InMemorySessionCredentialVault({
   credentials, clock: new SystemClock(), idGenerator: new RandomIdGenerator(), lifetimeMs: 30_000,
 });
-const session = await vault.issue("razorpay", authorizationId);
+const session = await vault.issue("hubspot", authorizationId);
 const credential = await vault.consume(session.sessionCredentialId); // only once
 ```
 

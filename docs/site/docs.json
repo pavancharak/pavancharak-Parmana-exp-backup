@@ -56,8 +56,7 @@
               "guides/verify-independently",
               "guides/detect-tampering",
               "guides/choose-a-signature-provider",
-              "guides/deploy-patterns",
-              "guides/verify-razorpay-webhooks"
+              "guides/deploy-patterns"
             ]
           },
           {
@@ -132,7 +131,6 @@
             "pages": [
               "integrations/overview",
               "integrations/connector-development-guide",
-              "integrations/razorpay",
               "integrations/hubspot"
             ]
           },

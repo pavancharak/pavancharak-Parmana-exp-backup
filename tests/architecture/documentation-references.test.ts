@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -96,5 +96,132 @@ describe("documentation file references resolve to real files", () => {
       const cleaned = referencedPath.endsWith("/") ? referencedPath.slice(0, -1) : referencedPath;
       expect(existsSync(join(repoRoot, cleaned))).toBe(true);
     });
+  }
+});
+
+/**
+ * Extension of the same check above, for a different citation shape: prose
+ * naming a CLAIMS.md section number (`CLAIMS.md 3.8`, `` `CLAIMS.md` §3.4 ``,
+ * `[CLAIMS.md 3.6](docs/CLAIMS.md)`, `CLAIMS.md 3.6 through 3.9`, etc. — no
+ * single exact phrase covers every citation style actually in use, so this
+ * matches on proximity: any `N.M` token found shortly after the literal
+ * string "CLAIMS.md" on the same line) rather than a file path. Two real
+ * instances of this exact bug surfaced during the Razorpay removal
+ * (2026-08-12): a citation to `3.4` and an implied `3.6 through 3.9` range,
+ * both pointing at sections deleted outright (not renumbered) alongside the
+ * connector. A follow-up scan of the whole repo found two more — including
+ * docs/CLAIMS.md citing its own deleted §3.4 — confirming this rots
+ * silently and is worth guarding, same as the path check above.
+ *
+ * Scope is deliberately the living, currently-accurate documentation
+ * surface only: docs/CLAIMS.md itself, the customer/investor-facing docs
+ * site (docs/site/**\/*.mdx), and the root-level docs that track the same
+ * present-tense state (README.md, DEPLOYMENT.md, SECURITY.md). The
+ * audit-trail (docs/VERIFICATION-GAPS.md, docs/architecture/phase*.md,
+ * docs/ROADMAP-v1.md, etc.) is deliberately excluded, for the same reason
+ * docsToCheck above never included them: those are dated investigation
+ * logs that correctly cite a section number as it existed at the time of
+ * writing, not living documentation expected to track the present.
+ *
+ * No allowlist for intentional historical section citations exists here
+ * (unlike HISTORICALLY_REAL_NOW_REMOVED_PATHS above) because none of the
+ * citations found when this check was written were deliberate — every one
+ * was ordinary staleness from an unrelated deletion, not a citation
+ * authored with foreknowledge that its target would later be removed. If a
+ * genuine case like that shows up, follow HISTORICALLY_REAL_NOW_REMOVED_PATHS's
+ * precedent above rather than building something new.
+ */
+
+const CLAIMS_MD_PATH = "docs/CLAIMS.md";
+
+/** Every .mdx file under a directory, recursively, as repo-relative forward-slash paths. */
+function collectMdxFiles(relDir: string): string[] {
+  const absDir = join(repoRoot, relDir);
+  if (!existsSync(absDir)) return [];
+
+  const out: string[] = [];
+  for (const entry of readdirSync(absDir)) {
+    const relPath = join(relDir, entry);
+    if (statSync(join(repoRoot, relPath)).isDirectory()) {
+      out.push(...collectMdxFiles(relPath));
+    } else if (extname(entry) === ".mdx") {
+      out.push(relPath.split("\\").join("/"));
+    }
+  }
+  return out;
+}
+
+const CITATION_DOCS = [
+  CLAIMS_MD_PATH,
+  "README.md",
+  "DEPLOYMENT.md",
+  "SECURITY.md",
+  ...collectMdxFiles("docs/site"),
+];
+
+/** How far past the literal "CLAIMS.md" a section-number token is still considered a citation of it, not an unrelated nearby number. Bounded to one line, never crosses a line break. */
+const CITATION_WINDOW_CHARS = 80;
+
+interface SectionCitation {
+  line: number;
+  number: string;
+  snippet: string;
+}
+
+function extractSectionCitations(content: string): SectionCitation[] {
+  const citations: SectionCitation[] = [];
+
+  content.split("\n").forEach((lineText, index) => {
+    for (const claimsMatch of lineText.matchAll(/CLAIMS\.md/g)) {
+      const windowStart = claimsMatch.index! + claimsMatch[0].length;
+      const window = lineText.slice(windowStart, windowStart + CITATION_WINDOW_CHARS);
+
+      for (const numberMatch of window.matchAll(/\d+\.\d+/g)) {
+        citations.push({
+          line: index + 1,
+          number: numberMatch[0],
+          snippet: lineText.trim().slice(0, 160),
+        });
+      }
+    }
+  });
+
+  return citations;
+}
+
+/** Every `## N.M` / `### N.M` header currently in docs/CLAIMS.md — read live, not a hardcoded copy that could itself drift. */
+function currentClaimsMdSectionNumbers(): Set<string> {
+  const content = readFileSync(join(repoRoot, CLAIMS_MD_PATH), "utf8");
+  const numbers = new Set<string>();
+
+  for (const match of content.matchAll(/^#{2,3}\s+(\d+\.\d+)/gm)) {
+    numbers.add(match[1]!);
+  }
+
+  return numbers;
+}
+
+describe("CLAIMS.md section citations resolve to real headers", () => {
+  const claimsSections = currentClaimsMdSectionNumbers();
+
+  it("docs/CLAIMS.md has at least one numbered section (sanity check the scan isn't vacuous)", () => {
+    expect(claimsSections.size).toBeGreaterThan(0);
+  });
+
+  for (const docPath of CITATION_DOCS) {
+    const absPath = join(repoRoot, docPath);
+    if (!existsSync(absPath)) continue;
+
+    const content = readFileSync(absPath, "utf8");
+    const citations = extractSectionCitations(content);
+
+    if (citations.length === 0) continue;
+
+    it.each(citations)(
+      `${docPath}:$line cites CLAIMS.md $number, which is a real header`,
+      ({ number }) => {
+        expect(claimsSections.has(number)).toBe(true);
+      },
+    );
   }
 });

@@ -20,7 +20,7 @@ reasonable window to fix and deploy before any public disclosure.
 ## Scope
 
 In scope: the runtime, policy engine, execution gateway, cryptographic
-signing and verification, the connector SDK and its Razorpay connector,
+signing and verification, the connector SDK and its HubSpot connector,
 the REST API and its authentication/webhook handling, and the envelope
 verifier. See [docs/CLAIMS.md](docs/CLAIMS.md) for exactly what each of
 these claims to do today.

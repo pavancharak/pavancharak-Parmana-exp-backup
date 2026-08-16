@@ -50,7 +50,6 @@ The only two connectors in this codebase that call a real external system; every
 offered as a reference (SAP, Salesforce, Workday, Oracle) is a mock, and no other capability
 registers by default at all.
 
-- [Razorpay](https://docs.parmanasystems.com/integrations/razorpay): policy-gated refund creation, a verified webhook, and a signed settlement confirmation, proven end to end in both test mode and live mode. Every signal the `razorpay-refund` policy evaluates is independently verified against a real Razorpay payment fetch before an approval stands, not caller-declared.
 - [HubSpot](https://docs.parmanasystems.com/integrations/hubspot): policy-gated updates to a Deal's `dealstage` and `amount`. `preAuthorizedForAmountChange` is verified against a real, signed Approval Artifact, not taken on faith — though the trusted-issuer registry ships empty by default, so no such artifact can pass in an unconfigured deployment.
 
 ## Known limitations
