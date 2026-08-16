@@ -8,6 +8,7 @@ from .http_error import (
     InternalServerError,
     NotFoundError,
     ParmanaHttpError,
+    RateLimitError,
     ServerError,
     ValidationError,
 )
@@ -27,6 +28,7 @@ __all__ = [
     "NotFoundError",
     "ParmanaError",
     "ParmanaHttpError",
+    "RateLimitError",
     "ReplayError",
     "ServerError",
     "TimeoutError",

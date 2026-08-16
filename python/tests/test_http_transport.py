@@ -23,6 +23,7 @@ from parmana.errors import (
     ExecutionRejectedError,
     NetworkError,
     NotFoundError,
+    RateLimitError,
     ServerError,
     ValidationError,
 )
@@ -170,6 +171,71 @@ def test_403_without_code_stays_authorization_error():
         _transport().send(method="POST", path="/execute", body={})
 
     assert not isinstance(excinfo.value, ExecutionRejectedError)
+
+
+@responses.activate
+def test_403_capability_not_allowed_raises_authorization_error_with_server_code():
+    """
+    A caller-capability-scoping denial (isCapabilityAllowed.ts) carries
+    its own code, distinct from the plain caller-identity 403 above (no
+    code at all) and from POLICY_DENIED (a different exception entirely)
+    -- checked ahead of the generic status-map lookup in build_http_error
+    for exactly this reason, and preserved on server_code instead of
+    being silently dropped.
+    """
+    responses.add(
+        responses.POST,
+        f"{ENDPOINT}/execute",
+        json={
+            "error": "Caller is not permitted to invoke this capability.",
+            "code": "CAPABILITY_NOT_ALLOWED",
+        },
+        status=403,
+    )
+
+    with pytest.raises(AuthorizationError) as excinfo:
+        _transport().send(method="POST", path="/execute", body={})
+
+    assert excinfo.value.status_code == 403
+    assert excinfo.value.server_code == "CAPABILITY_NOT_ALLOWED"
+
+
+@responses.activate
+def test_429_raises_rate_limit_error():
+    """
+    POST /execute is per-caller-identity rate limited (packages/api's
+    rate-limiting middleware). Used here rather than a GET path so this
+    test isn't entangled with HttpTransport's own 429 auto-retry
+    (status_forcelist), which is scoped to GET only.
+    """
+    responses.add(
+        responses.POST,
+        f"{ENDPOINT}/execute",
+        json={"error": "Too many requests."},
+        status=429,
+    )
+
+    with pytest.raises(RateLimitError) as excinfo:
+        _transport().send(method="POST", path="/execute", body={})
+
+    assert excinfo.value.status_code == 429
+    assert excinfo.value.retry_after_seconds is None
+
+
+@responses.activate
+def test_429_captures_retry_after_seconds_header():
+    responses.add(
+        responses.POST,
+        f"{ENDPOINT}/execute",
+        json={"error": "Too many requests."},
+        status=429,
+        headers={"Retry-After": "12"},
+    )
+
+    with pytest.raises(RateLimitError) as excinfo:
+        _transport().send(method="POST", path="/execute", body={})
+
+    assert excinfo.value.retry_after_seconds == 12.0
 
 
 @responses.activate

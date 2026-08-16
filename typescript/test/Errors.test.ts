@@ -24,6 +24,7 @@ import { ConflictError } from "../src/errors/ConflictError.js";
 import { ExecutionRejectedError } from "../src/errors/ExecutionRejectedError.js";
 import { InternalServerError } from "../src/errors/InternalServerError.js";
 import { NetworkError } from "../src/errors/NetworkError.js";
+import { RateLimitError } from "../src/errors/RateLimitError.js";
 import { TimeoutError } from "../src/errors/TimeoutError.js";
 import { ReplayError } from "../src/errors/ReplayError.js";
 import { VerificationError } from "../src/errors/VerificationError.js";
@@ -48,6 +49,7 @@ const CLASSES: ReadonlyArray<{
   { name: "InternalServerError", code: ErrorCode.INTERNAL_SERVER_ERROR, construct: (m, o) => new InternalServerError(m, o) },
   { name: "NetworkError", code: ErrorCode.NETWORK_ERROR, construct: (m, o) => new NetworkError(m, o) },
   { name: "TimeoutError", code: ErrorCode.TIMEOUT_ERROR, construct: (m, o) => new TimeoutError(m, o) },
+  { name: "RateLimitError", code: ErrorCode.RATE_LIMIT_ERROR, construct: (m, o) => new RateLimitError(m, o) },
   { name: "ReplayError", code: ErrorCode.REPLAY_ERROR, construct: (m, o) => new ReplayError(m, o) },
   { name: "VerificationError", code: ErrorCode.VERIFICATION_ERROR, construct: (m, o) => new VerificationError(m, o) },
 ];
@@ -86,6 +88,26 @@ describe("SDK error classes", () => {
   it("every ErrorCode value is unique", () => {
     const values = Object.values(ErrorCode);
     expect(new Set(values).size).toBe(values.length);
+  });
+
+  it("RateLimitError carries an optional retryAfterSeconds when supplied", () => {
+    const error = new RateLimitError("rate limited", { retryAfterSeconds: 30 });
+    expect(error.retryAfterSeconds).toBe(30);
+  });
+
+  it("RateLimitError omits retryAfterSeconds when not supplied", () => {
+    const error = new RateLimitError("rate limited");
+    expect(error.retryAfterSeconds).toBeUndefined();
+  });
+
+  it("AuthorizationError carries an optional serverCode when supplied", () => {
+    const error = new AuthorizationError("not allowed", { serverCode: "CAPABILITY_NOT_ALLOWED" });
+    expect(error.serverCode).toBe("CAPABILITY_NOT_ALLOWED");
+  });
+
+  it("AuthorizationError omits serverCode when not supplied", () => {
+    const error = new AuthorizationError("not allowed");
+    expect(error.serverCode).toBeUndefined();
   });
 });
 
@@ -160,6 +182,40 @@ describe("mapHttpErrorResponse", () => {
     });
     expect(error).toBeInstanceOf(AuthorizationError);
     expect(error).not.toBeInstanceOf(ExecutionRejectedError);
+  });
+
+  it('maps a 403 with code CAPABILITY_NOT_ALLOWED to AuthorizationError, preserving the code as serverCode', () => {
+    const error = mapHttpErrorResponse(403, {
+      error: "Caller is not permitted to invoke this capability.",
+      code: "CAPABILITY_NOT_ALLOWED",
+    });
+    expect(error).toBeInstanceOf(AuthorizationError);
+    expect((error as AuthorizationError).serverCode).toBe("CAPABILITY_NOT_ALLOWED");
+  });
+
+  it("maps 429 to RateLimitError, parsing Retry-After from headers", () => {
+    const error = mapHttpErrorResponse(
+      429,
+      { error: "Too many requests." },
+      { "retry-after": "30" },
+    );
+    expect(error).toBeInstanceOf(RateLimitError);
+    expect((error as RateLimitError).retryAfterSeconds).toBe(30);
+  });
+
+  it("maps 429 to RateLimitError with no retryAfterSeconds when the header is absent", () => {
+    const error = mapHttpErrorResponse(429, { error: "Too many requests." });
+    expect(error).toBeInstanceOf(RateLimitError);
+    expect((error as RateLimitError).retryAfterSeconds).toBeUndefined();
+  });
+
+  it("ignores a non-numeric Retry-After header", () => {
+    const error = mapHttpErrorResponse(
+      429,
+      { error: "Too many requests." },
+      { "retry-after": "not-a-number" },
+    );
+    expect((error as RateLimitError).retryAfterSeconds).toBeUndefined();
   });
 
   it("maps an uncoded 500 to InternalServerError", () => {

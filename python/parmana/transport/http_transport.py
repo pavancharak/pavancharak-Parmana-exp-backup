@@ -69,10 +69,20 @@ class HttpTransport(Transport):
         # retried here since the Runtime does not guarantee idempotency
         # for execute/verify/receipt/replay submissions.
         #
+        # 429 is in the forcelist too: GET /health,/ready are IP-rate-
+        # limited (see packages/api's rate-limiting middleware), and a
+        # caller polling them on a fixed interval should be able to just
+        # wait out the window rather than handling 429 specially. Still
+        # scoped to GET only via allowed_methods below, so POST /execute
+        # (also rate-limited) is never auto-retried here -- matches the
+        # non-idempotency reasoning above, not the rate-limit exception.
+        # urllib3's Retry honors a numeric Retry-After header on 429
+        # automatically (respect_retry_after_header defaults to True).
+        #
         retry = Retry(
             total=max_retries,
             backoff_factor=backoff_factor,
-            status_forcelist=[502, 503, 504],
+            status_forcelist=[429, 502, 503, 504],
             allowed_methods=frozenset({"GET"}),
             raise_on_status=False,
         )
@@ -211,4 +221,28 @@ class HttpTransport(Transport):
             response.status_code,
             message,
             code=code,
+            retry_after_seconds=self._retry_after_seconds(response),
         )
+
+    @staticmethod
+    def _retry_after_seconds(response: Response) -> float | None:
+        """
+        Parses the response's `Retry-After` header into seconds, when
+        present and numeric. Per RFC 9110 this header can also be an
+        HTTP-date; this API only ever sends the integer-seconds form
+        (express-rate-limit's default), so an HTTP-date is treated as
+        absent rather than guessed at -- mirrors
+        typescript/src/transport/mapHttpErrorResponse.ts's identical
+        extractRetryAfterSeconds behavior.
+        """
+        raw = response.headers.get("Retry-After")
+
+        if raw is None:
+            return None
+
+        try:
+            seconds = float(raw)
+        except ValueError:
+            return None
+
+        return seconds if seconds >= 0 else None

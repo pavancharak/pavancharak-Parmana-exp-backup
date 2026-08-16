@@ -23,6 +23,7 @@ import { RetryStrategy } from "../src/config/RetryPolicy.js";
 
 import { InternalServerError } from "../src/errors/InternalServerError.js";
 import { NetworkError } from "../src/errors/NetworkError.js";
+import { RateLimitError } from "../src/errors/RateLimitError.js";
 import { ValidationError } from "../src/errors/ValidationError.js";
 
 interface FakeResponseInit {
@@ -337,6 +338,72 @@ describe("HttpTransport retry logic", () => {
       ).rejects.toThrowError(ValidationError);
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries a 429 RateLimitError on GET /health,/ready (IP-rate-limited, safe to retry)", async () => {
+      vi.useFakeTimers();
+
+      let callCount = 0;
+      const fetchMock = vi.fn(async () => {
+        callCount += 1;
+        if (callCount < 2) {
+          return fakeResponse({ status: 429, body: { error: "Too many requests." } });
+        }
+        return fakeResponse({ status: 200, body: { status: "UP" } });
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const transport = new HttpTransport(
+        baseConfiguration({
+          retryPolicy: {
+            enabled: true,
+            maxAttempts: 3,
+            initialDelayMs: 20,
+            strategy: RetryStrategy.FIXED,
+          },
+        }),
+      );
+
+      const resultPromise = transport.send({ method: "GET", path: "/health" });
+
+      await vi.advanceTimersByTimeAsync(20);
+
+      const result = await resultPromise;
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(result.body).toEqual({ status: "UP" });
+    });
+
+    it("exhausts retries on a persistent 429 and throws the real RateLimitError", async () => {
+      vi.useFakeTimers();
+
+      const fetchMock = vi.fn(async () =>
+        fakeResponse({ status: 429, body: { error: "Too many requests." } }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+
+      const transport = new HttpTransport(
+        baseConfiguration({
+          retryPolicy: {
+            enabled: true,
+            maxAttempts: 2,
+            initialDelayMs: 5,
+            strategy: RetryStrategy.FIXED,
+          },
+        }),
+      );
+
+      const resultPromise = transport
+        .send({ method: "GET", path: "/health" })
+        .catch((error: unknown) => error);
+
+      await vi.advanceTimersByTimeAsync(5);
+      await vi.advanceTimersByTimeAsync(5);
+
+      const error = await resultPromise;
+
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(error).toBeInstanceOf(RateLimitError);
     });
 
     it("retries a genuine network failure (fetch rejection), not just an HTTP error status", async () => {

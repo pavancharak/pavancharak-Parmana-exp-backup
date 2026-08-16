@@ -36,6 +36,7 @@ import { ConflictError } from "../src/errors/ConflictError.js";
 import { ExecutionRejectedError } from "../src/errors/ExecutionRejectedError.js";
 import { InternalServerError } from "../src/errors/InternalServerError.js";
 import { NetworkError } from "../src/errors/NetworkError.js";
+import { RateLimitError } from "../src/errors/RateLimitError.js";
 import { TimeoutError } from "../src/errors/TimeoutError.js";
 import { ParmanaError } from "../src/errors/ParmanaError.js";
 
@@ -292,6 +293,58 @@ describe("HttpTransport", () => {
       await expect(
         transport.send({ method: "POST", path: "/execute" }),
       ).rejects.toThrowError(ExecutionRejectedError);
+    });
+
+    it('maps 403 with code CAPABILITY_NOT_ALLOWED to AuthorizationError, preserving serverCode', async () => {
+      // A caller-capability-scoping denial (isCapabilityAllowed.ts)
+      // carries its own code, distinct from the plain caller-identity
+      // 403 above (no code at all) and from POLICY_DENIED (a different
+      // error class entirely) -- checked ahead of the generic 403
+      // branch in mapHttpErrorResponse.ts for exactly this reason.
+      configureFetchMock(async () =>
+        fakeResponse({
+          status: 403,
+          body: {
+            error: "Caller is not permitted to invoke this capability.",
+            code: "CAPABILITY_NOT_ALLOWED",
+          },
+        }),
+      );
+
+      const transport = new HttpTransport(baseConfiguration());
+
+      const error = await transport
+        .send({ method: "POST", path: "/execute" })
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(AuthorizationError);
+      expect((error as AuthorizationError).serverCode).toBe(
+        "CAPABILITY_NOT_ALLOWED",
+      );
+    });
+
+    it("maps 429 to RateLimitError, parsing Retry-After from real response headers", async () => {
+      // POST /execute is per-caller-identity rate limited (packages/api's
+      // rate-limiting middleware); this proves the real fetch Headers
+      // iteration path (not just the unit-level extractRetryAfterSeconds
+      // helper) actually threads the header through HttpTransport into
+      // mapHttpErrorResponse.
+      configureFetchMock(async () =>
+        fakeResponse({
+          status: 429,
+          body: { error: "Too many requests." },
+          headers: { "retry-after": "12" },
+        }),
+      );
+
+      const transport = new HttpTransport(baseConfiguration());
+
+      const error = await transport
+        .send({ method: "POST", path: "/execute" })
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(RateLimitError);
+      expect((error as RateLimitError).retryAfterSeconds).toBe(12);
     });
 
     it('maps a generic uncoded 500 ("Internal Server Error") to InternalServerError', async () => {

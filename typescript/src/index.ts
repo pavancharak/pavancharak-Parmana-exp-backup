@@ -79,6 +79,7 @@ export * from "./errors/ConflictError.js";
 export * from "./errors/ExecutionRejectedError.js";
 export * from "./errors/InternalServerError.js";
 export * from "./errors/NetworkError.js";
+export * from "./errors/RateLimitError.js";
 export * from "./errors/ReplayError.js";
 export * from "./errors/TimeoutError.js";
 export * from "./errors/VerificationError.js";

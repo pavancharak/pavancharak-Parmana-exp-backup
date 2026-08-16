@@ -47,6 +47,10 @@ import {
 } from "../errors/InternalServerError.js";
 
 import {
+  RateLimitError,
+} from "../errors/RateLimitError.js";
+
+import {
   mapHttpErrorResponse,
 } from "./mapHttpErrorResponse.js";
 
@@ -68,13 +72,24 @@ const RETRYABLE_METHODS: readonly TransportRequest["method"][] = ["GET"];
  * statuses individually) -- so "retryable HTTP failure" is exactly
  * "InternalServerError on a GET", no separate status-code bookkeeping
  * needed. Network failures and timeouts are retryable regardless of
- * which HTTP status (if any) was ever reached.
+ * which HTTP status (if any) was ever reached. RateLimitError (429) is
+ * retryable too -- GET /health,/ready are IP-rate-limited (see
+ * packages/api's rate-limiting middleware) and a caller polling them on
+ * a fixed interval should be able to just wait out the window rather
+ * than handling 429 specially. POST /execute is also rate-limited, but
+ * RETRYABLE_METHODS already excludes POST for the unrelated
+ * non-idempotency reason above, so this doesn't risk a double-submit.
+ * Note: retry timing here still follows the configured backoff
+ * (delayForAttempt below), not RateLimitError.retryAfterSeconds -- the
+ * Runtime's hint is exposed on the error for a caller that wants to
+ * honor it directly, but isn't yet wired into this loop's own delay.
  */
 function isRetryableFailure(error: unknown): boolean {
   return (
     error instanceof NetworkError ||
     error instanceof TimeoutError ||
-    error instanceof InternalServerError
+    error instanceof InternalServerError ||
+    error instanceof RateLimitError
   );
 }
 
@@ -274,6 +289,7 @@ export class HttpTransport
         throw mapHttpErrorResponse(
           response.status,
           body,
+          headers,
         );
       }
 
