@@ -240,6 +240,57 @@ not taken on the original report's word:**
 
 ---
 
+## INC-9 — `main`'s entire commit history replaced with a single parentless root commit on GitHub (SECURITY)
+
+**What:** `origin/main` (`github.com/pavancharak/parmana-exp`) was found pointing at a single
+commit, `dcc9312` ("Initial Parmana backup") — a parentless root with the whole working tree
+(1,461 files, 274,468 insertions) committed at once, plus one commit on top of it (`70ce7aa`).
+The real history — 202 commits reaching back through `00dc491` to `ecc91db` (`master`'s last
+known-good point) — was gone from every ref GitHub advertised. Found incidentally, while
+verifying an unrelated commit during this session, not via proactive monitoring or a scheduled
+audit.
+
+**Impact:** GitHub's `main` showed "1 Commit" in place of the project's real 202-commit history.
+Confirmed **zero data loss**: the real commits were never actually deleted, only unreferenced by
+any branch GitHub exposed — see Recovery. No working-tree content, signing keys, or audit records
+were altered or lost; this was a history/provenance incident, not a data-integrity one.
+
+**Recovery:** the local git object database still had the real commits as reachable objects
+(`00dc491`'s commit object confirmed well-formed via `git cat-file`; its ancestry confirmed via
+`git merge-base ecc91db 00dc491` returning `ecc91db` itself — a genuine 128-commit chain, not
+coincidence). Three groups of real work that existed only in the broken `70ce7aa` tree — a
+HubSpot placeholder-token hygiene fix, the already-reviewed Batch 3 docs cleanup, and the
+principal-binding audit fix (INC-7's follow-on) — were re-derived as three fresh commits on a new
+branch (`recovery/main-from-00dc491`) off `00dc491`, each file diffed and verified byte-identical
+to `70ce7aa`'s tree before committing, so nothing was retyped or paraphrased from memory. The
+reconstructed branch was independently verified clean before touching `origin`: full test suite
+(146 files / 1,063 tests passed, 13/36 skipped, 0 failed), `tsc -b`, `npm run typecheck`, `npm run
+lint`, and the citation-integrity test (`tests/architecture/documentation-references.test.ts`,
+94/94) all green. Local `main` was then fast-forwarded to the verified branch and pushed with
+`git push --force-with-lease` (lease-protected — would have failed safely had `origin/main`
+changed again since the last fetch, rather than blindly overwriting). Restoration was confirmed
+by direct visual inspection on GitHub itself (202 commits, `ed50acd` at `HEAD`), not solely on the
+strength of local tool output.
+
+**Likely cause (unconfirmed):** a GitHub App integration for OpenAI's Codex had write access to
+this repository. The commit message ("Initial Parmana backup") and the parentless-root shape are
+consistent with an agentic tool performing a naive backup/reinitialize operation against the repo
+rather than working within its existing history. This is circumstantial: no direct log, API
+record, or admission ties Codex to this specific event, and no other explanation has been ruled
+out. Recorded here as the leading hypothesis, not a confirmed root cause.
+
+**Resolution:** Codex's GitHub App access has been uninstalled at the account level (not merely
+revoked for this one repository), removing the suspected access path regardless of whether it was
+the actual cause.
+
+**Still open:** root cause is unconfirmed, so nothing rules out a different integration or access
+path producing the same failure mode again. A periodic audit of installed GitHub Apps and OAuth
+integrations with write access, across all Parmana repositories (not just this one — `backup2`
+remains a separate remote with its own access grants), is not yet a standing practice and should
+become one.
+
+---
+
 ## Minor / dead-code findings (logged, non-urgent)
 
 - `LedgerSerializer.serialize()` — replacer-array misuse silently drops nested payload
