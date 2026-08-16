@@ -64,7 +64,7 @@ describe("createConnectorRegistry — hubspot capability availability", () => {
 
   it("registers hubspot when credentials are fully configured outside test mode", () => {
     process.env.NODE_ENV = "production";
-    process.env.HUBSPOT_PRIVATE_APP_TOKEN = "pat-na1-real-token";
+    process.env.HUBSPOT_PRIVATE_APP_TOKEN = "hubspot-test-token";
 
     const registry = buildRegistry();
 

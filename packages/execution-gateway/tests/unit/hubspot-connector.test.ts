@@ -16,7 +16,7 @@ import {
 
 import { GatewayHubSpotAdapter } from "../../src/connector-execution/index.js";
 
-const TOKEN = "HUBSPOT_TEST_TOKEN";
+const TOKEN = HUBSPOT_TEST_MODE_PLACEHOLDER_TOKEN;
 
 let server: MockHubSpotServer;
 

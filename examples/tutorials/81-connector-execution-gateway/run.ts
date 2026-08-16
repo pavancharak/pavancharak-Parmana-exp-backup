@@ -79,7 +79,7 @@ console.log("Scenario 3: Outside test mode, WITH a real-looking HubSpot credenti
 console.log("--------------------------------------------------");
 
 process.env.NODE_ENV = "production";
-process.env.HUBSPOT_PRIVATE_APP_TOKEN = "pat-na1-tutorial-token";
+process.env.HUBSPOT_PRIVATE_APP_TOKEN = "hubspot-tutorial-test-token";
 
 const registry3 = buildRegistry();
 console.log(`hubspot:deal-update    -> connector "${registry3.resolveCapability("hubspot:deal-update").connectorId}"`);

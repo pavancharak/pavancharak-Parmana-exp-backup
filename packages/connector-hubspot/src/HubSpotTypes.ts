@@ -59,7 +59,7 @@ export type HubSpotAllowedDealUpdateProperty = (typeof HUBSPOT_ALLOWED_DEAL_UPDA
  * closes the same gap from its first version instead of after an
  * incident.
  */
-export const HUBSPOT_TEST_MODE_PLACEHOLDER_TOKEN = "HUBSPOT_TEST_TOKEN";
+export const HUBSPOT_TEST_MODE_PLACEHOLDER_TOKEN = "hubspot-test-mode-placeholder";
 
 export interface HubSpotCredentialValue {
   readonly privateAppToken: string;
