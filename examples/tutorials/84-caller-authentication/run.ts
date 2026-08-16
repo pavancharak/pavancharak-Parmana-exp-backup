@@ -31,6 +31,8 @@ const { InMemoryCallerAuditSink } = await import(
 
 const CALLER_A_KEY = "tutorial-84-caller-a-key";
 const CALLER_B_KEY = "tutorial-84-caller-b-key";
+const CALLER_C_KEY = "tutorial-84-caller-c-key";
+const CALLER_D_KEY = "tutorial-84-caller-d-key";
 
 function vendorPaymentTransaction(): BusinessTransaction {
   const businessTransactionId = crypto.randomUUID();
