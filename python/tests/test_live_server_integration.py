@@ -94,7 +94,17 @@ def live_server() -> str:
     port = _free_port()
 
     api_keys = json.dumps(
-        [{"callerId": CALLER_ID, "keyHash": _hash_api_key(RAW_API_KEY)}]
+        [
+            {
+                "callerId": CALLER_ID,
+                "keyHash": _hash_api_key(RAW_API_KEY),
+                # Capability grants are fail-closed by default
+                # (isCapabilityAllowed.ts) -- mirrors
+                # typescript/test/integration/parmana-client.integration.test.ts's
+                # identical grant for the same fixture action.
+                "allowedCapabilities": ["test:fixture-execute"],
+            }
+        ]
     )
 
     with tempfile.TemporaryDirectory(prefix="parmana-pytest-keys-") as key_dir:
