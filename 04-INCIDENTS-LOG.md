@@ -291,6 +291,55 @@ become one.
 
 ---
 
+## INC-10 — Two shipped 1.1.0 SDK bugs, plus a stale version-constant bug forcing a 1.1.1 republish (RELEASE)
+
+**What:** During a pre-publish staleness check of `@parmana/sdk` (TypeScript) and `parmana`
+(Python) against current `parmana-exp`, two real bugs were found and fixed before publishing:
+`RateLimitError` was misclassified as `InternalServerError`, and `AuthorizationError`'s
+`serverCode` silently dropped `CAPABILITY_NOT_ALLOWED`. Both SDKs were then published clean as
+`@parmana/sdk@1.1.0` and `parmana@1.1.0`.
+
+A second, independent bug was found only after that publish: each SDK maintained its own
+manually-set version constant (`typescript/src/version.ts`'s `VERSION`,
+`python/parmana/version.py`'s `__version__`) alongside its real package manifest
+(`package.json` / `pyproject.toml`), and the two had never been kept in sync. Both published
+`1.1.0` packages therefore reported a stale, wrong version at runtime (TypeScript: `1.0.0`;
+Python: `1.0.5`) despite correct manifest metadata.
+
+**Impact:** anyone importing either package and checking its reported version (`VERSION`
+in TypeScript, `parmana.__version__` in Python) saw a wrong answer, with no indication from
+the package manifest that anything was off. Neither npm nor PyPI permits re-uploading a
+published version once live, so the only fix was a new release.
+
+**Near-miss (caught, not a failure):** separately, a first `npm publish` attempt was run from
+the repo root instead of `typescript/`, which would have published the entire proprietary
+monorepo publicly. It never went out — blocked by that root `package.json`'s own
+`private: true` flag, an existing safeguard doing exactly the job it was there for.
+
+**Resolution:** both SDKs were fixed and republished as `1.1.1`. A root-cause fix then landed
+so this class of bug can't recur: each language now derives its exported version from its own
+manifest at runtime instead of a second hardcoded string. TypeScript's `version.ts` reads
+`package.json` via `fs.readFileSync` resolved relative to `import.meta.url` (works unchanged
+from `src/`, from compiled `dist/`, and from an installed npm package, since npm always ships
+`package.json` regardless of the `files` field); a static JSON import was ruled out because
+`tsconfig.json`'s `rootDir: "src"` would reject a compile-time import of the parent directory's
+`package.json` without restructuring the build's output layout. Python's `version.py` reads
+`importlib.metadata.version("parmana")` at runtime, which setuptools already populates from
+`pyproject.toml`'s `version` field at install time, with a `PackageNotFoundError` fallback for
+an uninstalled source checkout.
+
+**Verified:** proven with a real throwaway-version test, not just asserted — both manifests
+were bumped to a scratch version (`9.9.9-test` / PEP 440's `9.9.9.dev0`), rebuilt/reinstalled,
+and the runtime-exported version was confirmed to follow automatically with zero edits to
+`version.py`/`version.ts`, before both manifests were reverted to `1.1.1`. Full test suites,
+typecheck, and lint were re-run clean for both packages afterward (Python: 67/67 tests, ruff,
+black, mypy strict; TypeScript: 145/145 tests, `tsc --noEmit`, eslint).
+
+**Current state:** `@parmana/sdk@1.1.1` and `parmana@1.1.1` are live and correct on npm and
+PyPI respectively; the root-cause fix is committed on `main`.
+
+---
+
 ## Minor / dead-code findings (logged, non-urgent)
 
 - `LedgerSerializer.serialize()` — replacer-array misuse silently drops nested payload
