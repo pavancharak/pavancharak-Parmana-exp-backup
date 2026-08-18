@@ -50,6 +50,14 @@ regexes = [
   # shape (word-hyphen-word.extension), not because they contain key material.
   '''ed25519-private\.pem''',
   '''dilithium3-private\.key''',
+
+  # Literal placeholder text "YOUR_API_KEY" in packages/governance-ui's
+  # diff view -- instructional curl examples telling a checker what to
+  # substitute their own bearer token in for, never a real credential.
+  # Flagged by gitleaks' default curl-auth-header rule purely because it
+  # appears after "Authorization: Bearer" in example curl commands, the
+  # same reasoning as the "my-secret-api-key" entry above.
+  '''YOUR_API_KEY''',
 ]
 
 paths = [
