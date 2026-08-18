@@ -4,6 +4,8 @@ import { ExecutionGate } from "./ExecutionGate.js";
 import { RuntimeAuthorizationSigner } from "./RuntimeAuthorizationSigner.js";
 import { RefusalRecordBuilder } from "./RefusalRecordBuilder.js";
 
+import { CryptoBootstrap, TrustRecordHasher } from "@parmana/crypto";
+
 import {
   BusinessTransaction,
   BusinessTransactionStatus,
@@ -56,6 +58,22 @@ import type {
  */
 export class RuntimeEngine {
   private readonly hookRunner: RuntimeHookRunner;
+
+  /**
+   * G-24 content-addressed evidence (policy-governance milestone).
+   * Self-contained, the same idiom RefusalCrypto/VerificationCrypto
+   * use, rather than another optional trailing constructor param --
+   * this is a pure, in-memory, side-effect-free computation over an
+   * already-loaded Policy document, never a dependency that can be
+   * "not configured" the way refusalRecordBuilder/signalStateVerifier
+   * legitimately can. Same TrustRecordHasher (canonicalize + sha256)
+   * every other content hash in this codebase uses, so this value is
+   * directly comparable to PolicyChangeCrypto.hashPolicyContent()'s
+   * output for the identical content -- see PolicyReference.contentHash's
+   * own doc comment and the deploy-time verification that reads it.
+   */
+  private readonly policyContentHasher =
+    new TrustRecordHasher(CryptoBootstrap.create());
 
   constructor(
     private readonly pipeline: RuntimePipeline,
@@ -172,6 +190,18 @@ export class RuntimeEngine {
       transaction,
       policy,
     );
+
+    //
+    // Content hash of the real loaded Policy document (G-24,
+    // policy-governance milestone) -- proves exactly what policy
+    // *content*, not merely which version string, was in force for
+    // this decision. Computed here, from `policy` (what actually
+    // loaded), never from `transaction.policy` (what the caller
+    // declared) -- see PolicyReference.contentHash's own doc comment.
+    //
+
+    const policyContentHash =
+      await this.policyContentHasher.hash(policy);
 
     //
     // Signal/Intent binding
@@ -436,6 +466,15 @@ export class RuntimeEngine {
         status:
           transaction.status ??
           BusinessTransactionStatus.RECEIVED,
+        // A copy, not a mutation of the caller-supplied transaction.policy
+        // (already persisted, contentHash-free, by BusinessTransactionService.accept
+        // before RuntimeEngine.execute ever runs) -- this contentHash-bearing
+        // version exists only on the copy embedded in the Execution Trust
+        // Record produced from this context.
+        policy: {
+          ...transaction.policy,
+          contentHash: policyContentHash,
+        },
       },
       decision,
       authorization,

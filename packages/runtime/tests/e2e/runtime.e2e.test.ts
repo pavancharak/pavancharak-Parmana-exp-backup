@@ -4,6 +4,8 @@ import { ExecutionBuilder } from "../../src/ExecutionBuilder.js";
 import { ExecutionGate } from "../../src/ExecutionGate.js";
 import { describe, expect, it } from "vitest";
 
+import { CryptoBootstrap, TrustRecordHasher } from "@parmana/crypto";
+
 import {
   Authority,
   Authorization,
@@ -125,6 +127,93 @@ signals: {
         result.trustRecord.businessTransactionId,
       ).toBe(
         transaction.businessTransactionId,
+      );
+    },
+  );
+
+  it(
+    "stamps transaction.policy.contentHash on the Execution Trust Record with a hash of the real loaded policy content (G-24, policy-governance milestone)",
+    async () => {
+      const runtime = new RuntimeEngine(
+        pipeline,
+        router,
+        policyEngine,
+        signalIntentBinder,
+        new DecisionBuilder(),
+        new ExecutionGate(),
+        new ExecutionBuilder(),
+        trustPipeline,
+        authorizationSigner,
+        120,
+      );
+
+      const transaction: BusinessTransaction = {
+        businessTransactionId: "tx-content-hash",
+
+        metadata: {
+          executionMode: "SYNC",
+        } as unknown as TransactionMetadata,
+
+        authority: {} as Authority,
+
+        authorization: {} as Authorization,
+
+        intent: {
+          intentId: "intent-content-hash",
+          authorizationId: "authorization-content-hash",
+          action: "payments:execute",
+          target: "vendor://payments",
+          parameters: {
+            amount: 100,
+          },
+          createdAt: new Date(),
+        },
+
+        // Caller-declared PolicyReference never carries contentHash --
+        // proof it's computed server-side, not merely passed through.
+        policy: {
+          name: "vendor-payment",
+          version: "2.0.0",
+          schemaVersion: "1.0.0",
+        },
+
+        signals: {
+          vendorVerified: true,
+          invoiceVerified: true,
+          paymentApproved: true,
+          sufficientFunds: true,
+          paymentAmount: 100,
+          riskScore: 10,
+          vendorId: "vendor://payments",
+        },
+
+        status: BusinessTransactionStatus.RECEIVED,
+
+        createdAt: new Date(),
+      };
+
+      const result = await runtime.execute(transaction);
+
+      const loadedPolicy = await policyRepository.load(
+        "vendor-payment",
+        "2.0.0",
+      );
+
+      const expectedContentHash = await new TrustRecordHasher(
+        CryptoBootstrap.create(),
+      ).hash(loadedPolicy);
+
+      expect(result.trustRecord.transaction.policy.contentHash).toBe(
+        expectedContentHash,
+      );
+
+      // Not a degenerate constant: different content hashes differently.
+      const differentContentHash = await new TrustRecordHasher(
+        CryptoBootstrap.create(),
+      ).hash({ ...loadedPolicy, policyVersion: "9.9.9" });
+
+      expect(result.trustRecord.transaction.policy.contentHash).not.toBe(
+        differentContentHash,
       );
     },
   );

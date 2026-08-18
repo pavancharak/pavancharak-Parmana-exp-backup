@@ -10,6 +10,7 @@ import { createApplication } from "./application.js";
 import { createCallerAuthenticator } from "./bootstrap/createCallerAuthenticator.js";
 import { createPolicyChangeStepUpVerifier } from "./bootstrap/createPolicyChangeStepUpVerifier.js";
 import { createPolicyChangeApprovalService } from "./bootstrap/createPolicyChangeApprovalService.js";
+import { runPolicyGovernanceIntegrityCheckAtStartup } from "./bootstrap/runPolicyGovernanceIntegrityCheckAtStartup.js";
 import { createApp } from "./app.js";
 
 /**
@@ -73,6 +74,20 @@ const HOST = process.env.HOST ?? "0.0.0.0";
 const server = app.listen(PORT, HOST, () => {
   console.log(`API running on http://${HOST}:${PORT}`);
 });
+
+/**
+ * Policy Governance deploy/startup integrity check (G-24) -- fired
+ * here, not awaited above the port bind, and not gated on
+ * callerAuth: unlike assertStorageConfigured/
+ * assertSigningKeyMaterialConfigured above, this check is fail-open
+ * by design (see its own doc comment) and must never delay the
+ * server from accepting traffic. It runs regardless of whether
+ * caller-auth is enabled -- it verifies live-file-vs-approval-record
+ * consistency in durable storage, a concern orthogonal to whether
+ * this process happens to have caller identity wiring turned on.
+ */
+runPolicyGovernanceIntegrityCheckAtStartup();
+
 // Graceful shutdown on SIGTERM/SIGINT — see createGracefulShutdown.ts
 // for the full reasoning and what it guards against.
 const SHUTDOWN_TIMEOUT_MS = Number(process.env.SHUTDOWN_TIMEOUT_MS ?? 10_000);
