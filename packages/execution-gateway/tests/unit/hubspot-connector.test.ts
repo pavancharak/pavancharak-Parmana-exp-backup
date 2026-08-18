@@ -269,7 +269,7 @@ describe("GatewayHubSpotAdapter", () => {
     expect(serialized).not.toContain(TOKEN);
     // Not merely "no full token": no substring of it of meaningful length
     // either -- for HubSpot the bearer token IS the entire credential, so
-    // the old truncated-literal-prefix format (`"pat-na1-1111..."`) leaked
+    // the old truncated-literal-prefix format leaked
     // genuine credential bytes.
     expect(serialized).not.toContain(TOKEN.slice(0, 12));
     expect(result.metadata?.bearerRedacted).toBe(redactHubSpotToken(TOKEN));
@@ -352,3 +352,4 @@ describe("GatewayHubSpotAdapter", () => {
     }
   });
 });
+
