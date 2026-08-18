@@ -297,6 +297,19 @@ describe("Policy Governance: isHumanCaller, maker != checker, step-up (HTTP boun
       expect(response.body.code).toBe("NON_HUMAN_CALLER_DENIED");
     });
 
+    it("denies a non-human caller attempting to reject, with 403 NON_HUMAN_CALLER_DENIED", async () => {
+      const { app } = buildApp();
+      const id = await proposeChange(app, "governance-reject-non-human");
+
+      const response = await request(app)
+        .post(`/policies/pending-changes/${id}/reject`)
+        .set("Authorization", `Bearer ${SERVICE_KEY}`)
+        .send({ rejectionReason: "does not meet bar" });
+
+      expect(response.status).toBe(403);
+      expect(response.body.code).toBe("NON_HUMAN_CALLER_DENIED");
+    });
+
     it("rejects the maker approving its own change with 403 SAME_ACTOR_CANNOT_APPROVE_OWN_CHANGE", async () => {
       const { app } = buildApp();
       const id = await proposeChange(app, "governance-approve-same-actor");
