@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { AuthorityType } from "@parmana/shared";
+
 import { hashApiKey } from "../../../src/auth/hashApiKey.js";
 import { StaticKeyAuthenticator } from "../../../src/auth/StaticKeyAuthenticator.js";
 
@@ -138,5 +140,28 @@ describe("StaticKeyAuthenticator", () => {
     ]);
 
     expect(authenticator.authenticate("the-real-key")?.allowedCapabilities).toBeUndefined();
+  });
+
+  it("propagates credentialHolderType onto the returned identity when configured", () => {
+    const authenticator = new StaticKeyAuthenticator([
+      {
+        callerId: "orchestrator-1",
+        keyHash: hashApiKey("the-real-key"),
+        credentialHolderType: AuthorityType.USER,
+      },
+    ]);
+
+    expect(authenticator.authenticate("the-real-key")).toEqual({
+      callerId: "orchestrator-1",
+      credentialHolderType: AuthorityType.USER,
+    });
+  });
+
+  it("omits credentialHolderType from the returned identity when not configured", () => {
+    const authenticator = new StaticKeyAuthenticator([
+      { callerId: "orchestrator-1", keyHash: hashApiKey("the-real-key") },
+    ]);
+
+    expect(authenticator.authenticate("the-real-key")?.credentialHolderType).toBeUndefined();
   });
 });

@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 
+import type { AuthorityType } from "@parmana/shared";
+
 import type { CallerAuthenticator } from "../auth/CallerAuthenticator.js";
 import type { CallerAuditSink } from "../auth/CallerAuditSink.js";
 import { recordCallerAuditEvent } from "../auth/recordCallerAuditEvent.js";
@@ -16,6 +18,8 @@ declare global {
       callerId?: string;
       callerAllowedPrincipalIds?: readonly string[];
       callerAllowedCapabilities?: readonly string[];
+      callerCredentialHolderType?: AuthorityType;
+      callerStepUpPublicKey?: string;
     }
   }
 }
@@ -88,6 +92,14 @@ return;
 
     if (identity.allowedCapabilities !== undefined) {
       req.callerAllowedCapabilities = identity.allowedCapabilities;
+    }
+
+    if (identity.credentialHolderType !== undefined) {
+      req.callerCredentialHolderType = identity.credentialHolderType;
+    }
+
+    if (identity.stepUpPublicKey !== undefined) {
+      req.callerStepUpPublicKey = identity.stepUpPublicKey;
     }
 
     const recorded = await recordCallerAuditEvent(

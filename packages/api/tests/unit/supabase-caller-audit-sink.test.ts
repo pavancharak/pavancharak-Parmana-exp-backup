@@ -83,6 +83,7 @@ function toRow(values: readonly unknown[]): Record<string, unknown> {
     reason,
     capability,
     principal_id,
+    severity,
     signature_json_raw,
   ] = values;
 
@@ -94,6 +95,7 @@ function toRow(values: readonly unknown[]): Record<string, unknown> {
     reason,
     capability,
     principal_id,
+    severity,
     signature_json: JSON.parse(signature_json_raw as string),
   };
 }
@@ -130,6 +132,15 @@ const PRINCIPAL_DENIED_EVENT: CallerAuditEvent = {
   reason: "principal not allowed",
 };
 
+const NON_HUMAN_DENIED_EVENT: CallerAuditEvent = {
+  type: "caller.non_human_denied",
+  occurredAt: "2026-01-01T00:00:00.000Z",
+  route: "/policies/pending-changes",
+  callerId: "caller-1",
+  reason: "credential is not provisioned as a verified human (credentialHolderType !== USER)",
+  severity: "flagged",
+};
+
 describe("SupabaseCallerAuditSink", () => {
   it("resolves on a successful insert", async () => {
     const sink = new SupabaseCallerAuditSink(createFakePool());
@@ -158,6 +169,7 @@ describe("SupabaseCallerAuditSink", () => {
       reason: null,
       capability: null,
       principal_id: null,
+      severity: null,
       signature_json: {
         algorithm: "ed25519",
         keyId: "default",
@@ -188,6 +200,7 @@ describe("SupabaseCallerAuditSink", () => {
       reason: "missing credential",
       capability: null,
       principal_id: null,
+      severity: null,
       signature_json: {
         algorithm: "ed25519",
         keyId: "default",
@@ -218,6 +231,7 @@ describe("SupabaseCallerAuditSink", () => {
       reason: "capability not allowed",
       capability: "razorpay:refund-create",
       principal_id: null,
+      severity: null,
       signature_json: {
         algorithm: "ed25519",
         keyId: "default",
@@ -248,6 +262,38 @@ describe("SupabaseCallerAuditSink", () => {
       reason: "principal not allowed",
       capability: null,
       principal_id: "someone-else",
+      severity: null,
+      signature_json: {
+        algorithm: "ed25519",
+        keyId: "default",
+        value: expect.any(String),
+        signedAt: expect.any(String),
+      },
+    });
+  });
+
+  it("maps a non_human_denied event's severity, nulling capability and principal_id", async () => {
+    let capturedRow: Record<string, unknown> | undefined;
+
+    const sink = new SupabaseCallerAuditSink(
+      createFakePool({
+        onInsert: (values) => {
+          capturedRow = toRow(values);
+        },
+      }),
+    );
+
+    await sink.record(NON_HUMAN_DENIED_EVENT);
+
+    expect(capturedRow).toEqual({
+      type: "caller.non_human_denied",
+      occurred_at: "2026-01-01T00:00:00.000Z",
+      route: "/policies/pending-changes",
+      caller_id: "caller-1",
+      reason: "credential is not provisioned as a verified human (credentialHolderType !== USER)",
+      capability: null,
+      principal_id: null,
+      severity: "flagged",
       signature_json: {
         algorithm: "ed25519",
         keyId: "default",

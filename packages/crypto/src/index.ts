@@ -29,6 +29,7 @@ export * from "./ArtifactSigner.js";
 export * from "./SignatureVerifier.js";
 export * from "./AuthorizationSigner.js";
 export * from "./AuthorizationVerifier.js";
+export * from "./PolicyChangeStepUpAuthorizationCrypto.js";
 
 // -----------------------------------------------------------------------------
 // High-Level Crypto Services
@@ -38,6 +39,7 @@ export * from "./ReceiptCrypto.js";
 export * from "./VerificationCrypto.js";
 export * from "./RefusalCrypto.js";
 export * from "./AuditEventCrypto.js";
+export * from "./PolicyChangeCrypto.js";
 
 // -----------------------------------------------------------------------------
 // Bootstrap & Configuration

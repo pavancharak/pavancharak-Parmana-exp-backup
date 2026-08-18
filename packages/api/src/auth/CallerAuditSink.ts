@@ -16,7 +16,8 @@ export interface CallerAuditEvent {
     | "caller.authenticated"
     | "caller.rejected"
     | "caller.capability_denied"
-    | "caller.principal_denied";
+    | "caller.principal_denied"
+    | "caller.non_human_denied";
   readonly occurredAt: string;
   readonly route: string;
 
@@ -55,6 +56,16 @@ export interface CallerAuditEvent {
    * a business identity, not an API key or its hash.
    */
   readonly principalId?: string;
+
+  /**
+   * Elevated-severity marker, matching this codebase's existing
+   * precedent (RazorpayWebhookAuditEvent.severity): a non-human
+   * credential attempting a governance endpoint is exactly the kind
+   * of outcome that needs a human to look, never silence. Always
+   * "flagged" on "caller.non_human_denied" — absent (not merely
+   * false) on every other event type, which are routine.
+   */
+  readonly severity?: "flagged";
 }
 
 export interface CallerAuditSink {

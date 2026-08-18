@@ -1,3 +1,5 @@
+import { generateKeyPairSync } from "node:crypto";
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import { parseApiKeys, parseCryptoMode, parseStorageProvider } from "../../src/config/ConfigValidation.js";
@@ -173,6 +175,78 @@ describe("parseApiKeys", () => {
         ]),
       ),
     ).toThrow("PARMANA_API_KEYS[0].allowedCapabilities must be an array");
+  });
+
+  it("parses credentialHolderType when present", () => {
+    expect(
+      parseApiKeys(
+        JSON.stringify([
+          { callerId: "caller-1", keyHash: validHash, credentialHolderType: "USER" },
+        ]),
+      ),
+    ).toEqual([
+      { callerId: "caller-1", keyHash: validHash, credentialHolderType: "USER" },
+    ]);
+  });
+
+  it("omits credentialHolderType from the parsed entry when absent", () => {
+    const [parsed] = parseApiKeys(
+      JSON.stringify([{ callerId: "caller-1", keyHash: validHash }]),
+    );
+
+    expect(parsed.credentialHolderType).toBeUndefined();
+  });
+
+  it("throws naming the index of an entry with an invalid credentialHolderType", () => {
+    expect(() =>
+      parseApiKeys(
+        JSON.stringify([
+          { callerId: "caller-1", keyHash: validHash, credentialHolderType: "HUMAN" },
+        ]),
+      ),
+    ).toThrow("PARMANA_API_KEYS[0].credentialHolderType must be one of");
+  });
+
+  it("parses a valid PEM-encoded Ed25519 stepUpPublicKey", () => {
+    const { publicKey } = generateKeyPairSync("ed25519");
+    const stepUpPublicKey = publicKey.export({ format: "pem", type: "spki" }).toString();
+
+    const [parsed] = parseApiKeys(
+      JSON.stringify([{ callerId: "caller-1", keyHash: validHash, stepUpPublicKey }]),
+    );
+
+    expect(parsed.stepUpPublicKey).toBe(stepUpPublicKey);
+  });
+
+  it("omits stepUpPublicKey from the parsed entry when absent", () => {
+    const [parsed] = parseApiKeys(
+      JSON.stringify([{ callerId: "caller-1", keyHash: validHash }]),
+    );
+
+    expect(parsed.stepUpPublicKey).toBeUndefined();
+  });
+
+  it("throws naming the index of an entry whose stepUpPublicKey is not valid PEM", () => {
+    expect(() =>
+      parseApiKeys(
+        JSON.stringify([
+          { callerId: "caller-1", keyHash: validHash, stepUpPublicKey: "not-a-pem-key" },
+        ]),
+      ),
+    ).toThrow("PARMANA_API_KEYS[0].stepUpPublicKey must be a PEM-encoded Ed25519 public key");
+  });
+
+  it("throws naming the index of an entry whose stepUpPublicKey is a non-Ed25519 key", () => {
+    const { publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const rsaPem = publicKey.export({ format: "pem", type: "spki" }).toString();
+
+    expect(() =>
+      parseApiKeys(
+        JSON.stringify([
+          { callerId: "caller-1", keyHash: validHash, stepUpPublicKey: rsaPem },
+        ]),
+      ),
+    ).toThrow("PARMANA_API_KEYS[0].stepUpPublicKey must be a PEM-encoded Ed25519 public key");
   });
 });
 

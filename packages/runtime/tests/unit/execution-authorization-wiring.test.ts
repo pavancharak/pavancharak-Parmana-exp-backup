@@ -124,6 +124,10 @@ class FixedPolicyRepository implements PolicyRepository {
   async load(_name: string, _version: string): Promise<Policy> {
     return this.policy;
   }
+
+  async save(): Promise<void> {
+    throw new Error("not used by these tests");
+  }
 }
 
 /**

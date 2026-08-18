@@ -7,9 +7,33 @@
  * new hash, keep the old one active during migration,
  * remove the old entry to revoke it).
  */
+import type { AuthorityType } from "../domain/authority.js";
+
 export interface ApiKeyEntry {
   readonly callerId: string;
   readonly keyHash: string;
+
+  /**
+   * The kind of entity that holds this credential -- operator-declared
+   * metadata set only at issuance time (PARMANA_API_KEYS config,
+   * scripts/generate-api-key.ts), never derived from or overridable by
+   * anything in a request. Distinct from Authority.authorityType,
+   * which is caller-declared, lives on a Business Transaction, and
+   * describes the business action's asserted authority -- the two
+   * must not be conflated. This field describes who was handed the
+   * credential itself.
+   *
+   * Fail-closed default: an absent credentialHolderType means "not
+   * verified," never "assume human." isHumanCaller.ts (the only
+   * consumer of this field) treats every value other than exactly
+   * AuthorityType.USER -- including undefined -- as non-human. Every
+   * key provisioned before this field existed therefore has no
+   * opinion on it and is denied access to endpoints that require a
+   * verified human caller until explicitly re-provisioned with
+   * credentialHolderType: USER. That is intentional, not a migration
+   * bug.
+   */
+  readonly credentialHolderType?: AuthorityType;
 
   /**
    * The set of Authority.principalId / authorization.authorityId
@@ -45,4 +69,22 @@ export interface ApiKeyEntry {
    * implicit default.
    */
   readonly allowedCapabilities?: readonly string[];
+
+  /**
+   * PEM-encoded (SPKI) Ed25519 public key for step-up authorization on
+   * the Policy Governance approve/reject endpoints (isHumanCaller.ts's
+   * call sites only) -- see PolicyChangeStepUpAuthorization. Generated
+   * once by generate-api-key.ts's --generate-step-up-key flag,
+   * genuinely independent of this entry's own keyHash: a distinct
+   * keypair, never derived from or stored alongside the bearer token,
+   * so a leak of one secret does not imply the other. Only the public
+   * half is ever held here -- the private half is shown to the
+   * operator once, the same as the bearer token's raw key, and is
+   * never written to disk by this codebase.
+   *
+   * Absent means this caller cannot complete step-up at all: approve/
+   * reject fail closed (StepUpAuthorizationInvalidError) rather than
+   * treating a missing key as "step-up not required."
+   */
+  readonly stepUpPublicKey?: string;
 }

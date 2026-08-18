@@ -16,3 +16,7 @@ export * from "./authorization-required-error.js";
 export * from "./intent-required-error.js";
 export * from "./decision-not-approved-error.js";
 export * from "./challenge-record-not-found-error.js";
+export * from "./pending-policy-change-not-found-error.js";
+export * from "./non-human-caller-denied-error.js";
+export * from "./same-actor-cannot-approve-own-change-error.js";
+export * from "./step-up-authorization-invalid-error.js";

@@ -16,6 +16,10 @@ class FixedPolicyRepository implements PolicyRepository {
   async load(): Promise<Policy> {
     throw new Error("not used by these tests");
   }
+
+  async save(): Promise<void> {
+    throw new Error("not used by these tests");
+  }
 }
 
 class NullExecutionTrustRecordRepository

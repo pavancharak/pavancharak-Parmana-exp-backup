@@ -8,6 +8,8 @@ import { createGracefulShutdown } from "./bootstrap/createGracefulShutdown.js";
 import { createExecutionSystem } from "./bootstrap/createExecutionSystem.js";
 import { createApplication } from "./application.js";
 import { createCallerAuthenticator } from "./bootstrap/createCallerAuthenticator.js";
+import { createPolicyChangeStepUpVerifier } from "./bootstrap/createPolicyChangeStepUpVerifier.js";
+import { createPolicyChangeApprovalService } from "./bootstrap/createPolicyChangeApprovalService.js";
 import { createApp } from "./app.js";
 
 /**
@@ -50,6 +52,12 @@ const app =
             auditSink: callerAuth.auditSink,
           },
       rateLimit: loadConfig().rateLimit,
+      ...(callerAuth.disabled
+        ? {}
+        : {
+            stepUpVerifier: createPolicyChangeStepUpVerifier(),
+            policyChangeApprovalService: createPolicyChangeApprovalService(),
+          }),
     },
   );
 

@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { parseApiKeys } from "@parmana/shared";
+import { AuthorityType, parseApiKeys } from "@parmana/shared";
 
 import {
   appendApiKeyEntry,
@@ -12,6 +12,7 @@ import {
   generateApiKey,
   parseAllowedCapabilities,
   parseAllowedPrincipalIds,
+  parseCredentialHolderType,
 } from "../generate-api-key.js";
 
 const API_KEY_HASH_PATTERN = /^[0-9a-f]{64}$/;
@@ -70,6 +71,17 @@ describe("generateApiKey", () => {
     expect(withoutCapabilities.entry.allowedCapabilities).toBeUndefined();
   });
 
+  it("includes credentialHolderType only when provided", () => {
+    const withType = generateApiKey({
+      callerId: "caller-1",
+      credentialHolderType: AuthorityType.USER,
+    });
+    const withoutType = generateApiKey({ callerId: "caller-1" });
+
+    expect(withType.entry.credentialHolderType).toBe(AuthorityType.USER);
+    expect(withoutType.entry.credentialHolderType).toBeUndefined();
+  });
+
   it("produces an entry that parseApiKeys accepts, matching the generated callerId", () => {
     const { entry } = generateApiKey({ callerId: "design-partner-gocredit" });
 
@@ -77,6 +89,65 @@ describe("generateApiKey", () => {
 
     expect(parsed).toEqual(entry);
     expect(parsed?.callerId).toBe("design-partner-gocredit");
+  });
+
+  it("generates a step-up keypair only when generateStepUpKey is requested with credentialHolderType USER", () => {
+    const withKey = generateApiKey({
+      callerId: "caller-1",
+      credentialHolderType: AuthorityType.USER,
+      generateStepUpKey: true,
+    });
+
+    expect(withKey.stepUpPrivateKey).toMatch(/BEGIN PRIVATE KEY/);
+    expect(withKey.entry.stepUpPublicKey).toMatch(/BEGIN PUBLIC KEY/);
+
+    const withoutKey = generateApiKey({ callerId: "caller-1" });
+
+    expect(withoutKey.stepUpPrivateKey).toBeUndefined();
+    expect(withoutKey.entry.stepUpPublicKey).toBeUndefined();
+  });
+
+  it("produces a genuinely independent step-up keypair from the bearer key across two calls", () => {
+    const first = generateApiKey({
+      callerId: "caller-1",
+      credentialHolderType: AuthorityType.USER,
+      generateStepUpKey: true,
+    });
+    const second = generateApiKey({
+      callerId: "caller-1",
+      credentialHolderType: AuthorityType.USER,
+      generateStepUpKey: true,
+    });
+
+    expect(first.stepUpPrivateKey).not.toBe(second.stepUpPrivateKey);
+    expect(first.entry.stepUpPublicKey).not.toBe(second.entry.stepUpPublicKey);
+    expect(first.rawKey).not.toBe(first.stepUpPrivateKey);
+  });
+
+  it("rejects --generate-step-up-key without credentialHolderType USER", () => {
+    expect(() =>
+      generateApiKey({ callerId: "caller-1", generateStepUpKey: true }),
+    ).toThrow("--generate-step-up-key requires --credential-holder-type USER");
+
+    expect(() =>
+      generateApiKey({
+        callerId: "caller-1",
+        credentialHolderType: AuthorityType.SERVICE,
+        generateStepUpKey: true,
+      }),
+    ).toThrow("--generate-step-up-key requires --credential-holder-type USER");
+  });
+
+  it("produces an entry (with stepUpPublicKey) that parseApiKeys accepts", () => {
+    const { entry } = generateApiKey({
+      callerId: "caller-1",
+      credentialHolderType: AuthorityType.USER,
+      generateStepUpKey: true,
+    });
+
+    const [parsed] = parseApiKeys(JSON.stringify([entry]));
+
+    expect(parsed).toEqual(entry);
   });
 });
 
@@ -139,6 +210,25 @@ describe("parseAllowedCapabilities", () => {
   it("throws when given but every value is empty", () => {
     expect(() => parseAllowedCapabilities(" , ,")).toThrow(
       "contained no non-empty values",
+    );
+  });
+});
+
+describe("parseCredentialHolderType", () => {
+  it("returns undefined when not provided", () => {
+    expect(parseCredentialHolderType(undefined)).toBeUndefined();
+  });
+
+  it("accepts each valid AuthorityType value, trimmed", () => {
+    expect(parseCredentialHolderType(" USER ")).toBe(AuthorityType.USER);
+    expect(parseCredentialHolderType("ROLE")).toBe(AuthorityType.ROLE);
+    expect(parseCredentialHolderType("SERVICE")).toBe(AuthorityType.SERVICE);
+    expect(parseCredentialHolderType("ORGANIZATION")).toBe(AuthorityType.ORGANIZATION);
+  });
+
+  it("throws naming the valid values for an unrecognized value", () => {
+    expect(() => parseCredentialHolderType("HUMAN")).toThrow(
+      "--credential-holder-type must be one of",
     );
   });
 });

@@ -1,3 +1,5 @@
+import type { AuthorityType } from "@parmana/shared";
+
 export interface CallerIdentity {
   readonly callerId: string;
 
@@ -15,6 +17,21 @@ export interface CallerIdentity {
    * fail-closed default and the "*" wildcard convention.
    */
   readonly allowedCapabilities?: readonly string[];
+
+  /**
+   * The kind of entity that holds this credential — see
+   * ApiKeyEntry.credentialHolderType for the fail-closed default
+   * (undefined means "not verified," never "assume human") and
+   * isHumanCaller.ts for the one place this is checked today.
+   */
+  readonly credentialHolderType?: AuthorityType;
+
+  /**
+   * PEM-encoded Ed25519 public key for step-up authorization — see
+   * ApiKeyEntry.stepUpPublicKey and PolicyChangeStepUpAuthorization.
+   * Absent means this caller cannot complete step-up at all.
+   */
+  readonly stepUpPublicKey?: string;
 }
 
 /**

@@ -1,6 +1,8 @@
 import type {
   BusinessTransactionRepository,
   ExecutionTrustRecordRepository,
+  PendingPolicyChangeRepository,
+  PolicyChangeApprovalRecordRepository,
   RefusalRecordRepository,
 } from "@parmana/shared";
 
@@ -25,4 +27,16 @@ export interface StorageProvider {
    * Refusal Record repository (RFC-0021).
    */
   readonly refusalRecords: RefusalRecordRepository;
+
+  /**
+   * Pending Policy Change repository (Policy Governance,
+   * maker-checker).
+   */
+  readonly pendingPolicyChanges: PendingPolicyChangeRepository;
+
+  /**
+   * Policy Change Approval Record repository (Policy Governance,
+   * maker-checker).
+   */
+  readonly policyChangeApprovalRecords: PolicyChangeApprovalRecordRepository;
 }

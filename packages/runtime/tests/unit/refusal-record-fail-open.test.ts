@@ -110,6 +110,10 @@ class FixedPolicyRepository implements PolicyRepository {
   async load(): Promise<Policy> {
     return REJECT_POLICY;
   }
+
+  async save(): Promise<void> {
+    throw new Error("not used by these tests");
+  }
 }
 
 function createTransaction(): BusinessTransaction {

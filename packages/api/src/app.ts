@@ -6,6 +6,7 @@ import { createCallerAuthMiddleware } from "./middleware/caller-auth.js";
 import { createExecuteRateLimiter, createHealthReadyRateLimiter } from "./middleware/rate-limit.js";
 
 import policyRoutes from "./routes/policies.js";
+import { createPendingPolicyChangesRouter } from "./routes/pending-policy-changes.js";
 import type { ExecutionTrustApplication } from "@parmana/runtime";
 
 import { createExecuteRouter } from "./routes/execute.js";
@@ -29,6 +30,8 @@ import versionRoutes from "./routes/version.js";
 
 import type { CallerAuthenticator } from "./auth/CallerAuthenticator.js";
 import type { CallerAuditSink } from "./auth/CallerAuditSink.js";
+import type { PolicyChangeStepUpVerifier } from "./auth/PolicyChangeStepUpVerifier.js";
+import type { PolicyChangeApprovalService } from "./governance/PolicyChangeApprovalService.js";
 
 /**
  * Every call site must state its caller-auth choice explicitly:
@@ -68,6 +71,38 @@ const DEFAULT_HEALTH_PER_MINUTE = 300;
 export interface CreateAppOptions {
   readonly callerAuth: CallerAuthOption;
   readonly rateLimit?: RateLimitOption;
+
+  /**
+   * Verifies the step-up authorization envelope required on POST
+   * /policies/pending-changes/:id/approve and .../reject (Policy
+   * Governance, maker-checker, Layer 4) -- see
+   * PolicyChangeStepUpVerifier and requireStepUpAuthorization in
+   * pending-policy-changes.ts. Optional at this type's level, the same
+   * way auditSink threading elsewhere in this file is conditional on
+   * callerAuth, but NOT optional in effect once callerAuth is enabled:
+   * approve/reject fail closed (StepUpAuthorizationInvalidError) when
+   * this is undefined, exactly as when it is provided but the
+   * envelope itself is missing or invalid. Omitted in the
+   * callerAuth-disabled case (local development/tutorials only) since
+   * neither endpoint is reachable without a caller identity there.
+   */
+  readonly stepUpVerifier?: PolicyChangeStepUpVerifier;
+
+  /**
+   * Resolves an approved pending policy change into its live
+   * policies/{name}/{version}/policy.json write and signed
+   * PolicyChangeApprovalRecord (Policy Governance, maker-checker) --
+   * see PolicyChangeApprovalService and pending-policy-changes.ts's
+   * approve handler. Optional at this type's level for the same
+   * reason stepUpVerifier is: omitted entirely in the
+   * callerAuth-disabled case, where the endpoint is unreachable
+   * anyway. NOT optional in effect once callerAuth is enabled --
+   * approve fails closed (a plain thrown Error, surfaced as a 500 by
+   * the global error handler) when this is undefined but an approval
+   * is actually attempted, rather than silently resolving the pending
+   * change with no corresponding live effect.
+   */
+  readonly policyChangeApprovalService?: PolicyChangeApprovalService;
 }
 
 export function createApp(
@@ -230,6 +265,20 @@ app.use(
 app.use(
   "/policies",
   policyRoutes,
+);
+
+/**
+ * Policy Governance (maker-checker). Mounted at the same /policies
+ * prefix as the router above -- path shapes don't collide (see
+ * pending-policy-changes.ts's own routes).
+ */
+app.use(
+  "/policies",
+  createPendingPolicyChangesRouter(
+    options.callerAuth !== "disabled" ? options.callerAuth.auditSink : undefined,
+    options.stepUpVerifier,
+    options.policyChangeApprovalService,
+  ),
 );
 
 /**

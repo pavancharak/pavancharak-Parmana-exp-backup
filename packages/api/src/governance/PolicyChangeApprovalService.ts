@@ -1,0 +1,123 @@
+import crypto from "node:crypto";
+
+import type { Policy, PolicyRepository } from "@parmana/policy";
+import { PolicyNotFoundError } from "@parmana/policy";
+import type { PolicyChangeCrypto } from "@parmana/crypto";
+import type {
+  PendingPolicyChange,
+  PolicyChangeApprovalRecord,
+  PolicyChangeApprovalRecordRepository,
+} from "@parmana/shared";
+
+export interface PolicyChangeApprovalServiceOptions {
+  readonly policyRepository: PolicyRepository;
+  readonly policyChangeCrypto: PolicyChangeCrypto;
+  readonly policyChangeApprovalRecordRepository: PolicyChangeApprovalRecordRepository;
+}
+
+/**
+ * Resolves an approved PendingPolicyChange into its two durable
+ * effects: the live policies/{name}/{version}/policy.json write, and
+ * a signed PolicyChangeApprovalRecord -- see PendingPolicyChange's
+ * and PolicyChangeApprovalRecord's own doc comments for why neither
+ * exists until this service runs.
+ *
+ * Must be called from the approve route handler BEFORE
+ * PendingPolicyChangeRepository.resolve, never after: if the write or
+ * the signing fails, the pending change must remain PENDING_APPROVAL,
+ * not be left APPROVED with no corresponding live effect.
+ *
+ * Rejections never call this service -- see PendingPolicyChange's own
+ * doc comment: a rejected change's rejectionReason is itself the
+ * durable evidence a rejection leaves behind.
+ *
+ * The write target is `proposedContent.policyVersion`, not the
+ * PendingPolicyChange's own `policyVersion` ("the version being
+ * replaced") -- see PendingPolicyChange's own doc comment for why
+ * those can legitimately differ.
+ */
+export class PolicyChangeApprovalService {
+  private readonly policyRepository: PolicyRepository;
+  private readonly policyChangeCrypto: PolicyChangeCrypto;
+
+  private readonly policyChangeApprovalRecordRepository: PolicyChangeApprovalRecordRepository;
+
+  constructor(options: PolicyChangeApprovalServiceOptions) {
+    this.policyRepository = options.policyRepository;
+    this.policyChangeCrypto = options.policyChangeCrypto;
+
+    this.policyChangeApprovalRecordRepository =
+      options.policyChangeApprovalRecordRepository;
+  }
+
+  async approve(
+    change: PendingPolicyChange,
+    approvedBy: string,
+  ): Promise<PolicyChangeApprovalRecord> {
+    const proposedContent = change.proposedContent as unknown as Policy;
+    const writeVersion = proposedContent.policyVersion;
+
+    const before = await this.policyRepository
+      .load(change.policyName, writeVersion)
+      .catch((error: unknown) => {
+        if (error instanceof PolicyNotFoundError) {
+          return null;
+        }
+
+        throw error;
+      });
+
+    const contentHashAfter =
+      await this.policyChangeCrypto.hashPolicyContent(proposedContent);
+
+    const contentHashBefore =
+      before === null
+        ? undefined
+        : await this.policyChangeCrypto.hashPolicyContent(before);
+
+    // Sign and durably persist the approval record BEFORE writing the
+    // live file, not after: if persisting the record fails, nothing
+    // has changed yet -- retry from a clean state. If it were the
+    // other way around and the record-persist step failed after the
+    // file write succeeded, the live policy would have changed with
+    // no durable evidence anything approved it, a silent governance
+    // gap with nothing to point an integrity check at. A persisted
+    // record whose live file write hasn't happened yet is instead the
+    // recoverable failure mode: the record itself is what a later
+    // startup/deploy integrity check compares the live file against
+    // (see PolicyChangeApprovalRecordRepository.findMostRecentFor's
+    // own doc comment), so a mismatch here is detectable, not silent.
+    const draft: Omit<PolicyChangeApprovalRecord, "signature"> = {
+      policyChangeApprovalRecordId: crypto.randomUUID(),
+      pendingPolicyChangeId: change.pendingPolicyChangeId,
+      policyName: change.policyName,
+      policyVersion: writeVersion,
+      proposedBy: change.proposedBy,
+      approvedBy,
+      proposedAt: change.proposedAt,
+      approvedAt: new Date(),
+      ...(contentHashBefore !== undefined ? { contentHashBefore } : {}),
+      contentHashAfter,
+    };
+
+    const signature = await this.policyChangeCrypto.sign(
+      draft as PolicyChangeApprovalRecord,
+    );
+
+    const record: PolicyChangeApprovalRecord = {
+      ...draft,
+      signature,
+    };
+
+    const created =
+      await this.policyChangeApprovalRecordRepository.create(record);
+
+    await this.policyRepository.save(
+      change.policyName,
+      writeVersion,
+      proposedContent,
+    );
+
+    return created;
+  }
+}

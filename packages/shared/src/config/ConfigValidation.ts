@@ -13,7 +13,10 @@ import { KeyProviders, type KeyProvider } from "./KeyProviders.js";
 
 import { TrustProfiles, type TrustProfile } from "./TrustProfiles.js";
 
+import { createPublicKey } from "node:crypto";
+
 import type { ApiKeyEntry } from "./ApiKeyEntry.js";
+import { AuthorityType } from "../domain/authority.js";
 
 function parse<T extends string>(
   value: string | undefined,
@@ -147,6 +150,48 @@ export function parseApiKeys(value?: string): ApiKeyEntry[] {
       }
     }
 
+    const credentialHolderType = record.credentialHolderType;
+
+    if (credentialHolderType !== undefined) {
+      const validCredentialHolderType =
+        typeof credentialHolderType === "string" &&
+        Object.values(AuthorityType).includes(
+          credentialHolderType as AuthorityType,
+        );
+
+      if (!validCredentialHolderType) {
+        throw new Error(
+          `PARMANA_API_KEYS[${index}].credentialHolderType must be one of ` +
+            `${Object.values(AuthorityType).join(", ")} when present.`,
+        );
+      }
+    }
+
+    const stepUpPublicKey = record.stepUpPublicKey;
+
+    if (stepUpPublicKey !== undefined) {
+      const validShape =
+        typeof stepUpPublicKey === "string" && stepUpPublicKey.trim() !== "";
+
+      let validKey = false;
+
+      if (validShape) {
+        try {
+          const keyObject = createPublicKey(stepUpPublicKey as string);
+          validKey = keyObject.asymmetricKeyType === "ed25519";
+        } catch {
+          validKey = false;
+        }
+      }
+
+      if (!validShape || !validKey) {
+        throw new Error(
+          `PARMANA_API_KEYS[${index}].stepUpPublicKey must be a PEM-encoded ` +
+            "Ed25519 public key when present.",
+        );
+      }
+    }
+
     return {
       callerId: record.callerId as string,
       keyHash: record.keyHash as string,
@@ -155,6 +200,12 @@ export function parseApiKeys(value?: string): ApiKeyEntry[] {
         : {}),
       ...(allowedCapabilities !== undefined
         ? { allowedCapabilities: allowedCapabilities as readonly string[] }
+        : {}),
+      ...(credentialHolderType !== undefined
+        ? { credentialHolderType: credentialHolderType as AuthorityType }
+        : {}),
+      ...(stepUpPublicKey !== undefined
+        ? { stepUpPublicKey: stepUpPublicKey as string }
         : {}),
     };
   });

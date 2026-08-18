@@ -1,6 +1,8 @@
 import type {
   BusinessTransactionRepository,
   ExecutionTrustRecordRepository,
+  PendingPolicyChangeRepository,
+  PolicyChangeApprovalRecordRepository,
   RefusalRecordRepository,
 } from "@parmana/shared";
 
@@ -11,6 +13,10 @@ import { MemoryBusinessTransactionRepository } from "./MemoryBusinessTransaction
 import { MemoryExecutionTrustRecordRepository } from "./MemoryExecutionTrustRecordRepository.js";
 
 import { MemoryRefusalRecordRepository } from "./MemoryRefusalRecordRepository.js";
+
+import { MemoryPendingPolicyChangeRepository } from "./MemoryPendingPolicyChangeRepository.js";
+
+import { MemoryPolicyChangeApprovalRecordRepository } from "./MemoryPolicyChangeApprovalRecordRepository.js";
 
 /**
  * Memory Storage Provider.
@@ -25,12 +31,20 @@ export class MemoryStorageProvider implements StorageProvider {
 
   readonly refusalRecords: RefusalRecordRepository;
 
+  readonly pendingPolicyChanges: PendingPolicyChangeRepository;
+
+  readonly policyChangeApprovalRecords: PolicyChangeApprovalRecordRepository;
+
   constructor() {
     this.businessTransactions = new MemoryBusinessTransactionRepository();
 
     this.trustRecords = new MemoryExecutionTrustRecordRepository();
 
     this.refusalRecords = new MemoryRefusalRecordRepository();
+
+    this.pendingPolicyChanges = new MemoryPendingPolicyChangeRepository();
+
+    this.policyChangeApprovalRecords = new MemoryPolicyChangeApprovalRecordRepository();
 
     Object.freeze(this);
   }

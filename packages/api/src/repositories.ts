@@ -52,3 +52,11 @@ export const executionTrustRecordRepository = lazyRepository(
 export const refusalRecordRepository = lazyRepository(
   (provider) => provider.refusalRecords,
 );
+
+export const pendingPolicyChangeRepository = lazyRepository(
+  (provider) => provider.pendingPolicyChanges,
+);
+
+export const policyChangeApprovalRecordRepository = lazyRepository(
+  (provider) => provider.policyChangeApprovalRecords,
+);

@@ -1,6 +1,8 @@
 import type {
   BusinessTransactionRepository,
   ExecutionTrustRecordRepository,
+  PendingPolicyChangeRepository,
+  PolicyChangeApprovalRecordRepository,
   RefusalRecordRepository,
 } from "@parmana/shared";
 
@@ -13,6 +15,10 @@ import { SupabaseBusinessTransactionRepository } from "./SupabaseBusinessTransac
 import { SupabaseExecutionTrustRecordRepository } from "./SupabaseExecutionTrustRecordRepository.js";
 
 import { SupabaseRefusalRecordRepository } from "./SupabaseRefusalRecordRepository.js";
+
+import { SupabasePendingPolicyChangeRepository } from "./SupabasePendingPolicyChangeRepository.js";
+
+import { SupabasePolicyChangeApprovalRecordRepository } from "./SupabasePolicyChangeApprovalRecordRepository.js";
 
 /**
  * Supabase Storage Provider.
@@ -29,6 +35,8 @@ export class SupabaseStorageProvider implements StorageProvider {
   readonly businessTransactions: BusinessTransactionRepository;
   readonly trustRecords: ExecutionTrustRecordRepository;
   readonly refusalRecords: RefusalRecordRepository;
+  readonly pendingPolicyChanges: PendingPolicyChangeRepository;
+  readonly policyChangeApprovalRecords: PolicyChangeApprovalRecordRepository;
 
   constructor() {
     const pool = PostgresPoolFactory.create();
@@ -41,6 +49,12 @@ export class SupabaseStorageProvider implements StorageProvider {
 
     this.refusalRecords =
       new SupabaseRefusalRecordRepository(pool);
+
+    this.pendingPolicyChanges =
+      new SupabasePendingPolicyChangeRepository(pool);
+
+    this.policyChangeApprovalRecords =
+      new SupabasePolicyChangeApprovalRecordRepository(pool);
 
     Object.freeze(this);
   }
