@@ -170,6 +170,74 @@ PaaS orchestrator expects before it force-kills the container.
 request (e.g. a stalled downstream call to Supabase or HubSpot) can delay
 shutdown before the process force-exits on its own terms.
 
+## Pre-deploy: verify policy changes are approved
+
+`scripts/verify-policy-changes-approved.ts` is the preventive Policy
+Governance gate (maker-checker): it confirms every
+`policies/{name}/{version}/policy.json` matches a real, signed
+`PolicyChangeApprovalRecord` for its exact content, closing the gap that
+a direct file edit (or a `git push` straight to `main`, which nothing in
+this repo's current GitHub plan technically prevents — see the CI
+workflow's own comment) bypasses the maker-checker API entirely. CI runs
+this automatically, scoped to whatever `policies/**/policy.json` changed
+in a given push or PR. There is no automated deploy pipeline in this
+repo to hook the same check into (deployment is the manual
+`docker build`/`fly deploy` steps below), so this is the manual backstop:
+run it, full-scan, immediately before every deploy.
+
+```sh
+SUPABASE_URL=... SUPABASE_ANON_KEY=... \
+  npx tsx scripts/verify-policy-changes-approved.ts --full-scan
+```
+
+It exits non-zero — and fails closed the same way on a Supabase outage as
+on a genuine finding, never silently passing — if any live policy file
+doesn't match its most recent approval record.
+
+**The legacy-policy caveat, and what to actually do about it.** Every
+policy version that existed before Policy Governance was built has no
+approval record at all, because none of them were ever proposed or
+approved through the API — they were simply committed. As of this
+writing that's all 10 current policy versions (`access-control/1.0.0`,
+`connector-capability/1.0.0`, `customer-refund/1.0.0`,
+`database-change/3.0.0`, `github-pr-approval/1.0.0`,
+`hubspot-deal-update/1.0.0`, `llm-tool-call/1.0.0`,
+`production-deployment/1.0.0`, `rag-document-access/1.0.0`,
+`vendor-payment/2.0.0`). **The first `--full-scan` run will flag every
+one of them — this is correct behavior, not a false positive or a
+bug to work around.**
+
+Two legitimate ways to handle this, and only one of them is safe:
+
+- **Treat the first run as informational only.** Run `--full-scan`, read
+  the list, don't wire its exit code into anything blocking yet. This is
+  the right choice if you're not ready to commit to backfilling coverage
+  immediately — it tells you exactly what's currently ungoverned without
+  pretending otherwise.
+- **Backfill real coverage, one policy at a time.** For each legacy
+  policy, propose its *current, unchanged* content as a pending change
+  through the real API (`POST /policies/{name}/{version}/pending-changes`)
+  and have a genuinely distinct human checker approve it through the real
+  step-up flow (`scripts/sign-policy-change-step-up.ts`) — establishing a
+  real `PolicyChangeApprovalRecord`, with a real proposer and a real
+  checker, for the content as it exists today. This is real, if
+  repetitive, human work — a "no-op" proposal per policy, not a rubber
+  stamp, since the checker is still expected to actually look at the
+  content before approving it.
+
+**Do not** hand-insert rows into `policy_change_approval_records` to make
+the check pass, and do not have this script (or any script) synthesize
+approval records for content nobody actually reviewed. This table exists
+specifically to be trustworthy evidence of who approved what, when — a
+backdated or fabricated row would defeat the entire purpose of the
+feature it's meant to support, permanently, since there's no way to
+later distinguish a real approval from a manufactured one once it's in
+the table.
+
+Once backfilled, `--full-scan`'s exit code becomes meaningful as a hard
+pre-deploy gate; run it and stop the deploy on failure, the same
+discipline CI already applies to PRs.
+
 ## Fly.io specifics
 
 Validated this session against a real `parmana-api` Fly app.

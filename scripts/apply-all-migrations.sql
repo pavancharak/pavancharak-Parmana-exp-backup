@@ -1042,3 +1042,19 @@ ON consumed_policy_change_step_up_nonces (
 );
 
 ALTER TABLE consumed_policy_change_step_up_nonces ENABLE ROW LEVEL SECURITY;
+
+
+-- =============================================================================
+-- Source: supabase/migrations/20260818150000_add_ci_read_only_policy_for_approval_records.sql
+-- CI read-only access to Policy Change Approval Records (Policy
+-- Governance, maker-checker, preventive CI/deploy-time gate)
+-- =============================================================================
+
+GRANT SELECT ON policy_change_approval_records TO anon;
+
+DROP POLICY IF EXISTS "ci_read_only_select" ON policy_change_approval_records;
+
+CREATE POLICY "ci_read_only_select" ON policy_change_approval_records
+    FOR SELECT
+    TO anon
+    USING (true);
