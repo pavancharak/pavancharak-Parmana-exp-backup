@@ -862,6 +862,102 @@ Evidence
 
 
 
+## 2.26 Policy Governance (Maker-Checker)
+
+
+
+Policy content changes now go through a human-only, maker-checker approval flow before taking effect, closing the prior gap that policy authoring was entirely outside Parmana's own governance surface: any caller with write access to `policies/` could change what a policy allows with no second party involved and no durable, signed record of who approved it.
+
+
+
+**Lifecycle and the four endpoints.** A change moves `PENDING_APPROVAL` → `APPROVED`/`REJECTED`, exactly once, never back (`packages/shared/src/domain/pending-policy-change.ts`). Four endpoints in `packages/api/src/routes/pending-policy-changes.ts` cover the full flow — `POST /:name/:version/pending-changes` (propose, line 243), `GET /pending-changes` (list with embedded diff, line 381), `POST /pending-changes/:id/approve` (line 459), `POST /pending-changes/:id/reject` (line 553) — and every one of the four calls `requireHumanCaller()` before doing anything else (lines 341, 396, 474, 568). `isHumanCaller()` itself (`packages/api/src/auth/isHumanCaller.ts`) is unit-tested directly (`packages/api/tests/unit/isHumanCaller.test.ts`, 3 cases: USER accepted, undefined credentialHolderType fails closed, ROLE/SERVICE/ORGANIZATION all denied the same as unset), and each endpoint is separately exercised at the HTTP level in `packages/api/tests/integration/pending-policy-changes-governance.integration.test.ts` (non-human denial on propose, list, approve, and reject).
+
+
+
+**Maker ≠ checker.** `SameActorCannotApproveOwnChangeError` is thrown independently on both approve (`pending-policy-changes.ts:492`) and reject (`:598`) when `proposedBy === req.callerId`, verified by `"rejects the maker approving its own change with 403 SAME_ACTOR_CANNOT_APPROVE_OWN_CHANGE"` and `"rejects the maker rejecting its own change with 403 SAME_ACTOR_CANNOT_APPROVE_OWN_CHANGE"` in the same integration suite.
+
+
+
+**Step-up authorization (Layer 4).** Approve/reject additionally require a `PolicyChangeStepUpAuthorization` envelope (`packages/shared/src/domain/policy-change-step-up-authorization.ts`) signed by the checker's own key, on top of — never instead of — their bearer token. `PolicyChangeStepUpVerifier` (`packages/api/src/auth/PolicyChangeStepUpVerifier.ts`) reuses `@parmana/envelope-verifier`'s `NonceStore` interface with a dedicated instance/table (`createPolicyChangeStepUpNonceStore.ts`, `SupabasePolicyChangeStepUpNonceStore`) so step-up replay protection never shares a namespace with execution-authorization or approval-artifact nonces. The integration suite proves a missing envelope, an expired one, and a replayed one are each independently rejected, alongside wrong-id/wrong-action/wrong-key cases. Per-check diagnostic detail is logged server-side only (`console.error`, never in the HTTP response) — an earlier draft of this endpoint leaked that detail into the 403 body; caught and fixed before merge, not shipped.
+
+
+
+**File write and signing, in the safer order.** `PolicyChangeApprovalService.approve()` (`packages/api/src/governance/PolicyChangeApprovalService.ts`) signs and durably persists the `PolicyChangeApprovalRecord` *before* writing the live `policies/{name}/{version}/policy.json` file (`policyChangeApprovalRecordRepository.create()` at line 113, `policyRepository.save()` at line 115) — not merely documented as the intent but proven: `packages/api/tests/unit/PolicyChangeApprovalService.test.ts` injects a failure at each step independently and confirms (1) when the file write fails, the signed record still exists and independently verifies, and (2) when persisting the record fails, the file write is never attempted at all. The whole service runs before `PendingPolicyChangeRepository.resolve()`, so a failure anywhere in it leaves the pending change untouched rather than falsely marked `APPROVED`.
+
+
+
+**Content hash at decision time (G-24).** Separately from the governance write path, `RuntimeEngine.execute()` now stamps `ExecutionTrustRecord.transaction.policy.contentHash` with a hash of the policy document actually loaded for that decision (`packages/runtime/src/RuntimeEngine.ts`, computed at line 204 via the same `TrustRecordHasher` every other artifact hash in this codebase uses, merged into the trust-record-bound copy only — never into the caller-submitted `BusinessTransaction`, which is already persisted, contentHash-free, before this point). `packages/runtime/tests/e2e/runtime.e2e.test.ts`'s `"stamps transaction.policy.contentHash on the Execution Trust Record with a hash of the real loaded policy content (G-24, policy-governance milestone)"` proves the stamped value equals an independently-computed hash of the real on-disk `vendor-payment/2.0.0` policy, and differs when the content differs.
+
+
+
+**Deploy/startup integrity check.** `verifyPolicyGovernanceIntegrityAtStartup()` (`packages/api/src/governance/verifyPolicyGovernanceIntegrityAtStartup.ts`) compares every approved `(policyName, policyVersion)`'s live file against `PolicyChangeApprovalRecordRepository.findMostRecentFor(...).contentHashAfter`, catching a file edited outside the pending-change API. It is fired from `server.ts` (line 89) *after* `app.listen()` (line 74) without being awaited, and is deliberately fail-open — the opposite discipline of `assertStorageConfigured`/`assertSigningKeyMaterialConfigured` earlier in the same file. Four distinct log events keep outcomes from blurring together: `policy_governance_integrity_check_unavailable` ("couldn't check"), `policy_governance_integrity_mismatch` ("checked, found a problem"), and `policy_governance_integrity_check_passed` ("checked, clean"). A re-approved version is checked exactly once, against the most recent record, and one bad pair never blocks the check for the rest — all proven by `packages/api/tests/unit/verifyPolicyGovernanceIntegrityAtStartup.test.ts`'s 7 cases.
+
+
+
+**`governance-ui`: a read-only internal tool, by design.** `packages/governance-ui` is a small standalone Express package (server-rendered templates, no client-side JS or build step) covering propose/list/diff-review only. It has exactly five routes — `GET`/`POST /login`, `POST /logout`, `GET /` (list), `GET /pending-changes/:id` (diff) — and no route, form, or template anywhere targets `/approve` or `/reject`; the diff page's instructions tell a checker to run `scripts/sign-policy-change-step-up.ts` locally and submit the result themselves, with their own bearer token, outside this UI entirely. A submitted API key is validated once against `GET /callers/me`, then held only in an in-memory, server-side `express-session` — it is attached as the outbound `Authorization` header on every call this UI makes to `packages/api` and never appears in any rendered response; a live check against a real running API confirmed the raw key string is absent from every page this session produced. `packages/governance-ui/tests/integration/app.integration.test.ts`'s `"escapes attacker-controlled content (reason, proposer) rather than rendering it raw"` proves a maker-supplied `reason`/`proposedBy` containing a `<script>` tag renders escaped, not executable, in the checker's browser.
+
+
+
+**Deliberate scope boundaries, not gaps.** Two things are intentionally not built: `@parmana/sdk` does not yet expose these four endpoints — `governance-ui` calls `packages/api` directly over plain `fetch`, and adding SDK methods is deferred until a second real consumer exists beyond this UI, not an oversight. And approve/reject remain CLI-only by design: `governance-ui` never handles step-up private key material, since the entire security guarantee of step-up authorization rests on that key never leaving the checker's own machine — a web UI collecting it would defeat the property the mechanism exists to provide.
+
+
+
+**Independently audited, separately from the build.** A follow-up audit re-verified every claim above from source rather than trusting the build session's own summary: re-running the full test suite fresh, tracing the approve flow's actual code order end to end, independently re-computing the content-hash-at-decision-time value from scratch (a hand-rolled canonicalization and sha256 implementation, not the codebase's own hasher) against a live execution, and grepping for any private-key material or alternate bypass path. It found two real, narrow defects — both fixed and covered by a new regression test: a single stray NUL byte in `verifyPolicyGovernanceIntegrityAtStartup.ts` (cosmetic — it made the file render as a binary diff in git, not a functional bug) and a real gap in the fail-open guarantee, where `runPolicyGovernanceIntegrityCheckAtStartup.ts` constructed `PolicyChangeCrypto` synchronously, outside the promise `.catch()` meant to guard it, so a future constructor failure could have propagated and crashed the process after the port was already bound. `packages/api/tests/unit/runPolicyGovernanceIntegrityCheckAtStartup.test.ts` proves the fix: confirmed failing against the pre-fix code, then confirmed passing against the fix.
+
+
+
+**Deployment status.** This claim is about what exists in the repository and is proven correct by the tests cited above, not about what is currently running in any live environment. The backend (maker-checker endpoints, step-up auth, file-write-then-sign ordering, content-hash-at-decision-time, the startup integrity check) is committed and pushed to `origin/main`. Whether `parmana-api.fly.dev` / `parmana-api-live.fly.dev` are running this code has not been checked as part of this claim and is not asserted here.
+
+
+
+Evidence
+
+
+
+* `packages/shared/src/domain/pending-policy-change.ts`, `policy-change-approval-record.ts`, `policy-change-step-up-authorization.ts`
+
+
+
+* `packages/api/src/routes/pending-policy-changes.ts`, `auth/isHumanCaller.ts`, `auth/PolicyChangeStepUpVerifier.ts`, `governance/PolicyChangeApprovalService.ts`, `governance/verifyPolicyGovernanceIntegrityAtStartup.ts`, `bootstrap/runPolicyGovernanceIntegrityCheckAtStartup.ts`, `server.ts`
+
+
+
+* `packages/runtime/src/RuntimeEngine.ts` (content-hash-at-decision-time wiring)
+
+
+
+* `packages/crypto/src/PolicyChangeCrypto.ts`, `PolicyChangeStepUpAuthorizationCrypto.ts`
+
+
+
+* `packages/policy/src/FilePolicyRepository.ts` (`save()`, the write-side path-traversal guard added alongside this milestone)
+
+
+
+* `packages/api/tests/unit/isHumanCaller.test.ts`, `PolicyChangeStepUpVerifier.test.ts`, `PolicyChangeApprovalService.test.ts`, `verifyPolicyGovernanceIntegrityAtStartup.test.ts`, `runPolicyGovernanceIntegrityCheckAtStartup.test.ts`
+
+
+
+* `packages/api/tests/integration/pending-policy-changes-governance.integration.test.ts` (23 cases: human-only enforcement on all four endpoints, maker≠checker on approve/reject, step-up missing/expired/replayed/wrong-id/wrong-action/wrong-key, file write + signed record content, path-traversal rejection on `proposedContent.policyVersion`)
+
+
+
+* `packages/runtime/tests/e2e/runtime.e2e.test.ts` (content-hash-at-decision-time, real on-disk policy content)
+
+
+
+* `packages/governance-ui/src/app.ts`, `routes/login.ts`, `routes/pendingChanges.ts`, `views/diff.ts`
+
+
+
+* `packages/governance-ui/tests/unit/apiClient.test.ts`, `tests/integration/app.integration.test.ts` (17 cases: unauthenticated redirect, login/logout, list/diff rendering, no approve/reject controls, XSS-escaping, session invalidation on a revoked key)
+
+
+
+---
+
+
+
 # 3. Conditional Claims
 
 
