@@ -170,6 +170,10 @@ The runtime does not:
 
 
 
+A Business Transaction referencing a `(name, version)` pair with no corresponding file fails closed: `FilePolicyRepository.load` throws `PolicyNotFoundError` (distinct from `PolicyValidationError`/`SignalValidationError`, which map to `400`), the error handler maps it to `404`, and no policy evaluation, connector dispatch, or Refusal Record write occurs — there is no fallback to a default or most-recent version.
+
+
+
 Evidence
 
 
@@ -179,6 +183,10 @@ Evidence
 * PolicyValidator
 
 * G-02 Deterministic Policy Selection
+
+* `packages/policy/src/FilePolicyRepository.ts` (`PolicyNotFoundError`), `packages/api/src/middleware/error-handler.ts` (maps to `404`)
+
+* `packages/api/tests/unit/execute-api.test.ts`: `"returns 404 when the referenced policy does not exist (PolicyNotFoundError)"`
 
 
 
