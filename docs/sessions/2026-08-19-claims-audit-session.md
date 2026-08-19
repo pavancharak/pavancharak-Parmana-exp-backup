@@ -116,3 +116,57 @@ doesn't exist, or — twice — a commit hash that was never created). Before ac
 5. **Treat GitHub/infra-level asks as needing explicit confirmation, and actually attempt them
    live** (e.g. via `gh api`) rather than assuming a written plan's checkbox is achievable —
    real platform constraints (a plan limit, a permission scope) only surface by trying.
+
+---
+
+## Addendum: master verification pass, claims 2/3/7/9/10
+
+A follow-up "master verification" prompt covered all ten of its own numbered claims; five
+(1/4/5/6/8, its numbering) were already addressed above. The remaining five were traced against
+source and, where a test existed, run. No `docs/CLAIMS.md` changes resulted — all four real
+claims were already accurately documented; the fifth doesn't exist.
+
+- **"Claim 2" (policy checked before execution) = real `§2.4`/`§2.12`.** Traced
+  `packages/runtime/src/RuntimeEngine.ts`: `this.policyEngine.evaluate(...)` (line 299, awaited)
+  runs, decision is built, then `this.executionGate.enforce(decision)` (line 405) throws
+  (`ExecutionGate.enforce`, `packages/runtime/src/ExecutionGate.ts`) for any non-`APPROVED`
+  outcome before any connector-dispatch code below it runs. Zero matches anywhere in
+  `packages/runtime/src`/`packages/api/src` for `bypassAuth`/`skipPolicy`/
+  `executeWithoutPolicy`. Tests run: `runtime.e2e.test.ts`,
+  `runtime.integration.test.ts`, `runtime.test.ts` — 8 tests, all passing, including "blocks
+  the exact live exploit: signals describe a small verified payment, intent executes a
+  different amount to a different target."
+- **"Claim 3" (no PENDING decision state) — true, not separately claimed under its own
+  heading.** `packages/shared/src/domain/decision.ts`: `enum DecisionOutcome { APPROVED =
+  "APPROVED", REJECTED = "REJECTED" }` — exactly two members, no `PENDING`. Not every true
+  architectural fact has its own `CLAIMS.md` entry; this one doesn't need one to be accurate.
+- **"Claim 7" (independent verifiability, public key only) = real `§3.11`/`§2.9`, already
+  covered.** `packages/api/src/routes/refusal-verify.ts`: `POST /refusal/verify` takes the
+  artifact directly (no id lookup), mounted ahead of caller-auth, "no database access, no
+  ownership check, nothing but the artifact and Parmana's public key" (its own comment,
+  confirmed accurate by reading the handler). One nuance the prompt's framing missed: the
+  *envelope* verifier (`packages/envelope-verifier/src/EnvelopeVerifier.ts`, real path — not
+  `packages/shared/src/services/EnvelopeVerifier.ts` as the prompt guessed) does consult a
+  `NonceStore` for replay protection, which is Supabase-backed in production — that's a
+  separate property (single-use enforcement) from signature validity, and doesn't weaken the
+  refusal/audit-verification claim, which never touches a nonce store at all. Tests run:
+  `envelope-verifier.test.ts`, `envelope-verifier.dilithium3.test.ts` — 16 tests, all passing.
+- **"Claim 9" (Ed25519 default, ML-DSA-65/dilithium3 available) = real `§2.14`, already fully
+  documented.** `packages/shared/src/config/CryptoAlgorithms.ts`: `SignatureAlgorithms.ED25519`
+  is `ConfigValidation.ts`'s default; `DILITHIUM3: "dilithium3"` is a valid configured value.
+  Real provider files: `packages/crypto/src/providers/signature/Ed25519SignatureProvider.ts`,
+  `Dilithium3SignatureProvider.ts` (not `packages/shared/src/crypto/SignatureProvider.ts` as
+  the prompt guessed). Tests run: `signature-provider.test.ts`,
+  `dilithium3-signature-provider.test.ts` — 6 tests, all passing, including a randomized-output
+  check (ML-DSA-65 signatures are non-deterministic by design, per `§5`'s own disclosed
+  non-claim).
+- **"Claim 10" ("No PII in Auth Layer" / "Parmana operates no central PII repository") does not
+  exist anywhere in `docs/CLAIMS.md`** (checked, zero matches for "PII" or that framing) **and,
+  as stated, would be inaccurate to write.** Parmana does operate its own central,
+  Supabase-backed store for its own data — `§3.18`'s own evidence: the caller-auth audit trail
+  and replay nonce store are *always* Supabase-backed in production, and business-transaction/
+  execution-trust-record data is too whenever `PARMANA_STORAGE=supabase`. What's actually true,
+  already documented (`§3.18`): Parmana never reads, writes, or stores an *integrated business's
+  own operational database* — a narrower and different claim than "no central PII repository,"
+  which this prompt's own wording ("full JSONB stored... in the customer's own database, not
+  Parmana's") directly contradicts the real architecture on. Not added to `CLAIMS.md`.
