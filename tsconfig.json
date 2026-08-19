@@ -16,6 +16,7 @@
     { "path": "./packages/execution-gateway" },
     { "path": "./packages/connector-sdk" },
     { "path": "./packages/connector-hubspot" },
+    { "path": "./packages/connector-github" },
     { "path": "./packages/approval" }
   ],
   "compilerOptions": {
