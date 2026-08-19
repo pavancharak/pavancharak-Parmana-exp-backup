@@ -23,8 +23,11 @@ import {
 } from "@parmana/execution-control";
 
 import { HubSpotMetadata } from "@parmana/connector-hubspot";
+import { GitHubMetadata } from "@parmana/connector-github";
 import { createHubSpotConnector } from "./createHubSpotConnector.js";
 import { createHubSpotCredentialProvider } from "./createHubSpotCredentialProvider.js";
+import { createGitHubConnector } from "./createGitHubConnector.js";
+import { createGitHubCredentialProvider } from "./createGitHubCredentialProvider.js";
 import { createTestFixtureConnector } from "./createTestFixtureConnector.js";
 
 /**
@@ -106,6 +109,37 @@ export function createConnectorRegistry(
       },
 
       credentialProvider: hubspotCredentialProvider,
+
+      policy: new DefaultConnectorPolicy(authenticator, sessions),
+
+      gatewayAuthentication,
+
+      crypto,
+
+      audit,
+    });
+  }
+
+  const gitHubCredentialProvider = createGitHubCredentialProvider();
+
+  if (gitHubCredentialProvider === undefined) {
+    console.warn({
+      event: "github_connector_unavailable",
+      reason: "GITHUB_APP_ID, GITHUB_INSTALLATION_ID, or GITHUB_APP_PRIVATE_KEY is not configured.",
+    });
+  } else {
+    registrations.push({
+      connector: createGitHubConnector(),
+
+      metadata: GitHubMetadata,
+
+      connectorIdentity: {
+        connectorId: "github",
+        publicIdentity: "spiffe://parmana/connectors/github",
+        authenticationMetadata: {},
+      },
+
+      credentialProvider: gitHubCredentialProvider,
 
       policy: new DefaultConnectorPolicy(authenticator, sessions),
 

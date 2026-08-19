@@ -327,6 +327,8 @@ describe("execution boundary — exactly one production execution pipeline", () 
     const publicFactoryFiles = new Set([
       "createGatewayConnectorRegistry",
       "createGatewayHubSpotConnector",
+      "createGatewayGitHubConnector",
+      "createGatewayGitHubCredentialProvider",
     ]);
 
     it("both barrel files exist and were scanned", () => {

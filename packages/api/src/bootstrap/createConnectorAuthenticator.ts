@@ -39,6 +39,12 @@ export function createConnectorAuthenticator(): RequestBoundConnectorAuthenticat
           "spiffe://parmana/connectors/hubspot",
         authenticationMetadata: {},
       },
+      {
+        connectorId: "github",
+        publicIdentity:
+          "spiffe://parmana/connectors/github",
+        authenticationMetadata: {},
+      },
     ],
   );
 }

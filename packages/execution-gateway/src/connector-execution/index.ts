@@ -32,3 +32,4 @@ export * from "./GitHubAppCredentialProvider.js";
 export * from "./createGatewayConnectorRegistry.js";
 export * from "./createGatewayHubSpotConnector.js";
 export * from "./createGatewayGitHubConnector.js";
+export * from "./createGatewayGitHubCredentialProvider.js";
