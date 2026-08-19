@@ -170,3 +170,73 @@ claims were already accurately documented; the fifth doesn't exist.
   own operational database* — a narrower and different claim than "no central PII repository,"
   which this prompt's own wording ("full JSONB stored... in the customer's own database, not
   Parmana's") directly contradicts the real architecture on. Not added to `CLAIMS.md`.
+
+---
+
+## Addendum: "fail-closed on missing auth/policy/keys" (from-scratch investigation)
+
+No claim text existed for this category either (the three index documents the request named —
+`MASTER-VERIFICATION-PROMPT.md`, `EXTENDED-CLAIMS-LIST-{20-30,31-40}.md` — don't exist anywhere
+in this repository, checked before starting). Investigated from scratch instead.
+
+- **Auth** (missing `PARMANA_API_KEYS`) — already fully documented, `§2.16`/`§2.17`.
+- **Keys** (missing key material, keyId path-traversal) — already fully documented,
+  `§2.17`/`§2.18`.
+- **Policy** (a transaction referencing a `(name, version)` with no matching `policy.json`) —
+  real, correct, fail-closed (`PolicyNotFoundError` -> `404`, `packages/policy/src/
+  FilePolicyRepository.ts`, no evaluation/dispatch/refusal-write occurs), backed by a real
+  passing test (`packages/api/tests/unit/execute-api.test.ts`) — but never cited anywhere in
+  `CLAIMS.md`. Added to `§2.2`. Commit: `ef1cc04`.
+
+---
+
+## Addendum: claims 14-19 (architectural & ordering) investigation
+
+Six more categories investigated from scratch (again, no source claim text existed for any of
+them). All six were either already accurately documented or correctly out of scope — no
+`CLAIMS.md` changes this pass.
+
+- **"Claim 14" (nonce verify-before-consume) = real `§2.10`, already fully documented, exact
+  match.** `packages/envelope-verifier/src/EnvelopeVerifier.ts`; evidence already cites the
+  precise tests that prove it: `"a forged envelope does not burn the nonce"`, `"an expired
+  envelope does not burn the nonce"`, `"rejects a second use of the same nonce"`, `"under two
+  concurrent verify() calls with one nonce, exactly one succeeds"`. Reran this pass: 16 tests,
+  all passing.
+- **"Claim 15" (webhook verify-before-consume) — out of scope. The webhook subsystem doesn't
+  exist in this repository.** `find packages/api/src -iname "*webhook*"` returns nothing — no
+  route, no event store. The only webhook producer was the Razorpay connector, deliberately
+  removed (`git log`: commit `cca3231`, "Finish Razorpay-removal docs cleanup, add
+  citation-integrity test"; the removal itself is documented at `§3.8`/`§3.9`, both explicitly
+  marked "Historical... Retained as historical record only — not a current-capability claim").
+  Residual `RazorpayWebhookAuditEvent` type references remain in a handful of generic
+  audit-signing files (`AuditEventCrypto.ts`, `CallerAuditSink.ts`) as a still-supported shape
+  for `POST /audit/verify` to accept, not evidence of a live webhook route.
+- **"Claim 16" (replay protection scoped per mechanism) — already documented, across two
+  sections.** Fleet-wide/persistence scoping (in-memory vs. durable): `§3.2`. Per-purpose
+  namespace isolation (execution-authorization nonces vs. policy-change step-up nonces vs.
+  approval-artifact nonces, each a separate `NonceStore` instance/table): `§2.26`'s own
+  `createPolicyChangeStepUpNonceStore.ts`/`SupabasePolicyChangeStepUpNonceStore` citation. The
+  original "in-memory nonces vs. durable webhook event IDs" framing no longer applies now that
+  the webhook subsystem is gone (see "Claim 15" above) — not a gap, a premise that no longer
+  exists to conflate.
+- **"Claim 17" (trust chain complete) — true, distributed across `§2.1`-`§2.15` rather than one
+  central claim; not a gap.** Independently traced `packages/runtime/src/RuntimeEngine.ts`'s
+  real order this session already (see the "Claim 2" entry above): authority/transaction
+  validation -> policy evaluation -> signal-intent binding -> decision -> refusal record (if
+  rejected) -> `executionGate.enforce()` -> executable content / authorization signing ->
+  connector dispatch -> receipt/evidence. Matches `§2.1`/`§2.2`/`§2.3`/`§2.4`/`§2.5`'s
+  incremental claims exactly, step for step.
+- **"Claim 18" (Razorpay settlement FETCH-VERIFY is source of truth) — out of scope, same reason
+  as "Claim 15": the Razorpay connector is fully removed** (`find packages -maxdepth 1 -iname
+  "*razorpay*"` returns nothing). Historically true and historically documented at `§3.8`/`§3.9`
+  while the connector existed; not a current-capability claim.
+- **"Claim 19" (only authorized actions become real, zero side effects on denial) — already
+  documented, both generally and per-connector.** General mechanism: `§2.4` ("Authorized
+  Execution"), `§2.12` ("Fail-Closed Authorization on Rejection") — `RuntimeEngine.ts`'s
+  `executionGate.enforce()` throws for any non-`APPROVED` decision before any connector-dispatch
+  code runs (same trace as "Claim 2" above). Per-connector, with an explicit `fetch`-spy
+  zero-real-calls proof: `§3.10` (HubSpot), `§3.17` (GitHub).
+
+**Result: zero gaps found this pass.** Every one of the six either matched existing
+documentation exactly or was correctly already reflected as historical/out-of-scope. No
+`CLAIMS.md` edits from this addendum.
