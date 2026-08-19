@@ -1459,6 +1459,34 @@ Evidence
 
 ---
 
+## 3.18 Deployment Infrastructure Requirements (Scoped)
+
+**Claim:** running Parmana in production requires new infrastructure of its own — a container process, signing key material, and (for anything beyond a single ephemeral instance) a Postgres database via Supabase. Parmana does not read, write, or replace an integrated system's own database, and every connector it can call out to (HubSpot, GitHub — see 3.10/3.17) is additive and individually optional: unset its credentials and the connector is simply not registered, with no effect on Parmana's own boot or on the external system itself.
+
+**New, required to run Parmana at all (`DEPLOYMENT.md`, `Dockerfile`):**
+
+* **A container process.** One Docker image (`Dockerfile`), one process per container, running `packages/api/dist/server.js`, deployable to any Docker-based platform — validated with a bare `docker build`/`docker run`, not tied to a specific PaaS's proprietary build system (3.8/3.9's own `fly.io` deployments are one instance of this, not the only supported target).
+* **Signing key material.** Two key pairs (`default`, the authorization-signing key; `gateway`, the Execution Gateway's attestation-signing key — deliberately separate, `PARMANA_GATEWAY_KEY_ID` overridable) are required in `PARMANA_KEY_DIR`. Neither is generated automatically, and the image's `keys/` directory ships empty on purpose — key material must never be baked into the image (`Dockerfile`'s own comment). Supplied either as mounted `.pem` files or via `PARMANA_KEY_MATERIAL_JSON`. `assertSigningKeyMaterialConfigured.ts` (`packages/api/src/bootstrap/`) fails closed at boot — before the port binds — if neither is present.
+* **A Postgres database, via Supabase, for anything other than a disposable single instance.** `PARMANA_STORAGE=memory` (the default) needs no external database for business-transaction/execution-trust-record data — but the caller-authentication audit trail (`CallerAuditSink`) and the envelope-verifier's replay-protection store (`NonceStore`) are **always** Supabase-backed in any non-test deployment, never falling back to in-memory regardless of `PARMANA_STORAGE`, and both fail closed at boot (`assertStorageConfigured.ts`) if `DATABASE_URL`/`SUPABASE_URL` is not configured. In practice, precisely stated: a real deployment always needs Supabase for the audit trail and nonce store; `PARMANA_STORAGE=supabase` additionally routes business-transaction/execution-trust-record storage through the same database rather than memory. There is no configuration under which a real (non-test) deployment runs with zero external database.
+* **The schema applied to that database, manually.** `supabase/migrations/` must be applied to the target Supabase project before a real deployment can serve traffic — either `supabase db push` (Supabase CLI, if linked) or `scripts/apply-all-migrations.sql` (a concatenation of every migration file, idempotent, safe to re-run) via the Dashboard SQL Editor. This is a manual operational step, not something the container performs on its own at boot.
+* **Caller authentication configuration.** `PARMANA_API_KEYS` (a JSON array of `{callerId, keyHash}` entries) is required; the process refuses to start without it, unless `PARMANA_AUTH_DISABLED=true` is explicitly set for local development only (logs a loud warning on every boot — never set in a real deployment).
+
+**Not new, not replaced:** an integrated business's own operational database, its own audit/SIEM infrastructure, and every external system a connector calls (HubSpot's CRM, GitHub's API) are untouched by any of the above. Parmana holds no credential for and makes no call to a connector's external system unless that connector is explicitly configured (3.10/3.17's own "fails closed to connector-not-registered, never a partially-configured provider" pattern) — an unconfigured connector has zero footprint against the system it would have integrated with. Parmana's own database (Supabase) stores only Parmana's authorization/audit/execution-trust-record data, never an integrated business's operational records; callers provide business context to Parmana via signals in each request, not the reverse.
+
+**What this claim does not assert:** deployment footprint, cost, or scaling characteristics beyond what `DEPLOYMENT.md` documents (this is a correctness/completeness claim about *what infrastructure is required*, not a capacity or performance claim); a packaged one-command installer, database-schema auto-migration at boot, or a signing-key-generation tool — none of these exist in this repository today (schema application and key generation are both manual operator steps, described above and in `DEPLOYMENT.md`, not automated by anything Parmana ships).
+
+Evidence
+
+* `DEPLOYMENT.md` (the authoritative deployment runbook this claim is drawn from: required configuration, storage, schema application, caller authentication, health checks, graceful shutdown)
+* `Dockerfile` (single-image, single-process build; `keys/` deliberately empty in the image; non-root runtime user)
+* `packages/api/src/bootstrap/assertStorageConfigured.ts`, `assertSigningKeyMaterialConfigured.ts` (fail-closed startup validation, before the port binds)
+* `packages/shared/src/config/StorageProviders.ts` (`memory`/`postgres`/`supabase`), `packages/shared/src/config/Config.ts` (the sole `process.env` read site for application config)
+* `supabase/migrations/` (schema source), `scripts/apply-all-migrations.sql` (manual application path with no CLI link)
+* `fly.toml`/`fly.live.toml` (3.8/3.9's own deployed instances — one concrete instantiation of this deployment shape, not evidence that Fly.io specifically is required)
+* `createConnectorRegistry.ts` (3.10/3.17: HubSpot/GitHub each registered conditionally on their own credentials; absent, the connector is simply not registered — no partial-configuration state, no effect on Parmana's own boot)
+
+---
+
 
 
 # Maturity Assessment (TRL)
