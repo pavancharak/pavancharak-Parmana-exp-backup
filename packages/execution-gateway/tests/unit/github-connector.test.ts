@@ -1,14 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { brandCredentialHandle, connectorCapabilities, type ConnectorExecutionContext } from "@parmana/connector-sdk";
-
 import {
   GITHUB_PR_FETCH_CAPABILITY,
   GITHUB_PR_MERGE_CAPABILITY,
-  GitHubConnector,
-} from "../../src/GitHubConnector.js";
-import { GITHUB_TEST_MODE_PLACEHOLDER_TOKEN, redactGitHubToken } from "../../src/GitHubTypes.js";
-import { MockGitHubServer } from "../../src/MockGitHubServer.js";
+  GITHUB_TEST_MODE_PLACEHOLDER_TOKEN,
+  MockGitHubServer,
+  redactGitHubToken,
+} from "@parmana/connector-github";
+import { brandCredentialHandle, connectorCapabilities, type ConnectorExecutionContext } from "@parmana/connector-sdk";
+
+import { GatewayGitHubAdapter } from "../../src/connector-execution/index.js";
 
 const TOKEN = "test-mock-installation-token-a1b2c3d4e5f6";
 
@@ -36,8 +37,8 @@ function context(overrides: Partial<ConnectorExecutionContext> = {}): ConnectorE
   };
 }
 
-function connector(): GitHubConnector {
-  return new GitHubConnector({
+function connector(): GatewayGitHubAdapter {
+  return new GatewayGitHubAdapter({
     connectorId: "github",
     capabilities: connectorCapabilities([GITHUB_PR_FETCH_CAPABILITY, GITHUB_PR_MERGE_CAPABILITY]),
     baseUrl: server.baseUrl,
@@ -55,7 +56,7 @@ function seedPr(overrides: Partial<{ mergeable: boolean | null; headSha: string;
   });
 }
 
-describe("GitHubConnector", () => {
+describe("GatewayGitHubAdapter", () => {
   it("fetches a pull request's state", async () => {
     seedPr();
 
@@ -161,7 +162,7 @@ describe("GitHubConnector", () => {
     seedPr();
     // MockGitHubServer has no configurable delay hook (unlike MockHubSpotServer);
     // exercise timeout by pointing at an address that never responds instead.
-    const unroutable = new GitHubConnector({
+    const unroutable = new GatewayGitHubAdapter({
       connectorId: "github",
       capabilities: connectorCapabilities([GITHUB_PR_FETCH_CAPABILITY]),
       baseUrl: "http://10.255.255.1",
@@ -259,7 +260,7 @@ describe("GitHubConnector", () => {
   it("refuses to send the built-in test-mode placeholder credential to GitHub's real API, before any network call", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-    const realBaseUrlConnector = new GitHubConnector({
+    const realBaseUrlConnector = new GatewayGitHubAdapter({
       connectorId: "github",
       capabilities: connectorCapabilities([GITHUB_PR_FETCH_CAPABILITY]),
     });
@@ -316,7 +317,7 @@ describe("GitHubConnector", () => {
         baseRef: "main",
       });
 
-      const instance = new GitHubConnector({
+      const instance = new GatewayGitHubAdapter({
         connectorId: "github",
         capabilities: connectorCapabilities([GITHUB_PR_FETCH_CAPABILITY]),
         baseUrl: scopedServer.baseUrl,

@@ -2,8 +2,9 @@ import { generateKeyPairSync } from "node:crypto";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GitHubAppCredentialProvider } from "../../src/GitHubAppCredentialProvider.js";
-import { MockGitHubServer } from "../../src/MockGitHubServer.js";
+import { MockGitHubServer } from "@parmana/connector-github";
+
+import { GitHubAppCredentialProvider } from "../../src/connector-execution/index.js";
 
 const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const INSTALLATION_TOKEN = "test-mock-installation-token-a1b2c3d4e5f6";

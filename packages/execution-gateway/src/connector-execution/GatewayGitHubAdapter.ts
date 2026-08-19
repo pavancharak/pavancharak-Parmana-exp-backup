@@ -7,24 +7,20 @@ import type {
 } from "@parmana/connector-sdk";
 
 import {
+  GITHUB_PR_FETCH_CAPABILITY,
+  GITHUB_PR_MERGE_CAPABILITY,
+  type GitHubConnectorOptions,
+} from "@parmana/connector-github";
+import {
   GITHUB_ALLOWED_MERGE_METHODS,
   GITHUB_TEST_MODE_PLACEHOLDER_TOKEN,
   isGitHubCredentialValue,
   redactGitHubToken,
   type GitHubAllowedMergeMethod,
   type GitHubPullRequestState,
-} from "./GitHubTypes.js";
+} from "@parmana/connector-github";
 
 const DEFAULT_BASE_URL = "https://api.github.com";
-
-export const GITHUB_PR_FETCH_CAPABILITY = "github:pr-fetch";
-export const GITHUB_PR_MERGE_CAPABILITY = "github:pr-merge";
-
-export interface GitHubConnectorOptions {
-  readonly connectorId: string;
-  readonly capabilities: ConnectorCapabilities;
-  readonly baseUrl?: string;
-}
 
 /**
  * GitHub connector: pull request fetch (read, used to learn mergeable /
@@ -33,10 +29,13 @@ export interface GitHubConnectorOptions {
  * same deny-by-default discipline, same fail-closed-on-non-2xx
  * discipline, same placeholder-credential guard — deliberately, so the
  * pattern is obvious in review rather than reinvented per connector.
+ * Gateway-owned (Phase 1C precedent): capability identifiers and
+ * option/parameter DTOs live in @parmana/connector-github (imported back
+ * here), only the executable class lives in execution-gateway.
  *
  * `target` is "<owner>/<repo>#<pull_number>" (e.g. "acme/widgets#42").
  */
-export class GitHubConnector implements Connector {
+export class GatewayGitHubAdapter implements Connector {
   readonly connectorId: string;
   readonly capabilities: ConnectorCapabilities;
   private readonly baseUrl: string;

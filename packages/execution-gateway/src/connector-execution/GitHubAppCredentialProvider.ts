@@ -2,8 +2,7 @@ import type { KeyObject } from "node:crypto";
 
 import type { CredentialHandle, CredentialProvider } from "@parmana/connector-sdk";
 import { brandCredentialHandle } from "@parmana/connector-sdk";
-
-import { signGitHubAppJwt } from "./GitHubAppJwt.js";
+import { signGitHubAppJwt } from "@parmana/connector-github";
 
 const DEFAULT_BASE_URL = "https://api.github.com";
 
@@ -20,7 +19,13 @@ export interface GitHubAppCredentialProviderOptions {
  * Resolves a GitHub App installation access token — the ephemeral
  * credential model this connector exists to prove out (Claim 1 audit,
  * 2026-08-19), structurally different from HubSpot's static
- * caller-provided token.
+ * caller-provided token. Gateway-owned for the same reason
+ * GatewayGitHubAdapter is (this class makes a real network call, and
+ * "connector packages own no production execution" — see
+ * tests/architecture/execution-boundary.test.ts — applies to credential
+ * resolution exactly as it does to the executable adapter itself; pure
+ * JWT construction with no network call, GitHubAppJwt.ts, is the part
+ * that stays in @parmana/connector-github).
  *
  * CredentialProvider.resolve() is called fresh by the Execution Gateway
  * immediately before each execution, never cached or reused by anything
@@ -33,10 +38,11 @@ export interface GitHubAppCredentialProviderOptions {
  *
  * The App's private key is held only by this class, in memory, exactly
  * as supplied at construction. It signs one JWT per resolve() call (see
- * GitHubAppJwt), exchanges that JWT for an installation token via
- * GitHub's REST API, and returns only the resulting token — the private
- * key itself is never included in the returned CredentialHandle, never
- * logged, and never appears in any error message this class throws.
+ * @parmana/connector-github's GitHubAppJwt), exchanges that JWT for an
+ * installation token via GitHub's REST API, and returns only the
+ * resulting token — the private key itself is never included in the
+ * returned CredentialHandle, never logged, and never appears in any
+ * error message this class throws.
  */
 export class GitHubAppCredentialProvider implements CredentialProvider {
   readonly providerId = "github-app";
